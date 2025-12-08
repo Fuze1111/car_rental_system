@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <title>Test - 车辆管理测试页</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;margin:20px}
+    input,select,button{margin:4px}
+    .section{border:1px solid #ddd;padding:10px;margin-bottom:12px;border-radius:6px}
+    pre{background:#f7f7f7;padding:10px;white-space:pre-wrap}
+    table{border-collapse:collapse;width:100%}
+    th,td{border:1px solid #ccc;padding:6px}
+  </style>
+</head>
+<body>
+  <h2>Test - 车辆信息管理（URL 带 test）</h2>
+
+  <div class="section">
+    <button onclick="listAll()">列出所有车辆</button>
+    <button onclick="getStatistics()">获取统计</button>
+    <button onclick="insertTestData()">插入测试数据</button>
+  </div>
+
+  <div class="section">
+    <strong>按车牌号查询 / 增删改</strong><br/>
+    车牌号: <input id="carId" placeholder="例如 ABC123" />
+    <button onclick="getCar()">查询</button>
+    <button onclick="deleteCar()">删除</button>
+    <br/><br/>
+    <strong>新增 / 更新（JSON 字段示例）</strong><br/>
+    <textarea id="carJson" rows="6" cols="80">{"carId":"ABC123","tNo":"T001","tName":"紧凑型","carStatus":"0"}</textarea><br/>
+    <button onclick="createCar()">新增</button>
+    <button onclick="updateCar()">更新（PUT）</button>
+  </div>
+
+  <div class="section">
+    <strong>按状态查询</strong><br/>
+    状态: <select id="statusSelect">
+      <option value="">-- 选择 --</option>
+      <option value="0">0 - 可租</option>
+      <option value="1">1 - 已租</option>
+      <option value="2">2 - 维修</option>
+    </select>
+    <button onclick="getByStatus()">查询</button>
+  </div>
+
+  <div class="section">
+    <strong>按车型查询 / 多条件查询</strong><br/>
+    tNo: <input id="tNo" /> tName: <input id="tName" />
+    <button onclick="getByType()">按车型查询</button>
+    <button onclick="searchCars()">多条件查询</button>
+  </div>
+
+  <div class="section">
+    <strong>更新车辆状态（PATCH）</strong><br/>
+    车牌号: <input id="statusCarId" placeholder="例如 ABC123" />
+    新状态: <select id="newStatus"><option value="0">0</option><option value="1">1</option><option value="2">2</option></select>
+    <button onclick="patchStatus()">更新状态</button>
+  </div>
+
+  <h3>响应结果</h3>
+  <pre id="output">等待操作...</pre>
+
+  <script>
+    const API_BASE = 'http://localhost:8080/api/cars';
+    const OUT = document.getElementById('output');
+
+    function show(v){ OUT.textContent = typeof v === 'string' ? v : JSON.stringify(v, null, 2); }
+
+    async function listAll(){
+      try{
+        const res = await fetch(`${API_BASE}?test=true`);
+        const text = await res.text();
+        show(`Status: ${res.status}\nContent-Type: ${res.headers.get('content-type')}\nRaw Response: ${text}`);
+        if(text) {
+          try {
+            const json = JSON.parse(text);
+            show(json);
+          } catch(e) {
+            show(`JSON解析失败: ${e}\n原始内容: ${text}`);
+          }
+        }
+      }catch(e){ show('请求失败：'+e); }
+    }
+
+    async function getCar(){
+      const id = document.getElementById('carId').value.trim();
+      if(!id){ show('请输入车牌号'); return; }
+      try{
+        const res = await fetch(`${API_BASE}/${encodeURIComponent(id)}?test=true`);
+        if(res.status===404){ show('未找到'); return; }
+        show(await res.json());
+      }catch(e){ show('请求失败：'+e); }
+    }
+
+    async function createCar(){
+      let body;
+      try{ body = JSON.parse(document.getElementById('carJson').value); }catch(e){ show('JSON 格式错误'); return; }
+      try{
+        const res = await fetch(`${API_BASE}?test=true`, {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        show({status: res.status, body: data});
+      }catch(e){ show('请求失败：'+e); }
+    }
+
+    async function updateCar(){
+      const id = document.getElementById('carId').value.trim();
+      if(!id){ show('请输入车牌号用于更新'); return; }
+      let body;
+      try{ body = JSON.parse(document.getElementById('carJson').value); }catch(e){ show('JSON 格式错误'); return; }
+      try{
+        const res = await fetch(`${API_BASE}/${encodeURIComponent(id)}?test=true`, {
+          method:'PUT',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        show({status: res.status, body: data});
+      }catch(e){ show('请求失败：'+e); }
+    }
+
+    async function deleteCar(){
+      const id = document.getElementById('carId').value.trim();
+      if(!id){ show('请输入车牌号用于删除'); return; }
+      try{
+        const res = await fetch(`${API_BASE}/${encodeURIComponent(id)}?test=true`, { method:'DELETE' });
+        show({status: res.status, message: res.status===204 ? '删除成功' : await res.text()});
+      }catch(e){ show('请求失败：'+e); }
+    }
+
+    async function getByStatus(){
+      const s = document.getElementById('statusSelect').value;
+      if(!s){ show('请选择状态'); return; }
+      try{
+        const res = await fetch(`${API_BASE}/status/${encodeURIComponent(s)}?test=true`);
+        show(await res.json());
+      }catch(e){ show('请求失败：'+e); }
+    }
+
+    async function getByType(){
+      const tNo = document.getElementById('tNo').value.trim();
+      const tName = document.getElementById('tName').value.trim();
+      const params = new URLSearchParams();
+      if(tNo) params.append('tNo', tNo);
+      if(tName) params.append('tName', tName);
+      params.append('test', 'true');
+      try{
+        const res = await fetch(`${API_BASE}/type?${params.toString()}`);
+        show(await res.json());
+      }catch(e){ show('请求失败：'+e); }
+    }
+
+    async function searchCars(){
+      const carStatus = document.getElementById('statusSelect').value;
+      const tNo = document.getElementById('tNo').value.trim();
+      const tName = document.getElementById('tName').value.trim();
+      const params = new URLSearchParams();
+      if(carStatus) params.append('carStatus', carStatus);
+      if(tNo) params.append('tNo', tNo);
+      if(tName) params.append('tName', tName);
+      params.append('test', 'true');
+      try{
+        const res = await fetch(`${API_BASE}/search?${params.toString()}`);
+        show(await res.json());
+      }catch(e){ show('请求失败：'+e); }
+    }
+
+    async function patchStatus(){
+      const id = document.getElementById('statusCarId').value.trim();
+      const newStatus = document.getElementById('newStatus').value;
+      if(!id){ show('请输入车牌号'); return; }
+      try{
+        const res = await fetch(`${API_BASE}/${encodeURIComponent(id)}/status?test=true`, {
+          method:'PATCH',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ carStatus: newStatus })
+        });
+        show({status: res.status, body: await res.json()});
+      }catch(e){ show('请求失败：'+e); }
+    }
+
+    async function getStatistics(){
+      try{
+        const res = await fetch(`${API_BASE}/statistics?test=true`);
+        show(await res.json());
+      }catch(e){ show('请求失败：'+e); }
+    }
+
+    async function insertTestData(){
+      show('开始插入测试数据...');
+      const testCars = [
+        {carId:"京A12345",tNo:"T001",tName:"丰田凯美瑞",carStatus:"0",price:250000,purchaseDate:"2025-05-10"},
+        {carId:"京B67890",tNo:"T002",tName:"本田雅阁",carStatus:"1",price:280000,purchaseDate:"2025-08-15"},
+        {carId:"京C11111",tNo:"T003",tName:"奔驰E级",carStatus:"0",price:450000,purchaseDate:"2025-01-20"},
+        {carId:"京D22222",tNo:"T004",tName:"宝马5系",carStatus:"2",price:480000,purchaseDate:"2025-11-05"}
+      ];
+
+      let results = [];
+      for(const car of testCars){
+        try{
+          const res = await fetch(`${API_BASE}?test=true`, {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify(car)
+          });
+          if(res.ok){
+            const data = await res.json();
+            results.push({car: car.carId, status: res.status, success: true, data: data});
+          } else {
+            const errorText = await res.text();
+            try {
+              const errorData = JSON.parse(errorText);
+              results.push({car: car.carId, status: res.status, success: false, error: errorData});
+            } catch(e) {
+              results.push({car: car.carId, status: res.status, success: false, error: errorText});
+            }
+          }
+        }catch(e){
+          results.push({car: car.carId, success: false, error: e.message});
+        }
+      }
+      show({message: '测试数据插入完成', results: results});
+    }
+  </script>
+</body>
+</html>
