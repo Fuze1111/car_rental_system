@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <title>Test - 司机管理测试页</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;margin:20px}
+    input,select,button{margin:4px}
+    .section{border:1px solid #ddd;padding:10px;margin-bottom:12px;border-radius:6px}
+    pre{background:#f7f7f7;padding:10px;white-space:pre-wrap}
+    table{border-collapse:collapse;width:100%}
+    th,td{border:1px solid #ccc;padding:6px}
+  </style>
+</head>
+<body>
+  <h2>Test - 司机信息管理（URL 带 test）</h2>
+
+  <div class="section">
+    <button onclick="listAll()">列出所有司机</button>
+    <button onclick="getStatistics()">获取统计</button>
+    <button onclick="insertTestData()">插入测试数据</button>
+  </div>
+
+  <div class="section">
+    <strong>按司机号查询 / 增删改</strong><br/>
+    司机号: <input id="dNo" placeholder="例如 D0000001" />
+    <button onclick="getDriver()">查询</button>
+    <button onclick="deleteDriver()">删除</button>
+    <br/><br/>
+    <strong>新增 / 更新（JSON 字段示例）</strong><br/>
+    <textarea id="driverJson" rows="6" cols="80">{"dNo":"D0000001","dName":"赵六","startWork":"2025-01-15","salary":6000,"dStatus":"在岗","licenseType":"C1"}</textarea><br/>
+    <button onclick="createDriver()">新增</button>
+    <button onclick="updateDriver()">更新（PUT）</button>
+  </div>
+
+  <div class="section">
+    <strong>按状态查询</strong><br/>
+    状态: <select id="statusSelect">
+      <option value="">-- 选择 --</option>
+      <option value="在岗">在岗</option>
+      <option value="空闲">空闲</option>
+    </select>
+    <button onclick="getByStatus()">查询</button>
+  </div>
+
+  <div class="section">
+    <strong>按准驾车型查询</strong><br/>
+    准驾车型: <select id="licenseSelect">
+      <option value="">-- 选择 --</option>
+      <option value="C1">C1</option>
+      <option value="A2">A2</option>
+      <option value="B2">B2</option>
+    </select>
+    <button onclick="getByLicense()">查询</button>
+  </div>
+
+  <div class="section">
+    <strong>按姓名模糊查询</strong><br/>
+    姓名: <input id="nameSearch" placeholder="输入姓名关键字" />
+    <button onclick="searchByName()">查询</button>
+  </div>
+
+  <div class="section">
+    <strong>按工资范围查询</strong><br/>
+    最低工资: <input id="minSalary" type="number" placeholder="例如 5000" />
+    最高工资: <input id="maxSalary" type="number" placeholder="例如 8000" />
+    <button onclick="getBySalaryRange()">查询</button>
+  </div>
+
+  <div class="section">
+    <strong>按工龄查询</strong><br/>
+    最少工龄（年）: <input id="workYears" type="number" placeholder="例如 1" />
+    <button onclick="getByWorkYears()">查询</button>
+  </div>
+
+  <div class="section">
+    <strong>多条件查询</strong><br/>
+    状态: <select id="searchStatus">
+      <option value="">-- 不限 --</option>
+      <option value="在岗">在岗</option>
+      <option value="空闲">空闲</option>
+    </select>
+    准驾车型: <select id="searchLicense">
+      <option value="">-- 不限 --</option>
+      <option value="C1">C1</option>
+      <option value="A2">A2</option>
+      <option value="B2">B2</option>
+    </select><br/>
+    最低工资: <input id="searchMinSalary" type="number" placeholder="最低工资" />
+    最高工资: <input id="searchMaxSalary" type="number" placeholder="最高工资" />
+    <button onclick="searchDrivers()">多条件查询</button>
+  </div>
+
+  <div class="section">
+    <strong>更新司机状态（PATCH）</strong><br/>
+    司机号: <input id="statusDNo" placeholder="例如 D0000001" />
+    新状态: <select id="newStatus">
+      <option value="在岗">在岗</option>
+      <option value="空闲">空闲</option>
+    </select>
+    <button onclick="patchStatus()">更新状态</button>
+  </div>
+
+  <div class="section">
+    <strong>更新司机工资（PATCH）</strong><br/>
+    司机号: <input id="salaryDNo" placeholder="例如 D0000001" />
+    新工资: <input id="newSalary" type="number" placeholder="例如 6500" />
+    <button onclick="patchSalary()">更新工资</button>
+  </div>
+
+  <h3>响应结果</h3>
+  <pre id="output">等待操作...</pre>
+
+  <script>
+    const API_BASE = 'http://localhost:8080/api/drivers';
+    const OUT = document.getElementById('output');
+
+    function show(v){ OUT.textContent = typeof v === 'string' ? v : JSON.stringify(v, null, 2); }
+
+    async function listAll(){
+      try{
+        const res = await fetch(`${API_BASE}?test=true`);
+        const text = await res.text();
+        if(text) {
+          try {
+            const json = JSON.parse(text);
+            show(json);
+          } catch(e) {
+            show(`JSON解析失败: ${e}\n原始内容: ${text}`);
+          }
+        } else {
+          show('返回空内容');
+        }
+      }catch(e){ show('请求失败：'+e); }
+    }
+
+    async function getDriver(){
+      const id = document.getElementById('dNo').value.trim();
+      if(!id){ show('请输入司机号'); return; }
+      try{
+        const res = await fetch(`${API_BASE}/${encodeURIComponent(id)}?test=true`);
+        if(res.status===404){ show('未找到'); return; }
+        show(await res.json());
+      }catch(e){ show('请求失败：'+e); }
+    }
+
+    async function createDriver(){
+      let body;
+      try{ body = JSON.parse(document.getElementById('driverJson').value); }catch(e){ show('JSON 格式错误'); return; }
+      try{
+        const res = await fetch(`${API_BASE}?test=true`, {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        show({status: res.status, body: data});
+      }catch(e){ show('请求失败：'+e); }
+    }
+
+    async function updateDriver(){
+      const id = document.getElementById('dNo').value.trim();
+      if(!id){ show('请输入司机号用于更新'); return; }
+      let body;
+      try{ body = JSON.parse(document.getElementById('driverJson').value); }catch(e){ show('JSON 格式错误'); return; }
+      try{
+        const res = await fetch(`${API_BASE}/${encodeURIComponent(id)}?test=true`, {
+          method:'PUT',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        show({status: res.status, body: data});
+      }catch(e){ show('请求失败：'+e); }
+    }
+
+    async function deleteDriver(){
+      const id = document.getElementById('dNo').value.trim();
+      if(!id){ show('请输入司机号用于删除'); return; }
+      try{
+        const res = await fetch(`${API_BASE}/${encodeURIComponent(id)}?test=true`, { method:'DELETE' });
+        show({status: res.status, message: res.status===204 ? '删除成功' : await res.text()});
+      }catch(e){ show('请求失败：'+e); }
+    }
+
+    async function getByStatus(){
+      const s = document.getElementById('statusSelect').value;
+      if(!s){ show('请选择状态'); return; }
+      try{
+        const res = await fetch(`${API_BASE}/status/${encodeURIComponent(s)}?test=true`);
+        show(await res.json());
+      }catch(e){ show('请求失败：'+e); }
+    }
+
+    async function getByLicense(){
+      const l = document.getElementById('licenseSelect').value;
+      if(!l){ show('请选择准驾车型'); return; }
+      try{
+        const res = await fetch(`${API_BASE}/license/${encodeURIComponent(l)}?test=true`);
+        show(await res.json());
+      }catch(e){ show('请求失败：'+e); }
+    }
+
+    async function searchByName(){
+      const name = document.getElementById('nameSearch').value.trim();
+      if(!name){ show('请输入姓名'); return; }
+      try{
+        const res = await fetch(`${API_BASE}/search/name?dName=${encodeURIComponent(name)}&test=true`);
+        show(await res.json());
+      }catch(e){ show('请求失败：'+e); }
+    }
+
+    async function getBySalaryRange(){
+      const min = document.getElementById('minSalary').value;
+      const max = document.getElementById('maxSalary').value;
+      if(!min || !max){ show('请输入工资范围'); return; }
+      try{
+        const res = await fetch(`${API_BASE}/salary?min=${min}&max=${max}&test=true`);
+        show(await res.json());
+      }catch(e){ show('请求失败：'+e); }
+    }
+
+    async function getByWorkYears(){
+      const years = document.getElementById('workYears').value;
+      if(!years){ show('请输入工龄'); return; }
+      try{
+        const res = await fetch(`${API_BASE}/work-years/${years}?test=true`);
+        show(await res.json());
+      }catch(e){ show('请求失败：'+e); }
+    }
+
+    async function searchDrivers(){
+      const status = document.getElementById('searchStatus').value;
+      const license = document.getElementById('searchLicense').value;
+      const minSalary = document.getElementById('searchMinSalary').value;
+      const maxSalary = document.getElementById('searchMaxSalary').value;
+
+      const params = new URLSearchParams();
+      if(status) params.append('dStatus', status);
+      if(license) params.append('licenseType', license);
+      if(minSalary) params.append('minSalary', minSalary);
+      if(maxSalary) params.append('maxSalary', maxSalary);
+      params.append('test', 'true');
+
+      try{
+        const res = await fetch(`${API_BASE}/search?${params.toString()}`);
+        show(await res.json());
+      }catch(e){ show('请求失败：'+e); }
+    }
+
+    async function patchStatus(){
+      const id = document.getElementById('statusDNo').value.trim();
+      const newStatus = document.getElementById('newStatus').value;
+      if(!id){ show('请输入司机号'); return; }
+      try{
+        const res = await fetch(`${API_BASE}/${encodeURIComponent(id)}/status?test=true`, {
+          method:'PATCH',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ dStatus: newStatus })
+        });
+        show({status: res.status, body: await res.json()});
+      }catch(e){ show('请求失败：'+e); }
+    }
+
+    async function patchSalary(){
+      const id = document.getElementById('salaryDNo').value.trim();
+      const newSalary = document.getElementById('newSalary').value;
+      if(!id || !newSalary){ show('请输入司机号和新工资'); return; }
+      try{
+        const res = await fetch(`${API_BASE}/${encodeURIComponent(id)}/salary?test=true`, {
+          method:'PATCH',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ salary: parseFloat(newSalary) })
+        });
+        show({status: res.status, body: await res.json()});
+      }catch(e){ show('请求失败：'+e); }
+    }
+
+    async function getStatistics(){
+      try{
+        const res = await fetch(`${API_BASE}/statistics?test=true`);
+        show(await res.json());
+      }catch(e){ show('请求失败：'+e); }
+    }
+
+    async function insertTestData(){
+      show('开始插入测试数据...');
+      const testDrivers = [
+        {dNo:"D0000001",dName:"赵六",startWork:"2020-01-15",salary:6000,dStatus:"在岗",licenseType:"C1"},
+        {dNo:"D0000002",dName:"钱七",startWork:"2021-06-20",salary:6500,dStatus:"空闲",licenseType:"A2"},
+        {dNo:"D0000003",dName:"孙八",startWork:"2022-03-10",salary:5800,dStatus:"在岗",licenseType:"B2"},
+        {dNo:"D0000004",dName:"李九",startWork:"2023-09-01",salary:5500,dStatus:"空闲",licenseType:"C1"}
+      ];
+
+      let results = [];
+      for(const driver of testDrivers){
+        try{
+          const res = await fetch(`${API_BASE}?test=true`, {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify(driver)
+          });
+          if(res.ok){
+            const data = await res.json();
+            results.push({driver: driver.dNo, status: res.status, success: true, data: data});
+          } else {
+            const errorText = await res.text();
+            try {
+              const errorData = JSON.parse(errorText);
+              results.push({driver: driver.dNo, status: res.status, success: false, error: errorData});
+            } catch(e) {
+              results.push({driver: driver.dNo, status: res.status, success: false, error: errorText});
+            }
+          }
+        }catch(e){
+          results.push({driver: driver.dNo, success: false, error: e.message});
+        }
+      }
+      show({message: '测试数据插入完成', results: results});
+    }
+  </script>
+</body>
+</html>
+
