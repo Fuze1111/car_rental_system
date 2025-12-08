@@ -19,8 +19,12 @@ import java.util.stream.Collectors;
  * 提供车辆维修记录的业务逻辑处理
  */
 @Service
-@Transactional
 public class CarRepairService {
+
+    // 车辆状态常量
+    private static final String CAR_STATUS_AVAILABLE = "0"; // 可租
+    private static final String CAR_STATUS_RENTED = "1";    // 已租
+    private static final String CAR_STATUS_REPAIR = "2";    // 维修
 
     @Autowired
     private CarRepairRepository carRepairRepository;
@@ -66,6 +70,7 @@ public class CarRepairService {
      * @param repairRequestDTO 维修记录请求DTO
      * @return 创建的维修记录
      */
+    @Transactional
     public CarRepairResponseDTO createRepair(CarRepairRequestDTO repairRequestDTO) {
         // 验证车辆是否存在
         Car car = carRepository.findById(repairRequestDTO.getCarId())
@@ -75,7 +80,7 @@ public class CarRepairService {
         CarRepair savedRepair = carRepairRepository.save(repair);
 
         // 更新车辆状态为维修中
-        car.setCarStatus("2");
+        car.setCarStatus(CAR_STATUS_REPAIR);
         carRepository.save(car);
 
         return convertToResponseDTO(savedRepair);
@@ -87,6 +92,7 @@ public class CarRepairService {
      * @param repairRequestDTO 维修记录请求DTO
      * @return 更新后的维修记录
      */
+    @Transactional
     public CarRepairResponseDTO updateRepair(Integer rNo, CarRepairRequestDTO repairRequestDTO) {
         CarRepair existingRepair = carRepairRepository.findById(rNo)
                 .orElseThrow(() -> new RuntimeException("维修记录不存在: " + rNo));
@@ -110,6 +116,7 @@ public class CarRepairService {
      * 删除维修记录
      * @param rNo 维修编号
      */
+    @Transactional
     public void deleteRepair(Integer rNo) {
         if (!carRepairRepository.existsById(rNo)) {
             throw new RuntimeException("维修记录不存在: " + rNo);
@@ -157,4 +164,3 @@ public class CarRepairService {
         return repair;
     }
 }
-

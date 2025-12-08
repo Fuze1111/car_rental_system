@@ -217,12 +217,9 @@ public class CustomerService {
      */
     public Map<String, Object> getCustomerStatistics() {
         long totalCount = customerRepository.count();
-
-        // 统计有公司的客户数量
-        List<Customer> allCustomers = customerRepository.findAll();
-        long withCompanyCount = allCustomers.stream()
-                .filter(c -> c.getCompany() != null && !c.getCompany().trim().isEmpty())
-                .count();
+        
+        // 使用数据库聚合函数统计有公司的客户数量，提高性能
+        long withCompanyCount = customerRepository.countWithCompany();
         long individualCount = totalCount - withCompanyCount;
 
         return Map.of(
@@ -265,4 +262,3 @@ public class CustomerService {
         return customer;
     }
 }
-

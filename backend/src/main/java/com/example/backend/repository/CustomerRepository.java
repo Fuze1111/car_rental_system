@@ -89,5 +89,11 @@ public interface CustomerRepository extends JpaRepository<Customer, String> {
      */
     @Query("SELECT COUNT(c) FROM Customer c WHERE c.company = :company")
     long countByCompany(@Param("company") String company);
+    
+    /**
+     * 统计有公司的客户数量
+     * @return 有公司的客户数量
+     */
+    @Query("SELECT COUNT(c) FROM Customer c WHERE c.company IS NOT NULL AND TRIM(c.company) <> ''")
+    long countWithCompany();
 }
-
