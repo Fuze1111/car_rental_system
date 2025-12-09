@@ -4,6 +4,10 @@ import com.example.backend.dto.CarRequestDTO;
 import com.example.backend.dto.CarResponseDTO;
 import com.example.backend.service.CarService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -29,9 +33,30 @@ public class CarController {
      * @return 车辆列表
      */
     @GetMapping
-    public ResponseEntity<List<CarResponseDTO>> getAllCars() {
-        List<CarResponseDTO> cars = carService.getAllCars();
-        return ResponseEntity.ok(cars);
+    public ResponseEntity<?> getAllCars(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "carId") String[] sortBy) {
+        if (page < 0 || size <= 0) {
+            List<CarResponseDTO> cars = carService.getAllCars();
+            return ResponseEntity.ok(cars);
+        } else {
+            // 解析排序参数，支持多字段排序和方向控制
+            Sort sort = Sort.unsorted();
+            for (String sortParam : sortBy) {
+                String[] parts = sortParam.split(",");
+                String field = parts[0];
+                Sort.Direction direction = Sort.Direction.ASC;
+                if (parts.length > 1 && "desc".equalsIgnoreCase(parts[1])) {
+                    direction = Sort.Direction.DESC;
+                }
+                sort = sort.and(Sort.by(direction, field));
+            }
+            
+            Pageable pageable = PageRequest.of(page, size, sort);
+            Page<CarResponseDTO> carPage = carService.getAllCars(pageable);
+            return ResponseEntity.ok(carPage);
+        }
     }
 
     /**

@@ -19,6 +19,28 @@
     <button onclick="listAll()">列出所有车辆</button>
     <button onclick="getStatistics()">获取统计</button>
     <button onclick="insertTestData()">插入测试数据</button>
+    <!-- 分页控件 -->
+    <div id="pagination" style="margin-top: 10px;">
+      <label>页码: <input type="number" id="pageInput" value="0" min="0" style="width: 60px;"></label>
+      <label>每页大小: <input type="number" id="sizeInput" value="10" min="1" max="100" style="width: 60px;"></label>
+      <label>排序字段: 
+        <select id="sortSelect">
+          <option value="carId">车牌号</option>
+          <option value="tName">车型</option>
+          <option value="carStatus">状态</option>
+          <option value="price">价格</option>
+          <option value="purchaseDate">购买日期</option>
+        </select>
+      </label>
+      <label>
+        排序方向:
+        <select id="directionSelect">
+          <option value="asc">升序</option>
+          <option value="desc">降序</option>
+        </select>
+      </label>
+      <button onclick="listAllWithPagination()">分页查询</button>
+    </div>
   </div>
 
   <div class="section">
@@ -81,6 +103,45 @@
           }
         }
       }catch(e){ show('请求失败：'+e); }
+    }
+
+    // 新增分页查询函数
+    async function listAllWithPagination() {
+      const page = document.getElementById('pageInput').value;
+      const size = document.getElementById('sizeInput').value;
+      const sortField = document.getElementById('sortSelect').value;
+      const sortDirection = document.getElementById('directionSelect').value;
+      const sortBy = `${sortField},${sortDirection}`;
+      
+      try {
+        const res = await fetch(`${API_BASE}?page=${page}&size=${size}&sortBy=${sortBy}`);
+        const data = await res.json();
+        
+        // 检查是否是分页数据
+        if (data.hasOwnProperty('content')) {
+          // 显示分页数据和分页信息
+          show({
+            content: data.content,
+            pageInfo: {
+              totalPages: data.totalPages,
+              totalElements: data.totalElements,
+              pageNumber: data.number,
+              pageSize: data.size,
+              isFirst: data.first,
+              isLast: data.last,
+              sort: data.sort
+            }
+          });
+          
+          // 更新页码输入框
+          document.getElementById('pageInput').value = data.number;
+        } else {
+          // 非分页数据，直接显示
+          show(data);
+        }
+      } catch(e) {
+        show('请求失败：'+e);
+      }
     }
 
     async function getCar(){

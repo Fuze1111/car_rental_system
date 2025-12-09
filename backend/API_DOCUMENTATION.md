@@ -13,22 +13,54 @@
 **接口**: `GET /api/cars`  
 **描述**: 获取系统中所有车辆的信息列表
 
-**响应示例**:
-```json
-[
-  {
-    "carId": "京A12345",
-    "purchaseDate": "2025-05-10",
-    "price": 250000.00,
-    "carStatus": "0",
-    "carStatusDesc": "可租",
-    "tNo": "T001",
-    "tName": "丰田凯美瑞",
-    "rentRate": 0.85,
-    "needsRepair": false,
-    "lastRepairDate": null
-  }
-]
+**查询参数**:
+- `page` (可选): 页码，从0开始，默认为0
+- `size` (可选): 每页大小，默认为10
+- `sortBy` (可选): 排序字段，可指定多个，格式为 `字段名,方向`，方向可为 `asc`(升序) 或 `desc`(降序)，默认为 `carId,asc`
+
+**示例**:
+- `/api/cars` - 返回所有车辆信息
+- `/api/cars?page=0&size=5` - 返回第1页，每页5条记录
+- `/api/cars?page=0&size=5&sortBy=price,desc` - 返回按价格降序排列的第1页，每页5条记录
+- `/api/cars?page=0&size=5&sortBy=price,desc&sortBy=tName,asc` - 返回按价格降序、车型升序排列的第1页，每页5条记录
+
+**响应示例** (分页):
+```
+{
+  "content": [
+    {
+      "carId": "京A12345",
+      "purchaseDate": "2025-05-10",
+      "price": 250000.00,
+      "carStatus": "0",
+      "carStatusDesc": "可租",
+      "tNo": "T001",
+      "tName": "丰田凯美瑞",
+      "rentRate": 0.85,
+      "needsRepair": false,
+      "lastRepairDate": null
+    }
+  ],
+  "pageable": {
+    "sort": {
+      "sorted": true,
+      "unsorted": false,
+      "empty": false
+    },
+    "pageNumber": 0,
+    "pageSize": 10,
+    "offset": 0,
+    "paged": true,
+    "unpaged": false
+  },
+  "totalElements": 25,
+  "totalPages": 3,
+  "last": false,
+  "first": true,
+  "numberOfElements": 10,
+  "size": 10,
+  "number": 0
+}
 ```
 
 ---
@@ -41,7 +73,7 @@
 - `carId`: 车牌号（如: 京A12345）
 
 **响应示例**:
-```json
+```
 {
   "carId": "京A12345",
   "purchaseDate": "2025-05-10",
@@ -63,7 +95,7 @@
 **描述**: 在系统中添加新车辆信息
 
 **请求体示例**:
-```json
+```
 {
   "carId": "京E55555",
   "purchaseDate": "2025-12-08",
@@ -86,7 +118,7 @@
 - `carId`: 车牌号
 
 **请求体示例**:
-```json
+```
 {
   "purchaseDate": "2025-05-10",
   "price": 260000.00,
@@ -160,7 +192,7 @@
 - `carId`: 车牌号
 
 **请求体示例**:
-```json
+```
 {
   "carStatus": "2"
 }
@@ -175,7 +207,7 @@
 **描述**: 获取车辆的统计信息（总数、可租、已租、维修中）
 
 **响应示例**:
-```json
+```
 {
   "total": 10,
   "available": 5,
@@ -193,7 +225,7 @@
 **描述**: 获取系统中所有车辆的维修记录
 
 **响应示例**:
-```json
+```
 [
   {
     "rNo": 1,
@@ -235,7 +267,7 @@
 **描述**: 为车辆添加新的维修记录（会自动将车辆状态设为"维修中"）
 
 **请求体示例**:
-```json
+```
 {
   "rDate": "2025-12-08",
   "runKm": 20000.00,
@@ -256,7 +288,7 @@
 - `rNo`: 维修编号
 
 **请求体示例**:
-```json
+```
 {
   "rDate": "2025-12-08",
   "runKm": 21000.00,
@@ -287,7 +319,7 @@
 - `carId`: 车牌号
 
 **响应示例**:
-```json
+```
 5
 ```
 
@@ -315,12 +347,12 @@
 ## 使用示例
 
 ### 示例1: 查询所有可租车辆
-```bash
+```
 curl -X GET http://localhost:8080/api/cars/status/0
 ```
 
 ### 示例2: 创建新车辆
-```bash
+```
 curl -X POST http://localhost:8080/api/cars \
   -H "Content-Type: application/json" \
   -d '{
@@ -334,14 +366,14 @@ curl -X POST http://localhost:8080/api/cars \
 ```
 
 ### 示例3: 将车辆设置为维修状态
-```bash
+```
 curl -X PATCH http://localhost:8080/api/cars/京A12345/status \
   -H "Content-Type: application/json" \
   -d '{"carStatus": "2"}'
 ```
 
 ### 示例4: 添加维修记录
-```bash
+```
 curl -X POST http://localhost:8080/api/repairs \
   -H "Content-Type: application/json" \
   -d '{

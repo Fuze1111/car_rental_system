@@ -10,6 +10,9 @@ import com.example.backend.repository.CarRepository;
 import com.example.backend.repository.CarTypeRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -42,6 +45,19 @@ public class CarService {
         return cars.stream()
                 .map(this::convertToResponseDTO)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * 分页获取所有车辆信息
+     * @param pageable 分页参数
+     * @return 车辆信息分页结果
+     */
+    public Page<CarResponseDTO> getAllCars(Pageable pageable) {
+        Page<Car> carPage = carRepository.findAll(pageable);
+        List<CarResponseDTO> carDTOs = carPage.getContent().stream()
+                .map(this::convertToResponseDTO)
+                .collect(Collectors.toList());
+        return new PageImpl<>(carDTOs, pageable, carPage.getTotalElements());
     }
 
     /**
