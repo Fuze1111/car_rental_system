@@ -1,43 +1,20 @@
-<script setup>
-import ApiTest from './components/ApiTest.vue'
-</script>
-
 <template>
-  <header>
-    <img alt="Vue logo" class="logo" src="./assets/logo.svg" width="125" height="125" />
-    <h1>汽车租赁系统 - API测试</h1>
-  </header>
-
-  <main>
-    <ApiTest />
-  </main>
+  <router-view></router-view>
 </template>
 
-<style scoped>
-header {
-  line-height: 1.5;
+<script setup>
+// 根组件只需要渲染 router-view
+</script>
+
+<style>
+/* 全局重置样式 */
+body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
-.logo {
-  display: block;
-  margin: 0 auto 2rem;
-}
-
-@media (min-width: 1024px) {
-  header {
-    display: flex;
-    place-items: center;
-    padding-right: calc(var(--section-gap) / 2);
-  }
-
-  .logo {
-    margin: 0 2rem 0 0;
-  }
-
-  header .wrapper {
-    display: flex;
-    place-items: flex-start;
-    flex-wrap: wrap;
-  }
+html, body, #app {
+  height: 100%;
 }
 </style>
