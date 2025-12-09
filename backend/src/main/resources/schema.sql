@@ -54,6 +54,8 @@ CREATE TABLE IF NOT EXISTS car (
     CarStatus       CHAR(5)         NULL COMMENT '车辆状态（0-可租；1-已租；2-维修）',
     TNo             CHAR(4)         NULL COMMENT '类型编号（外键）',
     TName           CHAR(20)        NULL COMMENT '汽车型号（外键）',
+    RUNKM           NUMERIC(10,2)   NULL COMMENT '运行公里',
+    RunHour         NUMERIC(8,2)    NULL COMMENT '运行小时',
 
     PRIMARY KEY (CarID),
     FOREIGN KEY (TNo, TName) REFERENCES car_type(TNo, TName)
@@ -77,9 +79,11 @@ CREATE TABLE IF NOT EXISTS car_repair (
 -- 表 3.6 Rental（租赁业务表）
 -- ================================================
 CREATE TABLE IF NOT EXISTS rental (
-    InvoiceNo           CHAR(20)        NOT NULL COMMENT '发票号',
-    Date                DATE            NULL COMMENT '日期',
-    Place               CHAR(100)       NULL COMMENT '地点',
+    InvoiceNo           INT             NOT NULL AUTO_INCREMENT COMMENT '发票号',
+    LoanDate            DATE            NULL COMMENT '借车日期',
+    ReturnDate          DATE            NULL COMMENT '还车日期',
+    LoanPlace           CHAR(100)       NULL COMMENT '借车地点',
+    ReturnPlace         CHAR(100)       NULL COMMENT '还车地点',
     CarID               CHAR(10)        NULL COMMENT '牌照号（外键）',
     CNo                 CHAR(8)         NULL COMMENT '客户号（外键）',
     DNo                 CHAR(8)         NULL COMMENT '司机号（外键）',
