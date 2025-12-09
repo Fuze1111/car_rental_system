@@ -36,7 +36,18 @@ const router = createRouter({
           component: () => import('../views/admin/UserManagement.vue'),
           meta: { title: '用户管理' }
         },
-        // TODO: 后面添加订单管理等路由
+        {
+          path: 'orders',
+          name: 'admin-orders',
+          component: () => import('../views/admin/OrderManagement.vue'),
+          meta: { title: '订单管理' }
+        },
+        {
+          path: 'settings',
+          name: 'admin-settings',
+          component: () => import('../views/admin/Settings.vue'),
+          meta: { title: '系统设置' }
+        }
       ]
     }
   ]

@@ -24,17 +24,11 @@
       <!-- 搜索栏 -->
       <div class="search-bar">
         <el-form :inline="true" :model="searchForm">
-          <el-form-item label="用户名/姓名">
-            <el-input v-model="searchForm.keyword" placeholder="请输入姓名或昵称" clearable />
+          <el-form-item label="姓名">
+            <el-input v-model="searchForm.name" placeholder="请输入姓名" clearable />
           </el-form-item>
-          <el-form-item label="手机号">
-            <el-input v-model="searchForm.phone" placeholder="请输入手机号" clearable />
-          </el-form-item>
-          <el-form-item label="状态">
-            <el-select v-model="searchForm.status" placeholder="全部" clearable style="width: 120px">
-              <el-option label="正常" value="active" />
-              <el-option label="禁用" value="banned" />
-            </el-select>
+          <el-form-item label="电话">
+            <el-input v-model="searchForm.phone" placeholder="请输入电话" clearable />
           </el-form-item>
           <el-form-item>
             <el-button type="primary" @click="handleSearch">
@@ -49,49 +43,49 @@
 
       <!-- 用户表格 -->
       <el-table :data="tableData" v-loading="loading" stripe style="width: 100%">
-        <el-table-column label="用户" min-width="180">
-          <template #default="scope">
-            <div class="user-info-cell">
-              <el-avatar :size="40" :src="scope.row.avatar" />
-              <div class="info-text">
-                <div class="name">{{ scope.row.nickname || scope.row.realName }}</div>
-                <div class="username">@{{ scope.row.username }}</div>
-              </div>
-            </div>
-          </template>
-        </el-table-column>
+        <!-- 客户特有字段 -->
+        <template v-if="activeTab === 'customer'">
+          <el-table-column prop="CNo" label="客户号" width="120" />
+          <el-table-column prop="CName" label="姓名" width="120">
+            <template #default="scope">
+              <div class="user-name">{{ scope.row.CName }}</div>
+            </template>
+          </el-table-column>
+          <el-table-column prop="Company" label="单位" min-width="180" show-overflow-tooltip />
+          <el-table-column prop="Phone" label="电话" width="140" />
+          <el-table-column prop="Address" label="地址" min-width="200" show-overflow-tooltip />
+          <el-table-column prop="PostCode" label="邮编" width="100" />
+        </template>
 
-        <el-table-column prop="realName" label="真实姓名" width="120" />
-        <el-table-column prop="phone" label="手机号" width="140" />
-        
         <!-- 司机特有字段 -->
-        <el-table-column v-if="activeTab === 'driver'" prop="licenseNumber" label="驾驶证号" width="180" />
-        <el-table-column v-if="activeTab === 'driver'" prop="drivingYears" label="驾龄" width="100" align="center">
-          <template #default="scope">
-            {{ scope.row.drivingYears }} 年
-          </template>
-        </el-table-column>
+        <template v-if="activeTab === 'driver'">
+          <el-table-column prop="DNo" label="司机号" width="120" />
+          <el-table-column prop="DName" label="姓名" width="120">
+            <template #default="scope">
+              <div class="user-name">{{ scope.row.DName }}</div>
+            </template>
+          </el-table-column>
+          <el-table-column prop="LicenseType" label="准驾车型" width="100" align="center">
+            <template #default="scope">
+              <el-tag size="small" type="warning">{{ scope.row.LicenseType }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="StartWork" label="入职时间" width="140" />
+          <el-table-column prop="Salary" label="基本工资" width="120" align="right">
+            <template #default="scope">¥{{ scope.row.Salary }}</template>
+          </el-table-column>
+          <el-table-column label="状态" width="100" align="center">
+            <template #default="scope">
+              <el-tag :type="getDriverStatusType(scope.row.DStatus)" size="small" round>
+                {{ scope.row.DStatus }}
+              </el-tag>
+            </template>
+          </el-table-column>
+        </template>
 
-        <el-table-column prop="registerTime" label="注册时间" width="180" />
-        
-        <el-table-column label="状态" width="100" align="center">
-          <template #default="scope">
-            <el-tag :type="scope.row.status === 'active' ? 'success' : 'danger'" size="small" round>
-              {{ scope.row.status === 'active' ? '正常' : '已禁用' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-
-        <el-table-column label="操作" width="150" align="center" fixed="right">
+        <el-table-column label="操作" width="120" align="center" fixed="right">
           <template #default="scope">
             <el-button link type="primary" @click="handleView(scope.row)">详情</el-button>
-            <el-button 
-              link 
-              :type="scope.row.status === 'active' ? 'danger' : 'success'" 
-              @click="handleToggleStatus(scope.row)"
-            >
-              {{ scope.row.status === 'active' ? '禁用' : '启用' }}
-            </el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -113,15 +107,14 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { User, Van, Search, Refresh } from '@element-plus/icons-vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 
 const activeTab = ref('customer')
 const loading = ref(false)
 
 const searchForm = reactive({
-  keyword: '',
-  phone: '',
-  status: ''
+  name: '',
+  phone: ''
 })
 
 const pagination = reactive({
@@ -132,26 +125,39 @@ const pagination = reactive({
 
 const tableData = ref([])
 
-// Mock 数据生成
+// Mock 数据生成 (基于 schema.sql)
 const generateMockData = (type) => {
   const data = []
   const count = type === 'customer' ? 8 : 5
-  for (let i = 1; i <= count; i++) {
-    data.push({
-      id: i,
-      username: type === 'customer' ? `user_00${i}` : `driver_00${i}`,
-      realName: type === 'customer' ? `张客户${i}` : `李司机${i}`,
-      nickname: type === 'customer' ? `快乐小狗${i}号` : `老司机${i}号`,
-      avatar: 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png',
-      phone: `1380013800${i}`,
-      status: i % 4 === 0 ? 'banned' : 'active',
-      registerTime: '2023-12-01 10:00:00',
-      // 司机特有
-      licenseNumber: type === 'driver' ? `11010119900101000${i}` : undefined,
-      drivingYears: type === 'driver' ? 5 + i : undefined
-    })
+  
+  if (type === 'customer') {
+    for (let i = 1; i <= count; i++) {
+      data.push({
+        CNo: `C000000${i}`,
+        CName: `张客户${i}`,
+        Company: `科技无限公司${i}分部`,
+        Phone: `1380013800${i}`,
+        Address: `北京市海淀区科技园路${i}号`,
+        PostCode: '100000'
+      })
+    }
+  } else {
+    for (let i = 1; i <= count; i++) {
+      data.push({
+        DNo: `D000000${i}`,
+        DName: `李司机${i}`,
+        StartWork: '2020-01-01',
+        Salary: 5000 + i * 100,
+        DStatus: i % 2 === 0 ? '在岗' : '空闲',
+        LicenseType: 'A1'
+      })
+    }
   }
   return data
+}
+
+const getDriverStatusType = (status) => {
+  return status === '空闲' ? 'success' : 'warning'
 }
 
 const fetchData = () => {
@@ -174,24 +180,14 @@ const handleSearch = () => {
 }
 
 const handleReset = () => {
-  searchForm.keyword = ''
+  searchForm.name = ''
   searchForm.phone = ''
-  searchForm.status = ''
   fetchData()
 }
 
 const handleView = (row) => {
-  ElMessage.info(`查看用户: ${row.realName}`)
-}
-
-const handleToggleStatus = (row) => {
-  const action = row.status === 'active' ? '禁用' : '启用'
-  ElMessageBox.confirm(`确定要${action}该用户吗？`, '提示', {
-    type: 'warning'
-  }).then(() => {
-    row.status = row.status === 'active' ? 'banned' : 'active'
-    ElMessage.success(`已${action}`)
-  }).catch(() => {})
+  const name = activeTab.value === 'customer' ? row.CName : row.DName
+  ElMessage.info(`查看用户: ${name}`)
 }
 
 onMounted(() => {
@@ -201,45 +197,103 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .user-management {
+  max-width: 1600px;
+  margin: 0 auto;
+  animation: fadeIn 0.5s ease-out;
+
   .main-card {
-    border-radius: 8px;
+    border-radius: 24px;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.02);
+    
+    :deep(.el-card__body) {
+      padding: 32px;
+    }
+  }
+
+  /* 标签页样式优化 */
+  .user-tabs {
+    :deep(.el-tabs__nav-wrap::after) {
+      height: 1px;
+      background-color: rgba(0,0,0,0.05);
+    }
+    
+    :deep(.el-tabs__item) {
+      font-size: 16px;
+      height: 50px;
+      color: #64748b;
+      
+      &.is-active {
+        color: #409eff;
+        font-weight: 600;
+        
+        .custom-tab-label {
+          background: #ecf5ff;
+          color: #409eff;
+        }
+      }
+    }
+
+    :deep(.el-tabs__active-bar) {
+      height: 3px;
+      border-radius: 3px;
+      background: linear-gradient(90deg, #409eff, #60a5fa);
+    }
   }
 
   .custom-tab-label {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
+    padding: 6px 16px;
+    border-radius: 8px;
+    transition: all 0.3s;
+    
+    .el-icon { font-size: 18px; }
   }
 
   .search-bar {
-    margin-top: 10px;
-    margin-bottom: 10px;
-    padding-bottom: 10px;
-    border-bottom: 1px dashed #eee;
+    margin: 24px 0;
+    padding: 24px;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.6);
   }
 
-  .user-info-cell {
-    display: flex;
-    align-items: center;
-    gap: 12px;
+  /* 表格样式透传 */
+  :deep(.el-table) {
+    background-color: transparent;
+    --el-table-tr-bg-color: transparent;
+    --el-table-header-bg-color: rgba(248, 250, 252, 0.5);
+    --el-table-row-hover-bg-color: rgba(64, 158, 255, 0.08);
     
-    .info-text {
-      .name {
-        font-weight: 600;
-        font-size: 14px;
-        color: #303133;
-      }
-      .username {
-        font-size: 12px;
-        color: #909399;
-      }
+    th.el-table__cell {
+      font-weight: 600;
+      color: #475569;
+    }
+    
+    td.el-table__cell {
+      color: #1e293b;
     }
   }
 
+  .user-name {
+    font-weight: 600;
+    color: #1e293b;
+    font-size: 15px;
+  }
+
   .pagination-container {
-    margin-top: 20px;
+    margin-top: 32px;
     display: flex;
     justify-content: flex-end;
   }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 </style>
