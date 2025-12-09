@@ -4,6 +4,10 @@ import com.example.backend.dto.CustomerRequestDTO;
 import com.example.backend.dto.CustomerResponseDTO;
 import com.example.backend.service.CustomerService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -29,9 +33,30 @@ public class CustomerController {
      * @return 客户列表
      */
     @GetMapping
-    public ResponseEntity<List<CustomerResponseDTO>> getAllCustomers() {
-        List<CustomerResponseDTO> customers = customerService.getAllCustomers();
-        return ResponseEntity.ok(customers);
+    public ResponseEntity<?> getAllCustomers(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "cNo") String[] sortBy) {
+        if (page < 0 || size <= 0) {
+            List<CustomerResponseDTO> customers = customerService.getAllCustomers();
+            return ResponseEntity.ok(customers);
+        } else {
+            // 解析排序参数，支持多字段排序和方向控制
+            Sort sort = Sort.unsorted();
+            for (String sortParam : sortBy) {
+                String[] parts = sortParam.split(",");
+                String field = parts[0];
+                Sort.Direction direction = Sort.Direction.ASC;
+                if (parts.length > 1 && "desc".equalsIgnoreCase(parts[1])) {
+                    direction = Sort.Direction.DESC;
+                }
+                sort = sort.and(Sort.by(direction, field));
+            }
+            
+            Pageable pageable = PageRequest.of(page, size, sort);
+            Page<CustomerResponseDTO> customerPage = customerService.getAllCustomers(pageable);
+            return ResponseEntity.ok(customerPage);
+        }
     }
 
     /**
@@ -164,6 +189,18 @@ public class CustomerController {
     }
 
     /**
+     * 根据客户号模糊查询客户
+     * GET /api/customers/search/cno?cno=xxx
+     * @param cNo 客户号关键字
+     * @return 客户列表
+     */
+    @GetMapping("/search/cno")
+    public ResponseEntity<List<CustomerResponseDTO>> searchCustomersByCNo(@RequestParam String cNo) {
+        List<CustomerResponseDTO> customers = customerService.searchCustomersByCNo(cNo);
+        return ResponseEntity.ok(customers);
+    }
+
+    /**
      * 更新客户电话
      * PATCH /api/customers/{cNo}/phone
      * @param cNo 客户号
@@ -206,4 +243,3 @@ public class CustomerController {
         return ResponseEntity.ok(statistics);
     }
 }
-

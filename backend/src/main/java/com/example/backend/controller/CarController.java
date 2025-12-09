@@ -156,6 +156,19 @@ public class CarController {
     }
 
     /**
+     * 根据车牌号模糊查询车辆
+     * GET /api/cars/search?carId=xxx
+     * @param carId 车牌号关键字
+     * @return 车辆列表
+     */
+    @GetMapping("/search/carId")
+    public ResponseEntity<List<CarResponseDTO>> searchCarsByCarId(
+            @RequestParam String carId) {
+        List<CarResponseDTO> cars = carService.searchCarsByCarId(carId);
+        return ResponseEntity.ok(cars);
+    }
+
+    /**
      * 更新车辆状态
      * PATCH /api/cars/{carId}/status
      * @param carId 车牌号
@@ -182,4 +195,3 @@ public class CarController {
         return ResponseEntity.ok(statistics);
     }
 }
-

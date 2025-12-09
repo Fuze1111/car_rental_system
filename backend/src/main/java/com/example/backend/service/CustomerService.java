@@ -7,10 +7,12 @@ import com.example.backend.repository.CustomerRepository;
 import com.example.backend.repository.RentalRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -37,6 +39,19 @@ public class CustomerService {
         return customers.stream()
                 .map(this::convertToResponseDTO)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * 分页获取所有客户信息
+     * @param pageable 分页参数
+     * @return 客户信息分页结果
+     */
+    public Page<CustomerResponseDTO> getAllCustomers(Pageable pageable) {
+        Page<Customer> customerPage = customerRepository.findAll(pageable);
+        List<CustomerResponseDTO> customerDTOs = customerPage.getContent().stream()
+                .map(this::convertToResponseDTO)
+                .collect(Collectors.toList());
+        return new PageImpl<>(customerDTOs, pageable, customerPage.getTotalElements());
     }
 
     /**
@@ -125,6 +140,18 @@ public class CustomerService {
      * @return 客户列表
      */
     public List<CustomerResponseDTO> searchCustomersByPhone(String phone) {
+        List<Customer> customers = customerRepository.findByPhone(phone);
+        return customers.stream()
+                .map(this::convertToResponseDTO)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 根据电话号码模糊查询客户
+     * @param phone 电话号码关键字
+     * @return 客户列表
+     */
+    public List<CustomerResponseDTO> searchCustomersByPhoneContaining(String phone) {
         List<Customer> customers = customerRepository.findByPhoneContaining(phone);
         return customers.stream()
                 .map(this::convertToResponseDTO)
@@ -182,6 +209,18 @@ public class CustomerService {
     }
 
     /**
+     * 根据客户号模糊查询客户
+     * @param cNo 客户号关键字
+     * @return 客户列表
+     */
+    public List<CustomerResponseDTO> searchCustomersByCNo(String cNo) {
+        List<Customer> customers = customerRepository.findByCNoContaining(cNo);
+        return customers.stream()
+                .map(this::convertToResponseDTO)
+                .collect(Collectors.toList());
+    }
+
+    /**
      * 更新客户电话
      * @param cNo 客户号
      * @param phone 新电话号码
@@ -215,14 +254,14 @@ public class CustomerService {
      * 获取客户统计信息
      * @return 统计信息Map
      */
-    public Map<String, Object> getCustomerStatistics() {
+    public java.util.Map<String, Object> getCustomerStatistics() {
         long totalCount = customerRepository.count();
         
         // 使用数据库聚合函数统计有公司的客户数量，提高性能
         long withCompanyCount = customerRepository.countWithCompany();
         long individualCount = totalCount - withCompanyCount;
 
-        return Map.of(
+        return java.util.Map.of(
             "total", totalCount,
             "withCompany", withCompanyCount,
             "individual", individualCount

@@ -56,10 +56,17 @@ public interface CarRepository extends JpaRepository<Car, String> {
     );
 
     /**
+     * 根据车牌号模糊查询车辆
+     * @param carId 车牌号关键字
+     * @return 车辆列表
+     */
+    @Query("SELECT c FROM Car c WHERE c.carId LIKE CONCAT('%', :carId, '%')")
+    List<Car> findByCarIdContaining(@Param("carId") String carId);
+
+    /**
      * 统计各状态车辆数量
      * @param carStatus 车辆状态
      * @return 车辆数量
      */
     long countByCarStatus(String carStatus);
 }
-

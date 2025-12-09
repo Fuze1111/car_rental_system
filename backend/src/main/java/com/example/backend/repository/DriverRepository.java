@@ -18,6 +18,14 @@ import java.util.List;
 public interface DriverRepository extends JpaRepository<Driver, String> {
 
     /**
+     * 根据司机号模糊查询
+     * @param dNo 司机号关键字
+     * @return 司机列表
+     */
+    @Query("SELECT d FROM Driver d WHERE d.dNo LIKE CONCAT('%', :dNo, '%')")
+    List<Driver> findByDNoContaining(@Param("dNo") String dNo);
+
+    /**
      * 根据司机状态查询司机列表
      * @param dStatus 司机状态
      * @return 司机列表
@@ -86,4 +94,3 @@ public interface DriverRepository extends JpaRepository<Driver, String> {
     @Query("SELECT d FROM Driver d WHERE d.salary BETWEEN :minSalary AND :maxSalary")
     List<Driver> findBySalaryBetween(@Param("minSalary") BigDecimal minSalary, @Param("maxSalary") BigDecimal maxSalary);
 }
-

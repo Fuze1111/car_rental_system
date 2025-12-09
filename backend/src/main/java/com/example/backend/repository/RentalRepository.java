@@ -20,6 +20,14 @@ import java.util.List;
 public interface RentalRepository extends JpaRepository<Rental, String> {
 
     /**
+     * 根据发票号模糊查询
+     * @param invoiceNo 发票号关键字
+     * @return 租赁记录列表
+     */
+    @Query("SELECT r FROM Rental r WHERE r.invoiceNo LIKE CONCAT('%', :invoiceNo, '%')")
+    List<Rental> findByInvoiceNoContaining(@Param("invoiceNo") String invoiceNo);
+
+    /**
      * 根据客户号查询租赁记录
      * @param cNo 客户号
      * @return 租赁记录列表
@@ -132,4 +140,3 @@ public interface RentalRepository extends JpaRepository<Rental, String> {
     @Query("SELECT COALESCE(SUM(r.amount), 0) FROM Rental r WHERE r.date BETWEEN :startDate AND :endDate")
     BigDecimal calculateRevenueByDateRange(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 }
-

@@ -4,7 +4,6 @@ import com.example.backend.dto.CarRequestDTO;
 import com.example.backend.dto.CarResponseDTO;
 import com.example.backend.entity.Car;
 import com.example.backend.entity.CarRepair;
-import com.example.backend.entity.CarType;
 import com.example.backend.repository.CarRepairRepository;
 import com.example.backend.repository.CarRepository;
 import com.example.backend.repository.CarTypeRepository;
@@ -137,7 +136,17 @@ public class CarService {
         if (!carRepository.existsById(carId)) {
             throw new RuntimeException("车辆不存在: " + carId);
         }
-        carRepository.deleteById(carId);
+        
+        try {
+            carRepository.deleteById(carId);
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            // 检查是否有外键约束导致删除失败
+            if (e.getMessage().contains("foreign key constraint")) {
+                throw new RuntimeException("无法删除车辆: 存在关联的租赁记录或维修记录", e);
+            } else {
+                throw new RuntimeException("删除失败: " + e.getMessage(), e);
+            }
+        }
     }
 
     /**
@@ -183,6 +192,18 @@ public class CarService {
      */
     public List<CarResponseDTO> searchCars(String carStatus, String tNo, String tName) {
         List<Car> cars = carRepository.findByMultipleConditions(carStatus, tNo, tName);
+        return cars.stream()
+                .map(this::convertToResponseDTO)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 根据车牌号模糊查询车辆
+     * @param carId 车牌号关键字
+     * @return 车辆列表
+     */
+    public List<CarResponseDTO> searchCarsByCarId(String carId) {
+        List<Car> cars = carRepository.findByCarIdContaining(carId);
         return cars.stream()
                 .map(this::convertToResponseDTO)
                 .collect(Collectors.toList());
@@ -262,4 +283,3 @@ public class CarService {
         return car;
     }
 }
-

@@ -3,6 +3,7 @@ package com.example.backend.service;
 import com.example.backend.dto.RentalRequestDTO;
 import com.example.backend.dto.RentalResponseDTO;
 import com.example.backend.entity.Car;
+import com.example.backend.entity.Customer;
 import com.example.backend.entity.Driver;
 import com.example.backend.entity.Rental;
 import com.example.backend.repository.CarRepository;
@@ -11,12 +12,14 @@ import com.example.backend.repository.DriverRepository;
 import com.example.backend.repository.RentalRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -32,13 +35,13 @@ public class RentalService {
     private RentalRepository rentalRepository;
 
     @Autowired
-    private CarRepository carRepository;
+    private CustomerRepository customerRepository;
 
     @Autowired
     private DriverRepository driverRepository;
 
     @Autowired
-    private CustomerRepository customerRepository;
+    private CarRepository carRepository;
 
     /**
      * 获取所有租赁记录
@@ -49,6 +52,19 @@ public class RentalService {
         return rentals.stream()
                 .map(this::convertToResponseDTO)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * 分页获取所有租赁记录
+     * @param pageable 分页参数
+     * @return 租赁记录分页结果
+     */
+    public Page<RentalResponseDTO> getAllRentals(Pageable pageable) {
+        Page<Rental> rentalPage = rentalRepository.findAll(pageable);
+        List<RentalResponseDTO> rentalDTOs = rentalPage.getContent().stream()
+                .map(this::convertToResponseDTO)
+                .collect(Collectors.toList());
+        return new PageImpl<>(rentalDTOs, rentalPage.getPageable(), rentalPage.getTotalElements());
     }
 
     /**
@@ -347,17 +363,29 @@ public class RentalService {
     }
 
     /**
+     * 根据发票号模糊查询租赁记录
+     * @param invoiceNo 发票号关键字
+     * @return 租赁记录列表
+     */
+    public List<RentalResponseDTO> searchRentalsByInvoiceNo(String invoiceNo) {
+        List<Rental> rentals = rentalRepository.findByInvoiceNoContaining(invoiceNo);
+        return rentals.stream()
+                .map(this::convertToResponseDTO)
+                .collect(Collectors.toList());
+    }
+
+    /**
      * 获取租赁统计信息
      * @return 统计信息Map
      */
-    public Map<String, Object> getRentalStatistics() {
+    public java.util.Map<String, Object> getRentalStatistics() {
         long totalCount = rentalRepository.count();
         BigDecimal totalRevenue = rentalRepository.calculateTotalRevenue();
 
         // 计算平均金额
         double avgAmount = totalCount > 0 ? totalRevenue.doubleValue() / totalCount : 0.0;
 
-        return Map.of(
+        return java.util.Map.of(
             "totalRentals", totalCount,
             "totalRevenue", totalRevenue,
             "averageAmount", BigDecimal.valueOf(avgAmount).setScale(2, java.math.RoundingMode.HALF_UP)
@@ -426,4 +454,3 @@ public class RentalService {
         return rental;
     }
 }
-

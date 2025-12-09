@@ -18,6 +18,14 @@ import java.util.List;
 public interface CustomerRepository extends JpaRepository<Customer, String> {
 
     /**
+     * 根据客户号模糊查询
+     * @param cNo 客户号关键字
+     * @return 客户列表
+     */
+    @Query("SELECT c FROM Customer c WHERE c.cNo LIKE CONCAT('%', :cNo, '%')")
+    List<Customer> findByCNoContaining(@Param("cNo") String cNo);
+
+    /**
      * 根据客户姓名模糊查询
      * @param cName 客户姓名关键字
      * @return 客户列表
