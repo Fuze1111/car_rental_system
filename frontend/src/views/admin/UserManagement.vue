@@ -17,6 +17,9 @@
             <el-form-item label="电话">
               <el-input v-model="customerSearchForm.phone" placeholder="请输入电话" clearable />
             </el-form-item>
+            <el-form-item label="单位">
+              <el-input v-model="customerSearchForm.company" placeholder="请输入单位" clearable />
+            </el-form-item>
             <el-form-item>
               <el-button type="primary" @click="handleCustomerSearch">
                 <el-icon><Search /></el-icon>查询
@@ -51,8 +54,10 @@
           <el-pagination
             v-model:current-page="customerPagination.currentPage"
             v-model:page-size="customerPagination.pageSize"
+            :page-sizes="[10, 20, 50]"
             :total="customerPagination.total"
-            layout="total, prev, pager, next, jumper"
+            layout="total, sizes, prev, pager, next, jumper"
+            @size-change="handleCustomerSizeChange"
             @current-change="fetchCustomers"
           />
         </div>
@@ -74,6 +79,19 @@
             <el-form-item label="姓名">
               <el-input v-model="driverSearchForm.name" placeholder="请输入姓名" clearable />
             </el-form-item>
+            <el-form-item label="状态">
+              <el-select v-model="driverSearchForm.status" placeholder="全部" clearable style="width: 100px">
+                <el-option label="在岗" value="在岗" />
+                <el-option label="空闲" value="空闲" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="车型">
+              <el-select v-model="driverSearchForm.licenseType" placeholder="全部" clearable style="width: 100px">
+                <el-option label="A1" value="A1" />
+                <el-option label="A2" value="A2" />
+                <el-option label="C1" value="C1" />
+              </el-select>
+            </el-form-item>
             <el-form-item>
               <el-button type="primary" @click="handleDriverSearch">
                 <el-icon><Search /></el-icon>查询
@@ -88,7 +106,7 @@
         <!-- 司机表格 -->
         <el-table :data="driverData" v-loading="driverLoading" class="modern-table" style="width: 100%">
           <el-table-column prop="DNo" label="司机号" width="120" />
-          <el-table-column prop="DName" label="姓名" width="120">
+          <el-table-column prop="DName" label="姓名" min-width="120">
             <template #default="scope">
               <div class="user-name">{{ scope.row.DName }}</div>
             </template>
@@ -120,8 +138,10 @@
           <el-pagination
             v-model:current-page="driverPagination.currentPage"
             v-model:page-size="driverPagination.pageSize"
+            :page-sizes="[10, 20, 50]"
             :total="driverPagination.total"
-            layout="total, prev, pager, next, jumper"
+            layout="total, sizes, prev, pager, next, jumper"
+            @size-change="handleDriverSizeChange"
             @current-change="fetchDrivers"
           />
         </div>
@@ -139,13 +159,13 @@ import { ElMessage } from 'element-plus'
 // --- Customer Logic ---
 const customerLoading = ref(false)
 const customerData = ref([])
-const customerSearchForm = reactive({ name: '', phone: '' })
+const customerSearchForm = reactive({ name: '', phone: '', company: '' })
 const customerPagination = reactive({ currentPage: 1, pageSize: 10, total: 0 })
 
 // --- Driver Logic ---
 const driverLoading = ref(false)
 const driverData = ref([])
-const driverSearchForm = reactive({ name: '' })
+const driverSearchForm = reactive({ name: '', status: '', licenseType: '' })
 const driverPagination = reactive({ currentPage: 1, pageSize: 10, total: 0 })
 
 // Mock Generator
@@ -208,10 +228,30 @@ const fetchDrivers = () => {
 
 // Handlers
 const handleCustomerSearch = () => { fetchCustomers(); ElMessage.success('查询完成') }
-const handleCustomerReset = () => { customerSearchForm.name = ''; customerSearchForm.phone = ''; fetchCustomers() }
+const handleCustomerReset = () => { 
+  customerSearchForm.name = ''
+  customerSearchForm.phone = ''
+  customerSearchForm.company = ''
+  fetchCustomers() 
+}
 
 const handleDriverSearch = () => { fetchDrivers(); ElMessage.success('查询完成') }
-const handleDriverReset = () => { driverSearchForm.name = ''; fetchDrivers() }
+const handleDriverReset = () => { 
+  driverSearchForm.name = ''
+  driverSearchForm.status = ''
+  driverSearchForm.licenseType = ''
+  fetchDrivers() 
+}
+
+const handleCustomerSizeChange = (val) => {
+  customerPagination.pageSize = val
+  fetchCustomers()
+}
+
+const handleDriverSizeChange = (val) => {
+  driverPagination.pageSize = val
+  fetchDrivers()
+}
 
 const handleView = (row, type) => {
   const name = type === 'customer' ? row.CName : row.DName

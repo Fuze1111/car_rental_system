@@ -1,197 +1,400 @@
 <template>
   <div class="order-management">
-    <el-card class="search-card" shadow="never">
-      <div class="search-bar">
-        <el-form :inline="true" :model="searchForm">
-          <el-form-item label="订单号">
-            <el-input v-model="searchForm.invoiceNo" placeholder="请输入订单号" clearable />
+    
+    <!-- 进行中订单 (Active) -->
+    <div id="section-active">
+      <el-card class="main-card" shadow="never">
+        <div class="section-header">
+          <div class="header-left">
+            <h3>进行中订单</h3>
+            <el-tag type="success" effect="light" round class="count-tag">{{ activeOrders.length }} 进行中</el-tag>
+          </div>
+        </div>
+
+        <div class="search-bar">
+          <el-form :inline="true" :model="activeSearchForm">
+            <el-form-item>
+              <el-input 
+                v-model="activeSearchForm.keyword" 
+                placeholder="订单号 / 车牌 / 客户" 
+                prefix-icon="Search" 
+                clearable 
+                class="search-input"
+              />
+            </el-form-item>
+            <el-form-item>
+              <el-date-picker
+                v-model="activeSearchForm.dateRange"
+                type="daterange"
+                range-separator="至"
+                start-placeholder="借车开始"
+                end-placeholder="借车结束"
+                value-format="YYYY-MM-DD"
+                style="width: 240px"
+              />
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" @click="handleActiveSearch" round>查询</el-button>
+            </el-form-item>
+          </el-form>
+        </div>
+
+        <el-table :data="activeOrders" class="modern-table" v-loading="loading" style="width: 100%">
+          <el-table-column prop="InvoiceNo" label="订单号" width="140" fixed />
+          
+          <el-table-column label="车辆信息" min-width="180">
+            <template #default="scope">
+              <div class="info-group">
+                <span class="plate">{{ scope.row.CarID }}</span>
+                <span class="sub-text">{{ getCarName(scope.row.CarID) }}</span>
+              </div>
+            </template>
+          </el-table-column>
+
+          <el-table-column label="客户" min-width="120">
+            <template #default="scope">
+              <div class="info-group">
+                <span class="main-text">{{ getCustomerName(scope.row.CNo) }}</span>
+                <span class="sub-text">{{ scope.row.CNo }}</span>
+              </div>
+            </template>
+          </el-table-column>
+
+          <el-table-column label="借还日期" width="220">
+            <template #default="scope">
+              <div class="date-range">
+                <span class="date">{{ scope.row.LoanDate }}</span>
+                <el-icon class="arrow"><Right /></el-icon>
+                <span class="date">{{ scope.row.ReturnDate }}</span>
+              </div>
+            </template>
+          </el-table-column>
+
+          <el-table-column label="借还地点" min-width="200" show-overflow-tooltip>
+             <template #default="scope">
+               <div class="place-info">
+                 <div class="place-row"><el-icon><Location /></el-icon> 借: {{ scope.row.LoanPlace }}</div>
+                 <div class="place-row"><el-icon><LocationFilled /></el-icon> 还: {{ scope.row.ReturnPlace }}</div>
+               </div>
+             </template>
+          </el-table-column>
+
+          <el-table-column label="操作" width="120" fixed="right" align="center">
+            <template #default="scope">
+              <el-button type="primary" size="small" round @click="openCompleteDialog(scope.row)">还车结算</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <div class="pagination-container">
+          <el-pagination
+            v-model:current-page="activePagination.currentPage"
+            v-model:page-size="activePagination.pageSize"
+            :page-sizes="[10, 20, 50]"
+            layout="total, sizes, prev, pager, next"
+            :total="activePagination.total"
+            @size-change="handleActiveSizeChange"
+            @current-change="fetchActive"
+          />
+        </div>
+      </el-card>
+    </div>
+
+    <div class="section-divider"></div>
+
+    <!-- 历史订单 (History) -->
+    <div id="section-history">
+      <el-card class="main-card" shadow="never">
+        <div class="section-header">
+          <div class="header-left">
+            <h3>历史订单</h3>
+            <el-tag type="info" effect="plain" round class="count-tag">{{ pagination.total }} 已归档</el-tag>
+          </div>
+        </div>
+
+        <div class="search-bar">
+          <el-form :inline="true" :model="historySearchForm">
+            <el-form-item>
+              <el-input v-model="historySearchForm.keyword" placeholder="订单号/客户/司机" prefix-icon="Search" clearable style="width: 180px" />
+            </el-form-item>
+            <el-form-item label="金额范围">
+               <el-input-number v-model="historySearchForm.minAmount" :min="0" :controls="false" placeholder="Min" style="width: 80px" />
+               <span style="margin: 0 4px">-</span>
+               <el-input-number v-model="historySearchForm.maxAmount" :min="0" :controls="false" placeholder="Max" style="width: 80px" />
+            </el-form-item>
+            <el-form-item label="日期范围">
+              <el-date-picker
+                v-model="historySearchForm.dateRange"
+                type="daterange"
+                range-separator="至"
+                start-placeholder="开始"
+                end-placeholder="结束"
+                value-format="YYYY-MM-DD"
+                style="width: 220px"
+              />
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" @click="handleHistorySearch" round>查询</el-button>
+              <el-button @click="handleHistoryReset" round>重置</el-button>
+            </el-form-item>
+          </el-form>
+        </div>
+
+        <el-table :data="historyOrders" class="modern-table" v-loading="loading" style="width: 100%">
+          <el-table-column prop="InvoiceNo" label="订单号" width="140" fixed />
+          
+          <el-table-column label="车辆" min-width="120">
+            <template #default="scope">
+              <span class="plate-mini">{{ scope.row.CarID }}</span>
+            </template>
+          </el-table-column>
+
+          <el-table-column label="客户" min-width="120">
+            <template #default="scope">{{ getCustomerName(scope.row.CNo) }}</template>
+          </el-table-column>
+          
+          <el-table-column label="司机" min-width="120">
+            <template #default="scope">
+              <el-tag v-if="scope.row.DNo" size="small" type="info">{{ getDriverName(scope.row.DNo) }}</el-tag>
+              <span v-else class="sub-text">自驾</span>
+            </template>
+          </el-table-column>
+
+          <el-table-column prop="RoundTripDistance" label="里程(km)" width="120" align="right" />
+          <el-table-column prop="DriveTime" label="时长(h)" width="120" align="right" />
+
+          <el-table-column prop="Amount" label="实付金额" width="120" align="right">
+            <template #default="scope">
+              <span class="amount">¥{{ scope.row.Amount }}</span>
+            </template>
+          </el-table-column>
+          
+          <el-table-column label="借还日期" width="220" sortable>
+            <template #default="scope">
+              <div class="date-range">
+                <span class="date">{{ scope.row.LoanDate }}</span>
+                <el-icon class="arrow"><Right /></el-icon>
+                <span class="date">{{ scope.row.ReturnDate }}</span>
+              </div>
+            </template>
+          </el-table-column>
+
+          <el-table-column label="操作" width="80" fixed="right" align="center">
+            <template #default="scope">
+              <el-button link type="primary" @click="handleView(scope.row)">详情</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <div class="pagination-container">
+          <el-pagination
+            v-model:current-page="pagination.currentPage"
+            v-model:page-size="pagination.pageSize"
+            :page-sizes="[10, 20, 50]"
+            :total="pagination.total"
+            layout="total, sizes, prev, pager, next, jumper"
+            @size-change="handleSizeChange"
+            @current-change="fetchHistory"
+          />
+        </div>
+      </el-card>
+    </div>
+
+    <!-- 结算弹窗 -->
+    <el-dialog
+      v-model="dialogVisible"
+      title="还车结算确认"
+      width="420px"
+      class="custom-dialog"
+      destroy-on-close
+    >
+      <div class="dialog-content">
+        <p class="dialog-tip">请录入车辆返回时的实际行驶数据</p>
+        <el-form :model="completeForm" label-width="100px" size="large">
+          <el-form-item label="往返里程">
+            <el-input-number v-model="completeForm.RoundTripDistance" :min="0" :step="10" controls-position="right">
+              <template #append>km</template>
+            </el-input-number>
           </el-form-item>
-          <el-form-item label="客户">
-            <el-input v-model="searchForm.customer" placeholder="请输入客户姓名" clearable />
+          <el-form-item label="行驶时间">
+            <el-input-number v-model="completeForm.DriveTime" :min="0" :step="1" controls-position="right">
+              <template #append>h</template>
+            </el-input-number>
           </el-form-item>
-          <el-form-item label="日期范围">
-            <el-date-picker
-              v-model="searchForm.dateRange"
-              type="daterange"
-              range-separator="至"
-              start-placeholder="开始日期"
-              end-placeholder="结束日期"
-              value-format="YYYY-MM-DD"
-            />
-          </el-form-item>
-          <el-form-item>
-            <el-button type="primary" @click="handleSearch">
-              <el-icon><Search /></el-icon>查询
-            </el-button>
-            <el-button @click="handleReset">
-              <el-icon><Refresh /></el-icon>重置
-            </el-button>
-          </el-form-item>
+          
+          <div class="calculated-amount">
+            <span class="label">预计金额:</span>
+            <span class="value">¥{{ calculateAmount }}</span>
+          </div>
         </el-form>
       </div>
-    </el-card>
-
-    <el-card class="table-card" shadow="never">
-      <el-table :data="tableData" v-loading="loading" class="modern-table" style="width: 100%">
-        <el-table-column prop="InvoiceNo" label="订单号" width="140" fixed />
-        
-        <el-table-column label="车辆信息" min-width="160">
-          <template #default="scope">
-            <div class="car-info">
-              <span class="plate">{{ scope.row.CarID }}</span>
-              <span class="model">{{ getCarName(scope.row.CarID) }}</span>
-            </div>
-          </template>
-        </el-table-column>
-
-        <el-table-column label="客户信息" min-width="120">
-          <template #default="scope">
-            <div>{{ getCustomerName(scope.row.CNo) }}</div>
-            <div class="sub-text">{{ scope.row.CNo }}</div>
-          </template>
-        </el-table-column>
-
-        <el-table-column label="司机信息" min-width="120">
-          <template #default="scope">
-            <el-tag v-if="scope.row.DNo" size="small" type="success">{{ getDriverName(scope.row.DNo) }}</el-tag>
-            <span v-else class="sub-text">自驾</span>
-          </template>
-        </el-table-column>
-
-        <el-table-column prop="Place" label="地点" min-width="150" show-overflow-tooltip />
-        <el-table-column prop="Date" label="日期" width="120" sortable />
-        
-        <el-table-column prop="Amount" label="金额" width="120" align="right">
-          <template #default="scope">
-            <span class="amount">¥{{ scope.row.Amount }}</span>
-          </template>
-        </el-table-column>
-
-        <el-table-column label="操作" width="120" align="center" fixed="right">
-          <template #default="scope">
-            <el-button link type="primary" @click="handleView(scope.row)">详情</el-button>
-            <el-button link type="danger" @click="handleDelete(scope.row)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-
-      <div class="pagination-container">
-        <el-pagination
-          v-model:current-page="pagination.currentPage"
-          v-model:page-size="pagination.pageSize"
-          :total="pagination.total"
-          layout="total, prev, pager, next, jumper"
-          @current-change="fetchData"
-        />
-      </div>
-    </el-card>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="dialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="handleCompleteSubmit" :loading="submitting">确认还车</el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
-import { Search, Refresh } from '@element-plus/icons-vue'
+import { ref, reactive, onMounted, computed } from 'vue'
+import { Search, Right, Location, LocationFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const loading = ref(false)
-const searchForm = reactive({
-  invoiceNo: '',
-  customer: '',
-  dateRange: []
+const submitting = ref(false)
+const dialogVisible = ref(false)
+const currentOrder = ref(null)
+
+const activeSearchForm = reactive({ keyword: '' })
+const historySearchForm = reactive({ 
+  keyword: '', 
+  dateRange: [],
+  minAmount: undefined,
+  maxAmount: undefined
+})
+const pagination = reactive({ currentPage: 1, pageSize: 10, total: 0 })
+const activePagination = reactive({ currentPage: 1, pageSize: 10, total: 0 })
+
+const completeForm = reactive({
+  RoundTripDistance: 0,
+  DriveTime: 0
 })
 
-const pagination = reactive({
-  currentPage: 1,
-  pageSize: 10,
-  total: 0
-})
+const activeOrders = ref([])
+const historyOrders = ref([])
 
-const tableData = ref([])
+// Mock Aux Data
+const mockCars = { '京A88888': 'Toyota Camry', '京AD12345': 'Tesla Model 3', '京A66666': 'Benz S-Class', '京A99999': 'BMW X5' }
+const mockCustomers = { 'C0000001': '张客户1', 'C0000002': '李客户2' }
+const mockDrivers = { 'D0000001': '王司机1' }
 
-// Mock 辅助数据
-const mockCars = {
-  '京A88888': 'Toyota Camry',
-  '京AD12345': 'Tesla Model 3',
-  '京A66666': 'Benz S-Class',
-  '京A99999': 'BMW X5'
-}
-const mockCustomers = {
-  'C0000001': '张客户1',
-  'C0000002': '李客户2'
-}
-const mockDrivers = {
-  'D0000001': '王司机1'
-}
+const getCarName = (id) => mockCars[id] || id
+const getCustomerName = (id) => mockCustomers[id] || id
+const getDriverName = (id) => mockDrivers[id] || id
 
-// 辅助函数
-const getCarName = (carId) => mockCars[carId] || '未知车型'
-const getCustomerName = (cNo) => mockCustomers[cNo] || cNo
-const getDriverName = (dNo) => mockDrivers[dNo] || dNo
-
-// 生成 Mock 订单数据
-const generateMockData = () => {
-  const data = []
-  for (let i = 1; i <= 15; i++) {
-    data.push({
-      InvoiceNo: `INV2023120${i.toString().padStart(2, '0')}`,
-      Date: `2023-12-${(i % 30 + 1).toString().padStart(2, '0')}`,
-      Place: i % 2 === 0 ? '北京大兴国际机场' : '上海虹桥火车站',
+// Mock Data Generation
+const generateData = () => {
+  // Active Orders (Unfinished: No Amount, Distance, Time)
+  const active = []
+  for (let i = 1; i <= 3; i++) {
+    active.push({
+      InvoiceNo: `INV2023129${i}`,
+      LoanDate: '2023-12-08',
+      ReturnDate: '2023-12-10',
+      LoanPlace: '北京大兴机场',
+      ReturnPlace: '北京首都机场',
       CarID: Object.keys(mockCars)[i % 4],
-      CNo: i % 2 === 0 ? 'C0000001' : 'C0000002',
-      DNo: i % 3 === 0 ? 'D0000001' : null,
-      RoundTripDistance: 50 + i * 10,
-      DriveTime: 2 + i * 0.5,
-      Amount: 500 + i * 150
+      CNo: 'C0000001',
+      DNo: null
     })
   }
-  return data
+  activeOrders.value = active
+  activePagination.total = 3
+
+  // History Orders (Finished)
+  const history = []
+  for (let i = 1; i <= 10; i++) {
+    history.push({
+      InvoiceNo: `INV2023110${i}`,
+      LoanDate: '2023-11-01',
+      ReturnDate: '2023-11-03',
+      LoanPlace: '上海虹桥',
+      ReturnPlace: '上海浦东',
+      CarID: Object.keys(mockCars)[i % 4],
+      CNo: 'C0000002',
+      DNo: 'D0000001',
+      RoundTripDistance: 120 + i * 10,
+      DriveTime: 5 + i,
+      Amount: 800 + i * 100
+    })
+  }
+  historyOrders.value = history
+  pagination.total = 10
 }
 
-const fetchData = () => {
+const handleActiveSearch = () => {
   loading.value = true
+  setTimeout(() => { loading.value = false; ElMessage.success('查询完成') }, 300)
+}
+
+const handleHistorySearch = () => {
+  loading.value = true
+  setTimeout(() => { loading.value = false; ElMessage.success('查询完成') }, 300)
+}
+
+const handleHistoryReset = () => {
+  historySearchForm.keyword = ''
+  historySearchForm.dateRange = []
+  historySearchForm.minAmount = undefined
+  historySearchForm.maxAmount = undefined
+  handleHistorySearch()
+}
+
+// Dialog Logic
+const openCompleteDialog = (row) => {
+  currentOrder.value = row
+  completeForm.RoundTripDistance = 0
+  completeForm.DriveTime = 0
+  dialogVisible.value = true
+}
+
+const calculateAmount = computed(() => {
+  // Simple Mock Calculation: Base 200 + 2 * km + 50 * hour
+  return 200 + (completeForm.RoundTripDistance * 2) + (completeForm.DriveTime * 50)
+})
+
+const handleCompleteSubmit = () => {
+  submitting.value = true
   setTimeout(() => {
-    tableData.value = generateMockData()
-    pagination.total = 15
-    loading.value = false
-  }, 300)
-}
-
-const handleSearch = () => {
-  ElMessage.success('搜索已执行')
-  fetchData()
-}
-
-const handleReset = () => {
-  searchForm.invoiceNo = ''
-  searchForm.customer = ''
-  searchForm.dateRange = []
-  fetchData()
+    // Mock Move to History
+    const finishedOrder = {
+      ...currentOrder.value,
+      RoundTripDistance: completeForm.RoundTripDistance,
+      DriveTime: completeForm.DriveTime,
+      Amount: calculateAmount.value
+    }
+    
+    // Remove from active
+    activeOrders.value = activeOrders.value.filter(o => o.InvoiceNo !== finishedOrder.InvoiceNo)
+    // Add to history (top)
+    historyOrders.value.unshift(finishedOrder)
+    
+    submitting.value = false
+    dialogVisible.value = false
+    ElMessage.success('订单已结算归档')
+  }, 600)
 }
 
 const handleView = (row) => {
   ElMessageBox.alert(
-    `
-    <p><strong>订单号:</strong> ${row.InvoiceNo}</p>
-    <p><strong>行程:</strong> ${row.Place}</p>
-    <p><strong>里程:</strong> ${row.RoundTripDistance} km</p>
-    <p><strong>时长:</strong> ${row.DriveTime} 小时</p>
-    <p><strong>金额:</strong> ¥${row.Amount}</p>
-    `,
-    '订单详情',
-    { dangerouslyUseHTMLString: true }
+    `<p>订单号: ${row.InvoiceNo}</p><p>金额: ¥${row.Amount}</p>`,
+    '详情', { dangerouslyUseHTMLString: true }
   )
 }
 
-const handleDelete = (row) => {
-  ElMessageBox.confirm('确定要删除该订单吗？', '提示', {
-    type: 'warning'
-  }).then(() => {
-    ElMessage.success('删除成功')
-  }).catch(() => {})
+const fetchHistory = () => {
+  // Mock page change
+}
+
+const handleSizeChange = (val) => {
+  pagination.pageSize = val
+  fetchHistory()
+}
+
+const fetchActive = () => {
+  // Mock page change
+}
+
+const handleActiveSizeChange = (val) => {
+  activePagination.pageSize = val
+  fetchActive()
 }
 
 onMounted(() => {
-  fetchData()
+  generateData()
 })
 </script>
 
@@ -201,79 +404,25 @@ onMounted(() => {
   margin: 0 auto;
   animation: fadeIn 0.5s ease-out;
 
-  /* 搜索卡片玻璃拟态 */
-  .search-card {
-    margin-bottom: 24px;
-    border-radius: 20px;
-    background: rgba(255, 255, 255, 0.85);
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.8);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
-    
-    :deep(.el-card__body) {
-      padding: 24px;
-    }
-
-    .search-bar {
-      padding: 4px;
-      
-      :deep(.el-form) {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 16px;
-        align-items: center;
-      }
-
-      :deep(.el-form-item) {
-        margin-bottom: 0;
-        margin-right: 0;
-      }
-
-      :deep(.el-input__wrapper), :deep(.el-range-editor.el-input__wrapper) {
-        border-radius: 50px;
-        background: rgba(248, 250, 252, 0.8);
-        box-shadow: none;
-        border: 1px solid transparent;
-        transition: all 0.3s;
-        padding-left: 16px;
-        
-        &:hover {
-          background: white;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-        }
-        
-        &.is-focus {
-          background: white;
-          box-shadow: 0 4px 12px rgba(64, 158, 255, 0.15);
-          border-color: rgba(64, 158, 255, 0.3);
-        }
-      }
-
-      :deep(.el-button) {
-        border-radius: 50px;
-        padding: 8px 24px;
-        font-weight: 500;
-        transition: all 0.3s;
-        
-        &:hover {
-          transform: translateY(-2px);
-        }
-      }
-
-      :deep(.el-button--primary) {
-        background: linear-gradient(135deg, #409eff 0%, #3b82f6 100%);
-        border: none;
-        box-shadow: 0 4px 12px rgba(64, 158, 255, 0.3);
-        
-        &:hover {
-          box-shadow: 0 6px 16px rgba(64, 158, 255, 0.4);
-        }
-      }
+  .section-divider {
+    height: 40px;
+    margin: 20px 0;
+    border-top: 1px dashed rgba(0,0,0,0.1);
+    position: relative;
+    &::after {
+      content: '•••';
+      position: absolute;
+      top: -12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #fdfbfb;
+      padding: 0 10px;
+      color: #ccc;
+      letter-spacing: 4px;
     }
   }
-  
-  /* 表格卡片玻璃拟态 */
-  .table-card {
+
+  .main-card {
     border-radius: 24px;
     background: rgba(255, 255, 255, 0.85);
     backdrop-filter: blur(20px);
@@ -285,88 +434,148 @@ onMounted(() => {
     }
   }
 
-  /* 现代表格样式优化 */
+  .section-header {
+    margin-bottom: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      
+      h3 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 700;
+        color: #334155;
+        padding-left: 12px;
+        border-left: 4px solid #409eff;
+      }
+    }
+  }
+
+  .search-bar {
+    margin-bottom: 24px;
+    
+    .search-input {
+      width: 260px;
+    }
+    
+    :deep(.el-input__wrapper) {
+      border-radius: 50px;
+      background: rgba(248, 250, 252, 0.8);
+      box-shadow: none;
+      border: 1px solid transparent;
+      padding-left: 16px;
+      transition: all 0.3s;
+      
+      &:hover, &.is-focus {
+        background: white;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      }
+    }
+  }
+
+  /* Modern Table Overrides */
   .modern-table {
-    background-color: transparent !important;
+    background: transparent !important;
     --el-table-border-color: transparent;
     --el-table-header-bg-color: transparent;
     --el-table-tr-bg-color: transparent;
     
-    &::before { display: none; } /* 去除底部边框线 */
+    &::before { display: none; }
 
     :deep(th.el-table__cell) {
       background: transparent;
       font-weight: 600;
       color: #64748b;
-      height: 56px;
-      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-      font-size: 13px;
-      letter-spacing: 0.5px;
+      border-bottom: 1px solid rgba(0,0,0,0.05);
     }
-
     :deep(td.el-table__cell) {
-      border-bottom: 1px solid rgba(0, 0, 0, 0.03);
+      border-bottom: 1px solid rgba(0,0,0,0.03);
       padding: 16px 0;
-      transition: all 0.3s;
     }
-
-    :deep(.el-table__row) {
-      transition: all 0.3s;
-      
-      &:hover {
-        background-color: rgba(255, 255, 255, 0.6) !important;
-        transform: scale(1.002);
-        
-        td.el-table__cell {
-          background-color: rgba(255, 255, 255, 0.6) !important;
-        }
-      }
+    :deep(.el-table__row:hover) {
+      background-color: rgba(255,255,255,0.6) !important;
+      td.el-table__cell { background-color: rgba(255,255,255,0.6) !important; }
     }
   }
 
-  .car-info {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    
-    .plate {
-      font-weight: 700;
-      color: #1e293b;
-      font-family: 'Monaco', monospace;
-      background: #eff6ff;
-      padding: 2px 6px;
-      border-radius: 4px;
-      display: inline-block;
-      width: fit-content;
-      font-size: 13px;
-      color: #3b82f6;
-    }
-    .model {
-      font-size: 13px;
-      color: #64748b;
-    }
+  /* Info Styles */
+  .plate {
+    font-weight: 700;
+    color: #3b82f6;
+    background: #eff6ff;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Monaco', monospace;
   }
-
-  .sub-text {
+  .plate-mini {
     font-size: 12px;
-    color: #94a3b8;
-    margin-top: 2px;
+    font-weight: 600;
+    color: #475569;
+    font-family: 'Monaco', monospace;
+  }
+  .sub-text { font-size: 12px; color: #94a3b8; margin-left: 6px; }
+  .main-text { font-weight: 600; color: #1e293b; }
+  
+  .date-range {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #64748b;
+    .arrow { color: #cbd5e1; font-size: 12px; }
+    .date { font-family: 'Inter', monospace; }
+  }
+
+  .place-info {
+    font-size: 13px;
+    color: #475569;
+    .place-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 2px;
+      .el-icon { color: #94a3b8; }
+    }
   }
 
   .amount {
-    color: #ef4444;
+    color: #10b981;
     font-weight: 700;
     font-family: 'Inter', sans-serif;
-    font-size: 15px;
+  }
+
+  /* Dialog */
+  .dialog-tip {
+    margin: 0 0 20px;
+    color: #64748b;
+    font-size: 14px;
+    background: #f8fafc;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px dashed #e2e8f0;
+  }
+  
+  .calculated-amount {
+    margin-top: 24px;
+    text-align: right;
+    padding-top: 16px;
+    border-top: 1px solid #f1f5f9;
+    
+    .label { color: #64748b; margin-right: 8px; }
+    .value { font-size: 24px; font-weight: 700; color: #ef4444; }
   }
 
   .pagination-container {
-    margin-top: 32px;
+    margin-top: 24px;
     display: flex;
     justify-content: flex-end;
   }
 }
-
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }

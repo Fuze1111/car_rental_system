@@ -49,12 +49,17 @@
             <el-menu-item index="" @click="handleNav('/admin/users', 'section-drivers')">司机列表</el-menu-item>
           </el-sub-menu>
 
-          <el-menu-item index="/admin/orders">
-            <div class="menu-text">
-              <span class="cn">订单管理</span>
-              <span class="en">ORDERS</span>
-            </div>
-          </el-menu-item>
+          <el-sub-menu index="/admin/orders-group" popper-class="modern-submenu">
+            <template #title>
+              <div class="menu-text">
+                <span class="cn">订单管理</span>
+                <span class="en">ORDERS</span>
+              </div>
+            </template>
+            <el-menu-item index="" @click="handleNav('/admin/orders', 'section-active')">进行中订单</el-menu-item>
+            <el-menu-item index="" @click="handleNav('/admin/orders', 'section-history')">历史订单</el-menu-item>
+          </el-sub-menu>
+
           <el-menu-item index="/admin/settings">
             <div class="menu-text">
               <span class="cn">系统设置</span>
@@ -146,15 +151,42 @@ const handleCommand = (command) => {
 const handleNav = (path, hash) => {
   if (route.path !== path) {
     router.push(path).then(() => {
-      setTimeout(() => {
-        const el = document.getElementById(hash)
-        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      }, 500)
+      scrollToHash(hash)
     })
   } else {
-    const el = document.getElementById(hash)
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    scrollToHash(hash)
   }
+}
+
+const scrollToHash = (hash) => {
+  if (!hash) return
+  
+  // 简单的轮询检测元素是否存在，解决页面切换DOM未渲染的问题
+  let attempts = 0
+  const maxAttempts = 50 // 增加到5秒超时，以防加载慢
+  
+  const checkAndScroll = () => {
+    const el = document.getElementById(hash)
+    if (el) {
+      // 稍微偏移一点，避免被吸顶Header遮挡
+      // Header滚动后高度为80px，留5px余量
+      const headerOffset = 85
+      const elementPosition = el.getBoundingClientRect().top
+      const offsetPosition = elementPosition + window.pageYOffset - headerOffset
+  
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: "smooth"
+      })
+    } else {
+      attempts++
+      if (attempts < maxAttempts) {
+        setTimeout(checkAndScroll, 100)
+      }
+    }
+  }
+  
+  checkAndScroll()
 }
 </script>
 

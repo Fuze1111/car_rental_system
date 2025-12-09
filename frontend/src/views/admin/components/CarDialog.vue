@@ -73,6 +73,35 @@
         />
       </el-form-item>
 
+      <el-row :gutter="20">
+        <el-col :span="12">
+          <el-form-item label="运行公里" prop="RUNKM">
+            <el-input-number 
+              v-model="formData.RUNKM" 
+              :min="0" 
+              :step="100" 
+              style="width: 100%"
+              controls-position="right"
+            >
+              <template #append>km</template>
+            </el-input-number>
+          </el-form-item>
+        </el-col>
+        <el-col :span="12">
+          <el-form-item label="运行小时" prop="RunHour">
+            <el-input-number 
+              v-model="formData.RunHour" 
+              :min="0" 
+              :step="10" 
+              style="width: 100%"
+              controls-position="right"
+            >
+              <template #append>h</template>
+            </el-input-number>
+          </el-form-item>
+        </el-col>
+      </el-row>
+
       <el-form-item label="车辆状态" prop="CarStatus">
         <el-radio-group v-model="formData.CarStatus">
           <el-radio-button label="0">可租</el-radio-button>
@@ -129,6 +158,8 @@ const formData = reactive({
   RentRate: 0,
   Price: 0,
   PurchaseDate: '',
+  RUNKM: 0,
+  RunHour: 0,
   CarStatus: '0'
 })
 
@@ -146,6 +177,8 @@ const resetForm = () => {
   formData.RentRate = 0
   formData.Price = 0
   formData.PurchaseDate = ''
+  formData.RUNKM = 0
+  formData.RunHour = 0
   formData.CarStatus = '0'
 }
 

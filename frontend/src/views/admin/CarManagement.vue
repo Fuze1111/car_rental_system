@@ -10,7 +10,14 @@
               <el-input v-model="searchForm.CarID" placeholder="搜索车牌号..." prefix-icon="Search" clearable class="search-input" />
             </el-form-item>
             <el-form-item>
-              <el-input v-model="searchForm.TName" placeholder="搜索车型..." prefix-icon="Van" clearable class="search-input" />
+              <el-select v-model="searchForm.TName" placeholder="选择车型" clearable filterable style="width: 180px">
+                <el-option v-for="type in mockTypeData" :key="type.TNo" :label="type.TName" :value="type.TName" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="价格范围">
+               <el-input-number v-model="searchForm.minPrice" :min="0" :controls="false" placeholder="Min" style="width: 100px" />
+               <span style="margin: 0 4px">-</span>
+               <el-input-number v-model="searchForm.maxPrice" :min="0" :controls="false" placeholder="Max" style="width: 100px" />
             </el-form-item>
             <el-form-item>
               <el-select v-model="searchForm.CarStatus" placeholder="车辆状态" clearable style="width: 140px">
@@ -86,6 +93,20 @@
         <el-table-column prop="PurchaseDate" label="购入日期" width="140" align="center">
           <template #default="scope">
             <span class="text-secondary">{{ scope.row.PurchaseDate }}</span>
+          </template>
+        </el-table-column>
+
+        <!-- 运行公里 (RUNKM) -->
+        <el-table-column prop="RUNKM" label="运行公里" width="120" align="right">
+          <template #default="scope">
+            <span class="text-secondary">{{ scope.row.RUNKM }} km</span>
+          </template>
+        </el-table-column>
+
+        <!-- 运行小时 (RunHour) -->
+        <el-table-column prop="RunHour" label="运行小时" width="120" align="right">
+          <template #default="scope">
+            <span class="text-secondary">{{ scope.row.RunHour }} h</span>
           </template>
         </el-table-column>
 
@@ -204,6 +225,19 @@
               </template>
             </el-table-column>
         </el-table>
+
+        <div class="pagination-container">
+          <el-pagination
+            v-model:current-page="typePagination.currentPage"
+            v-model:page-size="typePagination.pageSize"
+            :page-sizes="[10, 20, 50]"
+            layout="total, sizes, prev, pager, next"
+            :total="typePagination.total"
+            @size-change="handleTypeSizeChange"
+            @current-change="handleTypeCurrentChange"
+            background
+          />
+        </div>
       </el-card>
     </div>
 
@@ -277,7 +311,9 @@ const isTypeEdit = ref(false)
 const searchForm = reactive({
   CarID: '',
   TName: '',
-  CarStatus: ''
+  CarStatus: '',
+  minPrice: undefined,
+  maxPrice: undefined
 })
 
 // 搜索表单 (Types)
@@ -286,6 +322,12 @@ const typeSearchForm = reactive({ keyword: '' })
 const loading = ref(false)
 const typeLoading = ref(false) // Loading for types
 const pagination = reactive({
+  currentPage: 1,
+  pageSize: 10,
+  total: 4
+})
+
+const typePagination = reactive({
   currentPage: 1,
   pageSize: 10,
   total: 4
@@ -313,7 +355,9 @@ const tableData = ref([
     RentRate: 350.00,
     CarStatus: '0',
     PurchaseDate: '2022-05-15',
-    Price: 200000.00
+    Price: 200000.00,
+    RUNKM: 15000.5,
+    RunHour: 320.0
   },
   {
     CarID: '京AD12345',
@@ -322,7 +366,9 @@ const tableData = ref([
     RentRate: 500.00,
     CarStatus: '1',
     PurchaseDate: '2023-01-10',
-    Price: 280000.00
+    Price: 280000.00,
+    RUNKM: 5000.0,
+    RunHour: 100.0
   },
   {
     CarID: '京A66666',
@@ -331,7 +377,9 @@ const tableData = ref([
     RentRate: 1200.00,
     CarStatus: '2',
     PurchaseDate: '2021-11-20',
-    Price: 900000.00
+    Price: 900000.00,
+    RUNKM: 35000.0,
+    RunHour: 800.0
   },
   {
     CarID: '京A99999',
@@ -340,7 +388,9 @@ const tableData = ref([
     RentRate: 1100.00,
     CarStatus: '0',
     PurchaseDate: '2022-08-08',
-    Price: 750000.00
+    Price: 750000.00,
+    RUNKM: 12000.0,
+    RunHour: 280.0
   },
 ])
 
@@ -383,6 +433,8 @@ const resetSearch = () => {
   searchForm.CarID = ''
   searchForm.TName = ''
   searchForm.CarStatus = ''
+  searchForm.minPrice = undefined
+  searchForm.maxPrice = undefined
   handleSearch()
 }
 
@@ -502,10 +554,19 @@ const handleDelete = (row) => {
 }
 
 const handleSizeChange = (val) => {
-  console.log(`每页 ${val} 条`)
+  pagination.pageSize = val
+  handleSearch()
 }
 const handleCurrentChange = (val) => {
-  console.log(`当前页: ${val}`)
+  handleSearch()
+}
+
+const handleTypeSizeChange = (val) => {
+  typePagination.pageSize = val
+  handleTypeSearch()
+}
+const handleTypeCurrentChange = (val) => {
+  handleTypeSearch()
 }
 </script>
 
