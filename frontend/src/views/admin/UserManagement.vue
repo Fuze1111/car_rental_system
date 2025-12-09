@@ -1,50 +1,35 @@
 <template>
   <div class="user-management">
-    <el-card shadow="never" class="main-card">
-      <!-- 顶部标签页切换客户/司机 -->
-      <el-tabs v-model="activeTab" class="user-tabs" @tab-click="handleTabChange">
-        <el-tab-pane label="客户列表" name="customer">
-          <template #label>
-            <div class="custom-tab-label">
-              <el-icon><User /></el-icon>
-              <span>客户列表</span>
-            </div>
-          </template>
-        </el-tab-pane>
-        <el-tab-pane label="司机列表" name="driver">
-          <template #label>
-            <div class="custom-tab-label">
-              <el-icon><Van /></el-icon>
-              <span>司机列表</span>
-            </div>
-          </template>
-        </el-tab-pane>
-      </el-tabs>
+    
+    <!-- 客户管理部分 -->
+    <div id="section-customers">
+      <el-card shadow="never" class="main-card">
+        <div class="section-header">
+          <h3>客户列表</h3>
+        </div>
 
-      <!-- 搜索栏 -->
-      <div class="search-bar">
-        <el-form :inline="true" :model="searchForm">
-          <el-form-item label="姓名">
-            <el-input v-model="searchForm.name" placeholder="请输入姓名" clearable />
-          </el-form-item>
-          <el-form-item label="电话">
-            <el-input v-model="searchForm.phone" placeholder="请输入电话" clearable />
-          </el-form-item>
-          <el-form-item>
-            <el-button type="primary" @click="handleSearch">
-              <el-icon><Search /></el-icon>查询
-            </el-button>
-            <el-button @click="handleReset">
-              <el-icon><Refresh /></el-icon>重置
-            </el-button>
-          </el-form-item>
-        </el-form>
-      </div>
+        <!-- 客户搜索栏 -->
+        <div class="search-bar">
+          <el-form :inline="true" :model="customerSearchForm">
+            <el-form-item label="姓名">
+              <el-input v-model="customerSearchForm.name" placeholder="请输入姓名" clearable />
+            </el-form-item>
+            <el-form-item label="电话">
+              <el-input v-model="customerSearchForm.phone" placeholder="请输入电话" clearable />
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" @click="handleCustomerSearch">
+                <el-icon><Search /></el-icon>查询
+              </el-button>
+              <el-button @click="handleCustomerReset">
+                <el-icon><Refresh /></el-icon>重置
+              </el-button>
+            </el-form-item>
+          </el-form>
+        </div>
 
-      <!-- 用户表格 -->
-      <el-table :data="tableData" v-loading="loading" stripe style="width: 100%">
-        <!-- 客户特有字段 -->
-        <template v-if="activeTab === 'customer'">
+        <!-- 客户表格 -->
+        <el-table :data="customerData" v-loading="customerLoading" class="modern-table" style="width: 100%">
           <el-table-column prop="CNo" label="客户号" width="120" />
           <el-table-column prop="CName" label="姓名" width="120">
             <template #default="scope">
@@ -55,10 +40,53 @@
           <el-table-column prop="Phone" label="电话" width="140" />
           <el-table-column prop="Address" label="地址" min-width="200" show-overflow-tooltip />
           <el-table-column prop="PostCode" label="邮编" width="100" />
-        </template>
+          <el-table-column label="操作" width="120" align="center" fixed="right">
+            <template #default="scope">
+              <el-button link type="primary" @click="handleView(scope.row, 'customer')">详情</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
 
-        <!-- 司机特有字段 -->
-        <template v-if="activeTab === 'driver'">
+        <div class="pagination-container">
+          <el-pagination
+            v-model:current-page="customerPagination.currentPage"
+            v-model:page-size="customerPagination.pageSize"
+            :total="customerPagination.total"
+            layout="total, prev, pager, next, jumper"
+            @current-change="fetchCustomers"
+          />
+        </div>
+      </el-card>
+    </div>
+
+    <div class="section-divider"></div>
+
+    <!-- 司机管理部分 -->
+    <div id="section-drivers">
+      <el-card shadow="never" class="main-card">
+        <div class="section-header">
+          <h3>司机列表</h3>
+        </div>
+
+        <!-- 司机搜索栏 -->
+        <div class="search-bar">
+          <el-form :inline="true" :model="driverSearchForm">
+            <el-form-item label="姓名">
+              <el-input v-model="driverSearchForm.name" placeholder="请输入姓名" clearable />
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" @click="handleDriverSearch">
+                <el-icon><Search /></el-icon>查询
+              </el-button>
+              <el-button @click="handleDriverReset">
+                <el-icon><Refresh /></el-icon>重置
+              </el-button>
+            </el-form-item>
+          </el-form>
+        </div>
+
+        <!-- 司机表格 -->
+        <el-table :data="driverData" v-loading="driverLoading" class="modern-table" style="width: 100%">
           <el-table-column prop="DNo" label="司机号" width="120" />
           <el-table-column prop="DName" label="姓名" width="120">
             <template #default="scope">
@@ -81,26 +109,25 @@
               </el-tag>
             </template>
           </el-table-column>
-        </template>
+          <el-table-column label="操作" width="120" align="center" fixed="right">
+            <template #default="scope">
+              <el-button link type="primary" @click="handleView(scope.row, 'driver')">详情</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
 
-        <el-table-column label="操作" width="120" align="center" fixed="right">
-          <template #default="scope">
-            <el-button link type="primary" @click="handleView(scope.row)">详情</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+        <div class="pagination-container">
+          <el-pagination
+            v-model:current-page="driverPagination.currentPage"
+            v-model:page-size="driverPagination.pageSize"
+            :total="driverPagination.total"
+            layout="total, prev, pager, next, jumper"
+            @current-change="fetchDrivers"
+          />
+        </div>
+      </el-card>
+    </div>
 
-      <!-- 分页 -->
-      <div class="pagination-container">
-        <el-pagination
-          v-model:current-page="pagination.currentPage"
-          v-model:page-size="pagination.pageSize"
-          :total="pagination.total"
-          layout="total, prev, pager, next, jumper"
-          @current-change="fetchData"
-        />
-      </div>
-    </el-card>
   </div>
 </template>
 
@@ -109,23 +136,19 @@ import { ref, reactive, onMounted } from 'vue'
 import { User, Van, Search, Refresh } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
-const activeTab = ref('customer')
-const loading = ref(false)
+// --- Customer Logic ---
+const customerLoading = ref(false)
+const customerData = ref([])
+const customerSearchForm = reactive({ name: '', phone: '' })
+const customerPagination = reactive({ currentPage: 1, pageSize: 10, total: 0 })
 
-const searchForm = reactive({
-  name: '',
-  phone: ''
-})
+// --- Driver Logic ---
+const driverLoading = ref(false)
+const driverData = ref([])
+const driverSearchForm = reactive({ name: '' })
+const driverPagination = reactive({ currentPage: 1, pageSize: 10, total: 0 })
 
-const pagination = reactive({
-  currentPage: 1,
-  pageSize: 10,
-  total: 0
-})
-
-const tableData = ref([])
-
-// Mock 数据生成 (基于 schema.sql)
+// Mock Generator
 const generateMockData = (type) => {
   const data = []
   const count = type === 'customer' ? 8 : 5
@@ -160,38 +183,44 @@ const getDriverStatusType = (status) => {
   return status === '空闲' ? 'success' : 'warning'
 }
 
-const fetchData = () => {
-  loading.value = true
+// Fetch Functions
+const fetchCustomers = () => {
+  customerLoading.value = true
   setTimeout(() => {
-    tableData.value = generateMockData(activeTab.value)
-    pagination.total = activeTab.value === 'customer' ? 85 : 24
-    loading.value = false
+    customerData.value = generateMockData('customer').filter(item => 
+      !customerSearchForm.name || item.CName.includes(customerSearchForm.name)
+    )
+    customerPagination.total = 85
+    customerLoading.value = false
   }, 300)
 }
 
-const handleTabChange = () => {
-  pagination.currentPage = 1
-  fetchData()
+const fetchDrivers = () => {
+  driverLoading.value = true
+  setTimeout(() => {
+    driverData.value = generateMockData('driver').filter(item => 
+      !driverSearchForm.name || item.DName.includes(driverSearchForm.name)
+    )
+    driverPagination.total = 24
+    driverLoading.value = false
+  }, 300)
 }
 
-const handleSearch = () => {
-  ElMessage.success('搜索已执行')
-  fetchData()
-}
+// Handlers
+const handleCustomerSearch = () => { fetchCustomers(); ElMessage.success('查询完成') }
+const handleCustomerReset = () => { customerSearchForm.name = ''; customerSearchForm.phone = ''; fetchCustomers() }
 
-const handleReset = () => {
-  searchForm.name = ''
-  searchForm.phone = ''
-  fetchData()
-}
+const handleDriverSearch = () => { fetchDrivers(); ElMessage.success('查询完成') }
+const handleDriverReset = () => { driverSearchForm.name = ''; fetchDrivers() }
 
-const handleView = (row) => {
-  const name = activeTab.value === 'customer' ? row.CName : row.DName
-  ElMessage.info(`查看用户: ${name}`)
+const handleView = (row, type) => {
+  const name = type === 'customer' ? row.CName : row.DName
+  ElMessage.info(`查看详情: ${name}`)
 }
 
 onMounted(() => {
-  fetchData()
+  fetchCustomers()
+  fetchDrivers()
 })
 </script>
 
@@ -200,6 +229,37 @@ onMounted(() => {
   max-width: 1600px;
   margin: 0 auto;
   animation: fadeIn 0.5s ease-out;
+
+  .section-divider {
+    height: 40px;
+    margin: 20px 0;
+    border-top: 1px dashed rgba(0,0,0,0.1);
+    position: relative;
+    
+    &::after {
+      content: '•••';
+      position: absolute;
+      top: -12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #fdfbfb;
+      padding: 0 10px;
+      color: #ccc;
+      letter-spacing: 4px;
+    }
+  }
+
+  .section-header {
+    margin-bottom: 24px;
+    h3 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 700;
+      color: #334155;
+      padding-left: 12px;
+      border-left: 4px solid #409eff;
+    }
+  }
 
   .main-card {
     border-radius: 24px;
@@ -213,69 +273,106 @@ onMounted(() => {
     }
   }
 
-  /* 标签页样式优化 */
-  .user-tabs {
-    :deep(.el-tabs__nav-wrap::after) {
-      height: 1px;
-      background-color: rgba(0,0,0,0.05);
-    }
+  .search-bar {
+    margin: 24px 0;
+    padding: 8px 4px;
     
-    :deep(.el-tabs__item) {
-      font-size: 16px;
-      height: 50px;
-      color: #64748b;
+    :deep(.el-form) {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      align-items: center;
+    }
+
+    :deep(.el-form-item) {
+      margin-bottom: 0;
+      margin-right: 0;
+    }
+
+    :deep(.el-input__wrapper) {
+      border-radius: 50px;
+      background: rgba(248, 250, 252, 0.8);
+      box-shadow: none;
+      border: 1px solid transparent;
+      transition: all 0.3s;
+      padding-left: 16px;
+      width: 200px;
       
-      &.is-active {
-        color: #409eff;
-        font-weight: 600;
-        
-        .custom-tab-label {
-          background: #ecf5ff;
-          color: #409eff;
-        }
+      &:hover {
+        background: white;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      }
+      
+      &.is-focus {
+        background: white;
+        box-shadow: 0 4px 12px rgba(64, 158, 255, 0.15);
+        border-color: rgba(64, 158, 255, 0.3);
       }
     }
 
-    :deep(.el-tabs__active-bar) {
-      height: 3px;
-      border-radius: 3px;
-      background: linear-gradient(90deg, #409eff, #60a5fa);
+    /* Buttons */
+    :deep(.el-button) {
+      border-radius: 50px;
+      padding: 8px 24px;
+      font-weight: 500;
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      
+      &:hover {
+        transform: translateY(-2px);
+      }
+    }
+
+    :deep(.el-button--primary) {
+      background: linear-gradient(135deg, #409eff 0%, #3b82f6 100%);
+      border: none;
+      box-shadow: 0 4px 12px rgba(64, 158, 255, 0.3);
+      color: white;
+      
+      &:hover {
+        box-shadow: 0 6px 16px rgba(64, 158, 255, 0.4);
+      }
     }
   }
 
-  .custom-tab-label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 16px;
-    border-radius: 8px;
-    transition: all 0.3s;
-    
-    .el-icon { font-size: 18px; }
-  }
-
-  .search-bar {
-    margin: 24px 0;
-    padding: 24px;
-    background: rgba(255, 255, 255, 0.5);
-    border-radius: 16px;
-    border: 1px solid rgba(255, 255, 255, 0.6);
-  }
-
-  /* 表格样式透传 */
-  :deep(.el-table) {
-    background-color: transparent;
+  /* 现代表格样式优化 */
+  .modern-table {
+    background-color: transparent !important;
+    --el-table-border-color: transparent;
+    --el-table-header-bg-color: transparent;
     --el-table-tr-bg-color: transparent;
-    --el-table-header-bg-color: rgba(248, 250, 252, 0.5);
-    --el-table-row-hover-bg-color: rgba(64, 158, 255, 0.08);
     
-    th.el-table__cell {
+    &::before { display: none; } /* 去除底部边框线 */
+
+    :deep(th.el-table__cell) {
+      background: transparent;
       font-weight: 600;
-      color: #475569;
+      color: #64748b;
+      height: 56px;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+      font-size: 13px;
+      letter-spacing: 0.5px;
     }
-    
-    td.el-table__cell {
-      color: #1e293b;
+
+    :deep(td.el-table__cell) {
+      border-bottom: 1px solid rgba(0, 0, 0, 0.03);
+      padding: 16px 0;
+      transition: all 0.3s;
+    }
+
+    :deep(.el-table__row) {
+      transition: all 0.3s;
+      
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.6) !important;
+        transform: scale(1.002);
+        
+        td.el-table__cell {
+          background-color: rgba(255, 255, 255, 0.6) !important;
+        }
+      }
     }
   }
 

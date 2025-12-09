@@ -7,7 +7,8 @@
       <div class="nav-content">
         <!-- Logo -->
         <div class="logo-container">
-          <span class="app-title">CAR RENTAL</span>
+          <span class="app-title-cn">汽车租赁系统</span>
+          <span class="app-title-en">CAR RENTAL</span>
         </div>
 
         <!-- 顶部导航菜单 -->
@@ -18,11 +19,48 @@
           :ellipsis="false"
           router
         >
-          <el-menu-item index="/admin/dashboard">DASHBOARD</el-menu-item>
-          <el-menu-item index="/admin/cars">CARS</el-menu-item>
-          <el-menu-item index="/admin/users">USERS</el-menu-item>
-          <el-menu-item index="/admin/orders">ORDERS</el-menu-item>
-          <el-menu-item index="/admin/settings">SETTINGS</el-menu-item>
+          <el-menu-item index="/admin/dashboard">
+            <div class="menu-text">
+              <span class="cn">控制台</span>
+              <span class="en">DASHBOARD</span>
+            </div>
+          </el-menu-item>
+          
+          <el-sub-menu index="/admin/cars-group" popper-class="modern-submenu">
+            <template #title>
+              <div class="menu-text">
+                <span class="cn">车辆管理</span>
+                <span class="en">VEHICLES</span>
+              </div>
+            </template>
+            <el-menu-item index="" @click="handleNav('/admin/cars', 'section-cars')">车辆列表</el-menu-item>
+            <el-menu-item index="" @click="handleNav('/admin/cars', 'section-types')">车型租金</el-menu-item>
+            <el-menu-item index="/admin/maintenance">维修管理</el-menu-item>
+          </el-sub-menu>
+
+          <el-sub-menu index="/admin/users-group" popper-class="modern-submenu">
+            <template #title>
+              <div class="menu-text">
+                <span class="cn">用户管理</span>
+                <span class="en">USERS</span>
+              </div>
+            </template>
+            <el-menu-item index="" @click="handleNav('/admin/users', 'section-customers')">客户列表</el-menu-item>
+            <el-menu-item index="" @click="handleNav('/admin/users', 'section-drivers')">司机列表</el-menu-item>
+          </el-sub-menu>
+
+          <el-menu-item index="/admin/orders">
+            <div class="menu-text">
+              <span class="cn">订单管理</span>
+              <span class="en">ORDERS</span>
+            </div>
+          </el-menu-item>
+          <el-menu-item index="/admin/settings">
+            <div class="menu-text">
+              <span class="cn">系统设置</span>
+              <span class="en">SETTINGS</span>
+            </div>
+          </el-menu-item>
         </el-menu>
 
         <!-- 右侧用户信息 -->
@@ -104,10 +142,28 @@ const handleCommand = (command) => {
     }).catch(() => {})
   }
 }
+
+const handleNav = (path, hash) => {
+  if (route.path !== path) {
+    router.push(path).then(() => {
+      setTimeout(() => {
+        const el = document.getElementById(hash)
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 500)
+    })
+  } else {
+    const el = document.getElementById(hash)
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+}
 </script>
 
 <style scoped lang="scss">
 @import url('https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;600;800&display=swap');
+
+:deep(.el-sub-menu__icon-arrow) {
+  display: none;
+}
 
 .admin-layout {
   min-height: 100vh;
@@ -167,20 +223,29 @@ const handleCommand = (command) => {
   }
 
   .logo-container {
-    .app-title {
-      font-family: 'Anton', sans-serif; /* 使用类似涂鸦/海报的粗体字 */
-      font-size: 32px;
-      letter-spacing: 2px;
-      background: linear-gradient(180deg, #1e293b 0%, #334155 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      transform: skewX(-5deg); /* 稍微倾斜，增加动感 */
-      cursor: pointer;
-      transition: transform 0.3s;
-      
-      &:hover {
-        transform: skewX(-5deg) scale(1.05);
-      }
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    cursor: pointer;
+    transition: transform 0.3s;
+
+    &:hover {
+      transform: scale(1.02);
+    }
+
+    .app-title-cn {
+      font-size: 24px;
+      font-weight: 800;
+      color: #1e293b;
+      letter-spacing: 1px;
+    }
+
+    .app-title-en {
+      font-family: 'Anton', sans-serif;
+      font-size: 20px;
+      color: #94a3b8;
+      letter-spacing: 1px;
+      transform: translateY(-1px);
     }
   }
 
@@ -190,45 +255,62 @@ const handleCommand = (command) => {
     height: 100%;
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 10px;
     
-    :deep(.el-menu-item) {
-      height: 40px;
-      line-height: 40px;
-      padding: 0 12px;
+    :deep(.el-menu-item), :deep(.el-sub-menu .el-sub-menu__title) {
+      height: 54px;
+      line-height: 1.2;
+      padding: 0 16px;
       margin: 0;
       border: none !important;
       background: transparent !important;
       
-      /* 文字样式 */
-      font-family: 'Inter', sans-serif;
-      font-size: 14px;
-      font-weight: 800; /* 特粗体 */
-      color: #94a3b8 !important;
-      letter-spacing: 1px;
-      transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-      
-      &:hover {
-        color: #1e293b !important;
-        transform: translateY(-2px);
-      }
-      
-      &.is-active {
-        color: #1e293b !important;
-        position: relative;
+      .menu-text {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s;
         
-        &::after {
-          content: '';
-          position: absolute;
-          bottom: 0;
-          left: 50%;
-          transform: translateX(-50%);
-          width: 4px;
-          height: 4px;
-          background: #1e293b;
-          border-radius: 50%;
+        .cn {
+          font-size: 15px;
+          font-weight: 700;
+          color: #64748b;
+          transition: color 0.3s;
+        }
+        
+        .en {
+          font-family: 'Inter', sans-serif;
+          font-size: 9px;
+          font-weight: 800;
+          color: #cbd5e1;
+          letter-spacing: 1px;
+          margin-top: 2px;
+          transition: color 0.3s;
         }
       }
+
+      &:hover {
+        background: transparent !important;
+        
+        .menu-text {
+          transform: translateY(-2px);
+          
+          .cn { color: #1e293b; }
+          .en { color: #94a3b8; }
+        }
+      }
+    }
+    
+    :deep(.el-menu-item.is-active), :deep(.el-sub-menu.is-active .el-sub-menu__title) {
+        .menu-text {
+          .cn { color: #1e293b; }
+          .en { color: #1e293b; }
+        }
+        
+        &::after {
+          display: none; 
+        }
     }
   }
 
@@ -297,5 +379,57 @@ const handleCommand = (command) => {
 .fade-slide-leave-to {
   opacity: 0;
   transform: translateY(-20px);
+}
+</style>
+
+<style lang="scss">
+/* Global styles for the submenu popper */
+.el-popper.modern-submenu {
+  /* 1. 移除外层默认的白色背景和阴影 */
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+
+  /* 2. 移除白色小三角箭头 */
+  .el-popper__arrow {
+    display: none !important;
+  }
+
+  /* 3. 自定义玻璃拟态菜单 */
+  .el-menu--popup {
+    background: rgba(255, 255, 255, 0.45) !important; /* 更通透 */
+    backdrop-filter: blur(25px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.4) !important;
+    box-shadow: 0 15px 50px rgba(0, 0, 0, 0.1) !important;
+    border-radius: 16px !important;
+    padding: 8px !important;
+    min-width: 160px;
+    margin-top: 8px;
+
+    .el-menu-item {
+      height: 42px;
+      line-height: 42px;
+      border-radius: 10px;
+      margin: 4px 0;
+      color: #334155;
+      font-weight: 600;
+      background: transparent !important;
+      transition: all 0.2s ease;
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.4) !important;
+        color: #2563eb;
+        transform: translateX(4px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+      }
+
+      &.is-active {
+        color: #2563eb;
+        background: rgba(255, 255, 255, 0.6) !important;
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
+      }
+    }
+  }
 }
 </style>

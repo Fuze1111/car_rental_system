@@ -26,9 +26,16 @@ const router = createRouter({
         },
         {
           path: 'cars',
-          name: 'admin-cars',
+          name: 'CarManagement',
           component: () => import('../views/admin/CarManagement.vue'),
-          meta: { title: '车辆管理' }
+          meta: { title: '车辆列表' }
+        },
+        // car-types merged into cars
+        {
+          path: 'maintenance',
+          name: 'CarMaintenanceManagement',
+          component: () => import('../views/admin/CarMaintenanceManagement.vue'),
+          meta: { title: '维修管理' }
         },
         {
           path: 'users',

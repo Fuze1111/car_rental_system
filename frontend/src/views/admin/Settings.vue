@@ -1,16 +1,10 @@
 <template>
   <div class="settings-container">
-    <div class="page-header">
-      <div class="header-content">
-        <h2>系统设置</h2>
-        <p>管理系统参数、个人账户及通知偏好</p>
-      </div>
+    <div class="settings-content">
       <el-button type="primary" class="save-all-btn" :loading="saving" @click="handleSaveAll">
         <el-icon><Check /></el-icon> 保存所有更改
       </el-button>
-    </div>
 
-    <div class="settings-content">
       <el-tabs v-model="activeTab" class="glass-tabs">
         <!-- 基本设置 -->
         <el-tab-pane label="基本设置" name="general">
@@ -269,41 +263,8 @@ const handleSaveAll = () => {
   to { opacity: 1; transform: translateY(0); }
 }
 
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 32px;
-
-  .header-content {
-    h2 {
-      font-size: 28px;
-      font-weight: 700;
-      color: #1e293b;
-      margin: 0 0 8px 0;
-    }
-    p {
-      color: #64748b;
-      margin: 0;
-      font-size: 14px;
-    }
-  }
-
-  .save-all-btn {
-    padding: 12px 24px;
-    border-radius: 12px;
-    font-weight: 600;
-    box-shadow: 0 4px 14px rgba(64, 158, 255, 0.3);
-    transition: all 0.3s;
-    
-    &:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(64, 158, 255, 0.4);
-    }
-  }
-}
-
 .settings-content {
+  position: relative; /* For absolute button positioning */
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(20px);
   border-radius: 24px;
@@ -311,6 +272,23 @@ const handleSaveAll = () => {
   border: 1px solid rgba(255, 255, 255, 0.8);
   overflow: hidden;
   min-height: 600px;
+}
+
+.save-all-btn {
+  position: absolute;
+  top: 14px;
+  right: 24px;
+  z-index: 10;
+  padding: 8px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  box-shadow: 0 4px 14px rgba(64, 158, 255, 0.3);
+  transition: all 0.3s;
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(64, 158, 255, 0.4);
+  }
 }
 
 /* Tab 样式定制 */

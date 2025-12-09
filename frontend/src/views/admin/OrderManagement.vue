@@ -32,7 +32,7 @@
     </el-card>
 
     <el-card class="table-card" shadow="never">
-      <el-table :data="tableData" v-loading="loading" stripe style="width: 100%">
+      <el-table :data="tableData" v-loading="loading" class="modern-table" style="width: 100%">
         <el-table-column prop="InvoiceNo" label="订单号" width="140" fixed />
         
         <el-table-column label="车辆信息" min-width="160">
@@ -213,6 +213,63 @@ onMounted(() => {
     :deep(.el-card__body) {
       padding: 24px;
     }
+
+    .search-bar {
+      padding: 4px;
+      
+      :deep(.el-form) {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        align-items: center;
+      }
+
+      :deep(.el-form-item) {
+        margin-bottom: 0;
+        margin-right: 0;
+      }
+
+      :deep(.el-input__wrapper), :deep(.el-range-editor.el-input__wrapper) {
+        border-radius: 50px;
+        background: rgba(248, 250, 252, 0.8);
+        box-shadow: none;
+        border: 1px solid transparent;
+        transition: all 0.3s;
+        padding-left: 16px;
+        
+        &:hover {
+          background: white;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+        
+        &.is-focus {
+          background: white;
+          box-shadow: 0 4px 12px rgba(64, 158, 255, 0.15);
+          border-color: rgba(64, 158, 255, 0.3);
+        }
+      }
+
+      :deep(.el-button) {
+        border-radius: 50px;
+        padding: 8px 24px;
+        font-weight: 500;
+        transition: all 0.3s;
+        
+        &:hover {
+          transform: translateY(-2px);
+        }
+      }
+
+      :deep(.el-button--primary) {
+        background: linear-gradient(135deg, #409eff 0%, #3b82f6 100%);
+        border: none;
+        box-shadow: 0 4px 12px rgba(64, 158, 255, 0.3);
+        
+        &:hover {
+          box-shadow: 0 6px 16px rgba(64, 158, 255, 0.4);
+        }
+      }
+    }
   }
   
   /* 表格卡片玻璃拟态 */
@@ -228,22 +285,42 @@ onMounted(() => {
     }
   }
 
-  /* 表格样式透传 */
-  :deep(.el-table) {
-    background-color: transparent;
+  /* 现代表格样式优化 */
+  .modern-table {
+    background-color: transparent !important;
+    --el-table-border-color: transparent;
+    --el-table-header-bg-color: transparent;
     --el-table-tr-bg-color: transparent;
-    --el-table-header-bg-color: rgba(248, 250, 252, 0.5);
-    --el-table-row-hover-bg-color: rgba(64, 158, 255, 0.08);
     
-    th.el-table__cell {
+    &::before { display: none; } /* 去除底部边框线 */
+
+    :deep(th.el-table__cell) {
+      background: transparent;
       font-weight: 600;
-      color: #475569;
-      height: 50px;
+      color: #64748b;
+      height: 56px;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+      font-size: 13px;
+      letter-spacing: 0.5px;
     }
-    
-    td.el-table__cell {
-      color: #1e293b;
-      padding: 12px 0;
+
+    :deep(td.el-table__cell) {
+      border-bottom: 1px solid rgba(0, 0, 0, 0.03);
+      padding: 16px 0;
+      transition: all 0.3s;
+    }
+
+    :deep(.el-table__row) {
+      transition: all 0.3s;
+      
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.6) !important;
+        transform: scale(1.002);
+        
+        td.el-table__cell {
+          background-color: rgba(255, 255, 255, 0.6) !important;
+        }
+      }
     }
   }
 

@@ -1,43 +1,41 @@
 <template>
   <div class="car-management">
-    <!-- 顶部搜索与操作栏 -->
-    <div class="page-header">
-      <div class="header-left">
-        <h2 class="page-title">车辆管理</h2>
-        <span class="page-subtitle">管理车队信息与状态</span>
-      </div>
-      <div class="header-right">
-        <el-button type="primary" size="large" class="add-btn" @click="handleAdd">
-          <el-icon><Plus /></el-icon>新增车辆
-        </el-button>
-      </div>
-    </div>
-
-    <el-card class="main-card" shadow="hover">
+    <div id="section-cars">
+      <el-card class="main-card" shadow="hover">
       <!-- 搜索栏 -->
       <div class="search-bar">
-        <el-form :inline="true" :model="searchForm" class="search-form">
-          <el-form-item>
-            <el-input v-model="searchForm.CarID" placeholder="搜索车牌号..." prefix-icon="Search" clearable class="search-input" />
-          </el-form-item>
-          <el-form-item>
-            <el-input v-model="searchForm.TName" placeholder="搜索车型..." prefix-icon="Van" clearable class="search-input" />
-          </el-form-item>
-          <el-form-item>
-            <el-select v-model="searchForm.CarStatus" placeholder="车辆状态" clearable style="width: 140px">
-              <el-option label="全部状态" value="" />
-              <el-option label="可租" value="0" />
-              <el-option label="已租" value="1" />
-              <el-option label="维修中" value="2" />
-            </el-select>
-          </el-form-item>
-          <el-form-item>
-            <el-button type="primary" plain @click="handleSearch" class="search-btn">
-              查询
-            </el-button>
-            <el-button link @click="resetSearch">重置</el-button>
-          </el-form-item>
-        </el-form>
+        <div class="search-left">
+          <el-form :inline="true" :model="searchForm" class="search-form">
+            <el-form-item>
+              <el-input v-model="searchForm.CarID" placeholder="搜索车牌号..." prefix-icon="Search" clearable class="search-input" />
+            </el-form-item>
+            <el-form-item>
+              <el-input v-model="searchForm.TName" placeholder="搜索车型..." prefix-icon="Van" clearable class="search-input" />
+            </el-form-item>
+            <el-form-item>
+              <el-select v-model="searchForm.CarStatus" placeholder="车辆状态" clearable style="width: 140px">
+                <el-option label="全部状态" value="" />
+                <el-option label="可租" value="0" />
+                <el-option label="已租" value="1" />
+                <el-option label="维修中" value="2" />
+              </el-select>
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" @click="handleSearch" class="search-btn">
+                <el-icon><Search /></el-icon>查询
+              </el-button>
+              <el-button @click="resetSearch">
+                <el-icon><Refresh /></el-icon>重置
+              </el-button>
+            </el-form-item>
+          </el-form>
+        </div>
+        
+        <div class="search-right">
+          <el-button type="primary" class="add-btn" @click="handleAdd">
+            <el-icon><Plus /></el-icon>新增车辆
+          </el-button>
+        </div>
       </div>
 
       <!-- 车辆列表表格 -->
@@ -45,8 +43,7 @@
         :data="tableData" 
         style="width: 100%" 
         v-loading="loading" 
-        :header-cell-style="{ background: '#f8f9fa', color: '#606266', height: '50px' }"
-        :row-style="{ height: '70px' }"
+        class="modern-table"
       >
         <!-- 车牌号 (CarID) -->
         <el-table-column prop="CarID" label="车牌号" min-width="140" align="left">
@@ -105,6 +102,11 @@
         <!-- 操作列 -->
         <el-table-column label="操作" width="160" align="center" fixed="right">
           <template #default="scope">
+            <el-tooltip content="送修" placement="top" v-if="scope.row.CarStatus !== '2'">
+              <el-button circle size="small" type="warning" plain @click="handleMaintenance(scope.row)">
+                <el-icon><Tools /></el-icon>
+              </el-button>
+            </el-tooltip>
             <el-tooltip content="编辑" placement="top">
               <el-button circle size="small" type="primary" plain @click="handleEdit(scope.row)">
                 <el-icon><Edit /></el-icon>
@@ -132,7 +134,107 @@
           background
         />
       </div>
-    </el-card>
+      </el-card>
+    </div>
+
+    <div class="section-divider"></div>
+
+    <div id="section-types">
+      <el-card class="main-card" shadow="hover">
+        <div class="section-header">
+          <h3>车型租金管理</h3>
+        </div>
+        <!-- 搜索栏 (Types) -->
+        <div class="search-bar">
+          <div class="search-left">
+            <el-form :inline="true" :model="typeSearchForm" class="search-form">
+              <el-form-item>
+                <el-input v-model="typeSearchForm.keyword" placeholder="搜索车型..." prefix-icon="Search" clearable class="search-input" />
+              </el-form-item>
+              <el-form-item>
+                <el-button type="primary" @click="handleTypeSearch" class="search-btn">
+                  <el-icon><Search /></el-icon>查询
+                </el-button>
+                <el-button @click="resetTypeSearch">
+                  <el-icon><Refresh /></el-icon>重置
+                </el-button>
+              </el-form-item>
+            </el-form>
+          </div>
+          <div class="search-right">
+             <el-button type="primary" class="add-btn" @click="handleTypeAdd">
+               <el-icon><Plus /></el-icon>新增车型
+             </el-button>
+          </div>
+        </div>
+
+        <!-- Table Types -->
+        <el-table :data="typeTableData" style="width: 100%" v-loading="typeLoading" class="modern-table">
+            <el-table-column prop="TNo" label="类型编号" min-width="120" align="center">
+              <template #default="scope">
+                <el-tag type="info" effect="plain" round>{{ scope.row.TNo }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="TName" label="车型名称" min-width="200" align="center">
+              <template #default="scope">
+                <span style="font-weight: 600; color: #1e293b;">{{ scope.row.TName }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="RentRate" label="基准日租金" min-width="150" align="right">
+              <template #default="scope">
+                <div class="price-tag">
+                  <span class="currency">¥</span>
+                  <span class="amount">{{ scope.row.RentRate }}</span>
+                  <span class="unit">/天</span>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="160" align="center" fixed="right">
+              <template #default="scope">
+                <el-tooltip content="编辑" placement="top">
+                  <el-button circle size="small" type="primary" plain @click="handleTypeEdit(scope.row)">
+                    <el-icon><Edit /></el-icon>
+                  </el-button>
+                </el-tooltip>
+                <el-tooltip content="删除" placement="top">
+                  <el-button circle size="small" type="danger" plain @click="handleTypeDelete(scope.row)">
+                    <el-icon><Delete /></el-icon>
+                  </el-button>
+                </el-tooltip>
+              </template>
+            </el-table-column>
+        </el-table>
+      </el-card>
+    </div>
+
+    <!-- Type Dialog -->
+    <el-dialog
+      :model-value="typeDialogVisible"
+      :title="isTypeEdit ? '编辑车型' : '新增车型'"
+      width="500px"
+      @close="handleTypeClose"
+      destroy-on-close
+    >
+      <el-form ref="typeFormRef" :model="typeFormData" :rules="typeRules" label-width="100px">
+        <el-form-item label="类型编号" prop="TNo">
+          <el-input v-model="typeFormData.TNo" placeholder="例如: T001" :disabled="isTypeEdit" />
+        </el-form-item>
+        <el-form-item label="车型名称" prop="TName">
+          <el-input v-model="typeFormData.TName" placeholder="例如: Toyota Camry" />
+        </el-form-item>
+        <el-form-item label="日租金" prop="RentRate">
+          <el-input-number v-model="typeFormData.RentRate" :min="0" :step="50" style="width: 100%" controls-position="right">
+            <template #prefix>¥</template>
+          </el-input-number>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="handleTypeClose">取消</el-button>
+          <el-button type="primary" @click="handleTypeSubmit">确定</el-button>
+        </span>
+      </template>
+    </el-dialog>
 
     <!-- 新增/编辑弹窗 -->
     <CarEditDialog 
@@ -140,38 +242,69 @@
       :edit-data="currentEditData"
       @submit="handleDialogSubmit"
     />
+
+    <!-- 送修弹窗 -->
+    <CarMaintenanceDialog 
+      v-model:visible="maintenanceDialogVisible"
+      :car-data="currentMaintenanceCar"
+      @submit="handleMaintenanceSubmit"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, defineAsyncComponent } from 'vue'
-import { Search, Refresh, Plus, Edit, Delete, Van } from '@element-plus/icons-vue'
+import { Search, Refresh, Plus, Edit, Delete, Van, Tools } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 // 异步加载组件
 const CarEditDialog = defineAsyncComponent(() => 
   import('./components/CarDialog.vue')
 )
+const CarMaintenanceDialog = defineAsyncComponent(() => 
+  import('./components/CarMaintenanceDialog.vue')
+)
 
 // 弹窗控制
 const dialogVisible = ref(false)
+const maintenanceDialogVisible = ref(false)
+const typeDialogVisible = ref(false) // For Type Dialog
 const currentEditData = ref(null)
+const currentMaintenanceCar = ref(null)
+const isTypeEdit = ref(false)
 
-// 搜索表单
+// 搜索表单 (Cars)
 const searchForm = reactive({
   CarID: '',
   TName: '',
   CarStatus: ''
 })
 
+// 搜索表单 (Types)
+const typeSearchForm = reactive({ keyword: '' })
+
 const loading = ref(false)
+const typeLoading = ref(false) // Loading for types
 const pagination = reactive({
   currentPage: 1,
   pageSize: 10,
   total: 4
 })
 
-// Mock 数据
+// Form Data for Types
+const typeFormData = reactive({
+  TNo: '',
+  TName: '',
+  RentRate: 0
+})
+
+const typeRules = {
+  TNo: [{ required: true, message: '请输入类型编号', trigger: 'blur' }],
+  TName: [{ required: true, message: '请输入车型名称', trigger: 'blur' }],
+  RentRate: [{ required: true, message: '请输入日租金', trigger: 'blur' }]
+}
+
+// Mock 数据 (Cars)
 const tableData = ref([
   {
     CarID: '京A88888',
@@ -210,6 +343,15 @@ const tableData = ref([
     Price: 750000.00
   },
 ])
+
+// Mock Data (Types)
+const mockTypeData = [
+  { TNo: 'T001', TName: 'Toyota Camry', RentRate: 350.00 },
+  { TNo: 'T002', TName: 'Tesla Model 3', RentRate: 500.00 },
+  { TNo: 'T003', TName: 'Benz S-Class', RentRate: 1200.00 },
+  { TNo: 'T004', TName: 'BMW X5', RentRate: 1100.00 }
+]
+const typeTableData = ref([...mockTypeData])
 
 const getStatusClass = (status) => {
   const map = {
@@ -254,6 +396,88 @@ const handleEdit = (row) => {
   dialogVisible.value = true
 }
 
+const handleMaintenance = (row) => {
+  currentMaintenanceCar.value = { ...row }
+  maintenanceDialogVisible.value = true
+}
+
+const handleMaintenanceSubmit = (formData) => {
+  const index = tableData.value.findIndex(item => item.CarID === formData.CarID)
+  if (index !== -1) {
+    // Update status to '2' (Maintenance)
+    tableData.value[index].CarStatus = '2'
+    ElMessage.success('车辆已送修')
+  }
+}
+
+// --- Type Management Methods ---
+const typeFormRef = ref(null)
+
+const handleTypeSearch = () => {
+  typeLoading.value = true
+  setTimeout(() => {
+    typeTableData.value = mockTypeData.filter(item => 
+      !typeSearchForm.keyword || 
+      item.TName.toLowerCase().includes(typeSearchForm.keyword.toLowerCase()) || 
+      item.TNo.toLowerCase().includes(typeSearchForm.keyword.toLowerCase())
+    )
+    typeLoading.value = false
+    ElMessage.success('车型搜索完成')
+  }, 300)
+}
+
+const resetTypeSearch = () => {
+  typeSearchForm.keyword = ''
+  handleTypeSearch()
+}
+
+const handleTypeAdd = () => {
+  isTypeEdit.value = false
+  typeFormData.TNo = ''
+  typeFormData.TName = ''
+  typeFormData.RentRate = 0
+  typeDialogVisible.value = true
+}
+
+const handleTypeEdit = (row) => {
+  isTypeEdit.value = true
+  Object.assign(typeFormData, row)
+  typeDialogVisible.value = true
+}
+
+const handleTypeDelete = (row) => {
+  ElMessageBox.confirm(`确定要删除车型 ${row.TName} 吗？`, '警告', {
+    type: 'warning',
+    confirmButtonText: '删除',
+    cancelButtonText: '取消'
+  }).then(() => {
+    typeTableData.value = typeTableData.value.filter(item => item.TNo !== row.TNo)
+    ElMessage.success('删除成功')
+  }).catch(() => {})
+}
+
+const handleTypeClose = () => {
+  typeDialogVisible.value = false
+}
+
+const handleTypeSubmit = async () => {
+  if (!typeFormRef.value) return
+  await typeFormRef.value.validate((valid) => {
+    if (valid) {
+      setTimeout(() => {
+        if (isTypeEdit.value) {
+          const index = typeTableData.value.findIndex(item => item.TNo === typeFormData.TNo)
+          if (index !== -1) typeTableData.value[index] = { ...typeFormData }
+        } else {
+          typeTableData.value.push({ ...typeFormData })
+        }
+        typeDialogVisible.value = false
+        ElMessage.success(isTypeEdit.value ? '修改成功' : '新增成功')
+      }, 500)
+    }
+  })
+}
+
 const handleDialogSubmit = (formData) => {
   if (currentEditData.value) {
     const index = tableData.value.findIndex(item => item.CarID === currentEditData.value.CarID)
@@ -288,57 +512,65 @@ const handleCurrentChange = (val) => {
 <style scoped lang="scss">
 .car-management {
   padding: 0;
-
-  .page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 24px;
-
-    .header-left {
-      .page-title {
-        font-size: 24px;
-        font-weight: 600;
-        color: #1a1a1a;
-        margin: 0 0 8px 0;
-      }
-      
-      .page-subtitle {
-        color: #909399;
-        font-size: 14px;
-      }
+  
+  .section-divider {
+    height: 40px;
+    margin: 20px 0;
+    border-top: 1px dashed rgba(0,0,0,0.1);
+    position: relative;
+    
+    &::after {
+      content: '•••';
+      position: absolute;
+      top: -12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #fdfbfb; /* Match page bg */
+      padding: 0 10px;
+      color: #ccc;
+      letter-spacing: 4px;
     }
+  }
 
-    .add-btn {
-      border-radius: 8px;
-      padding: 12px 24px;
-      box-shadow: 0 4px 12px rgba(64, 158, 255, 0.3);
-      transition: transform 0.2s;
-
-      &:hover {
-        transform: translateY(-2px);
-      }
+  .section-header {
+    margin-bottom: 24px;
+    h3 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 700;
+      color: #334155;
+      padding-left: 12px;
+      border-left: 4px solid #409eff;
     }
   }
 
   .main-card {
-    border: none;
-    border-radius: 16px;
-    background: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    border-radius: 24px; /* Increased radius to match others */
+    background: rgba(255, 255, 255, 0.85); /* Glass background */
+    backdrop-filter: blur(20px); /* Blur effect */
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.02);
     overflow: hidden;
     
     :deep(.el-card__body) {
-      padding: 24px;
+      padding: 32px; /* Increased padding to match others */
     }
   }
 
   .search-bar {
     margin-bottom: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center; /* Center align items */
+    flex-wrap: wrap;
+    gap: 16px;
+    padding: 8px 4px; /* Add some breathing room */
     
     .search-form {
       display: flex;
       flex-wrap: wrap;
-      gap: 12px;
+      gap: 16px; /* Increased gap */
+      align-items: center;
       
       :deep(.el-form-item) {
         margin-bottom: 0;
@@ -349,21 +581,129 @@ const handleCurrentChange = (val) => {
         width: 220px;
         
         :deep(.el-input__wrapper) {
-          border-radius: 8px;
-          box-shadow: 0 0 0 1px #dcdfe6 inset;
+          border-radius: 50px; /* Pill shape */
+          background: rgba(248, 250, 252, 0.8);
+          box-shadow: none;
+          border: 1px solid transparent;
+          transition: all 0.3s;
+          padding-left: 16px;
           
           &:hover {
-            box-shadow: 0 0 0 1px #c0c4cc inset;
+            background: white;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
           }
           
           &.is-focus {
-            box-shadow: 0 0 0 1px #409eff inset;
+            background: white;
+            box-shadow: 0 4px 12px rgba(64, 158, 255, 0.15);
+            border-color: rgba(64, 158, 255, 0.3);
           }
         }
       }
 
+      /* Select styling */
+      :deep(.el-select .el-input__wrapper) {
+        border-radius: 50px;
+        background: rgba(248, 250, 252, 0.8);
+        box-shadow: none;
+        border: 1px solid transparent;
+        
+        &:hover {
+          background: white;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+        
+        &.is-focus {
+          box-shadow: 0 4px 12px rgba(64, 158, 255, 0.15);
+        }
+      }
+
+      /* General Button Styling (Reset & Search) */
+      :deep(.el-button) {
+        border-radius: 50px;
+        padding: 8px 24px;
+        font-weight: 500;
+        transition: all 0.3s;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        
+        &:hover {
+          transform: translateY(-2px);
+        }
+      }
+
       .search-btn {
-        border-radius: 8px;
+        background: linear-gradient(135deg, #409eff 0%, #3b82f6 100%);
+        border: none;
+        box-shadow: 0 4px 12px rgba(64, 158, 255, 0.3);
+        letter-spacing: 1px;
+        color: white;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+
+        &:hover {
+          box-shadow: 0 6px 16px rgba(64, 158, 255, 0.4);
+        }
+      }
+    }
+
+    .add-btn {
+      border-radius: 50px;
+      padding: 10px 24px;
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%); /* Green for Add action */
+      border: none;
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
+        background: linear-gradient(135deg, #34d399 0%, #059669 100%);
+      }
+    }
+  }
+
+  /* 现代表格样式优化 */
+  .modern-table {
+    background-color: transparent !important;
+    --el-table-border-color: transparent;
+    --el-table-header-bg-color: transparent;
+    --el-table-tr-bg-color: transparent;
+    
+    &::before { display: none; } /* 去除底部边框线 */
+
+    :deep(th.el-table__cell) {
+      background: transparent;
+      font-weight: 600;
+      color: #64748b;
+      height: 56px;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+      font-size: 13px;
+      letter-spacing: 0.5px;
+    }
+
+    :deep(td.el-table__cell) {
+      border-bottom: 1px solid rgba(0, 0, 0, 0.03);
+      padding: 16px 0;
+      transition: all 0.3s;
+    }
+
+    :deep(.el-table__row) {
+      transition: all 0.3s;
+      
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.6) !important;
+        transform: scale(1.002);
+        
+        td.el-table__cell {
+          background-color: rgba(255, 255, 255, 0.6) !important;
+        }
       }
     }
   }
