@@ -6,16 +6,6 @@
 -- ================================================
 
 -- ================================================
--- 删除现有表（按照外键依赖顺序）
--- ================================================
-DROP TABLE IF EXISTS rental;
-DROP TABLE IF EXISTS car_repair;
-DROP TABLE IF EXISTS car;
-DROP TABLE IF EXISTS driver;
-DROP TABLE IF EXISTS customer;
-DROP TABLE IF EXISTS car_type;
-
--- ================================================
 -- 表 3.1 Customer（客户表）
 -- ================================================
 CREATE TABLE IF NOT EXISTS customer (

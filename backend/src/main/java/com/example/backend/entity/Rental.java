@@ -27,16 +27,28 @@ public class Rental {
     private String invoiceNo;
 
     /**
-     * 日期
+     * 借车日期
      */
-    @Column(name = "Date")
-    private LocalDate date;
+    @Column(name = "LoanDate")
+    private LocalDate loanDate;
 
     /**
-     * 地点
+     * 还车日期
      */
-    @Column(name = "Place", length = 100)
-    private String place;
+    @Column(name = "ReturnDate")
+    private LocalDate returnDate;
+
+    /**
+     * 借车地点
+     */
+    @Column(name = "LoanPlace", length = 100)
+    private String loanPlace;
+
+    /**
+     * 还车地点
+     */
+    @Column(name = "ReturnPlace", length = 100)
+    private String returnPlace;
 
     /**
      * 牌照号（外键）
@@ -95,4 +107,3 @@ public class Rental {
     @JoinColumn(name = "DNo", referencedColumnName = "DNo", insertable = false, updatable = false)
     private Driver driver;
 }
-

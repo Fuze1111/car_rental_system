@@ -60,6 +60,18 @@ public class Car {
     private String tName;
 
     /**
+     * 运行公里
+     */
+    @Column(name = "RUNKM", precision = 10, scale = 2)
+    private BigDecimal runKm;
+
+    /**
+     * 运行小时
+     */
+    @Column(name = "RunHour", precision = 8, scale = 2)
+    private BigDecimal runHour;
+
+    /**
      * 关联的汽车类型
      */
     @ManyToOne(fetch = FetchType.EAGER)
@@ -69,4 +81,3 @@ public class Car {
     })
     private CarType carType;
 }
-

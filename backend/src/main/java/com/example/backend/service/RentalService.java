@@ -211,11 +211,17 @@ public class RentalService {
         }
 
         // 更新租赁信息
-        if (rentalRequestDTO.getDate() != null) {
-            existingRental.setDate(rentalRequestDTO.getDate());
+        if (rentalRequestDTO.getLoanDate() != null) {
+            existingRental.setLoanDate(rentalRequestDTO.getLoanDate());
         }
-        if (rentalRequestDTO.getPlace() != null) {
-            existingRental.setPlace(rentalRequestDTO.getPlace());
+        if (rentalRequestDTO.getReturnDate() != null) {
+            existingRental.setReturnDate(rentalRequestDTO.getReturnDate());
+        }
+        if (rentalRequestDTO.getLoanPlace() != null) {
+            existingRental.setLoanPlace(rentalRequestDTO.getLoanPlace());
+        }
+        if (rentalRequestDTO.getReturnPlace() != null) {
+            existingRental.setReturnPlace(rentalRequestDTO.getReturnPlace());
         }
         if (rentalRequestDTO.getCarId() != null) {
             existingRental.setCarId(rentalRequestDTO.getCarId());
@@ -308,12 +314,12 @@ public class RentalService {
     }
 
     /**
-     * 根据地点模糊查询租赁记录
-     * @param place 地点关键字
+     * 根据借车地点模糊查询租赁记录
+     * @param loanPlace 借车地点关键字
      * @return 租赁记录列表
      */
-    public List<RentalResponseDTO> searchRentalsByPlace(String place) {
-        List<Rental> rentals = rentalRepository.findByPlaceContaining(place);
+    public List<RentalResponseDTO> searchRentalsByPlace(String loanPlace) {
+        List<Rental> rentals = rentalRepository.findByLoanPlaceContaining(loanPlace);
         return rentals.stream()
                 .map(this::convertToResponseDTO)
                 .collect(Collectors.toList());
@@ -408,8 +414,10 @@ public class RentalService {
     private RentalResponseDTO convertToResponseDTO(Rental rental) {
         RentalResponseDTO dto = new RentalResponseDTO();
         dto.setInvoiceNo(rental.getInvoiceNo());
-        dto.setDate(rental.getDate());
-        dto.setPlace(rental.getPlace());
+        dto.setLoanDate(rental.getLoanDate());
+        dto.setReturnDate(rental.getReturnDate());
+        dto.setLoanPlace(rental.getLoanPlace());
+        dto.setReturnPlace(rental.getReturnPlace());
         dto.setCarId(rental.getCarId());
         dto.setCNo(rental.getCNo());
         dto.setDNo(rental.getDNo());
@@ -443,8 +451,10 @@ public class RentalService {
     private Rental convertToEntity(RentalRequestDTO dto) {
         Rental rental = new Rental();
         rental.setInvoiceNo(dto.getInvoiceNo());
-        rental.setDate(dto.getDate());
-        rental.setPlace(dto.getPlace());
+        rental.setLoanDate(dto.getLoanDate());
+        rental.setReturnDate(dto.getReturnDate());
+        rental.setLoanPlace(dto.getLoanPlace());
+        rental.setReturnPlace(dto.getReturnPlace());
         rental.setCarId(dto.getCarId());
         rental.setCNo(dto.getCNo());
         rental.setDNo(dto.getDNo());

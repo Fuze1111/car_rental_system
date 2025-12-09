@@ -18,14 +18,24 @@ public class RentalResponseDTO {
     private String invoiceNo;
 
     /**
-     * 日期
+     * 借车日期
      */
-    private LocalDate date;
+    private LocalDate loanDate;
 
     /**
-     * 地点
+     * 还车日期
      */
-    private String place;
+    private LocalDate returnDate;
+
+    /**
+     * 借车地点
+     */
+    private String loanPlace;
+
+    /**
+     * 还车地点
+     */
+    private String returnPlace;
 
     /**
      * 车辆ID
@@ -72,4 +82,3 @@ public class RentalResponseDTO {
      */
     private String carType;
 }
-

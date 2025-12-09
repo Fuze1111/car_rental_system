@@ -151,14 +151,14 @@ public class RentalController {
     }
 
     /**
-     * 根据地点模糊查询租赁记录
+     * 根据借车地点模糊查询租赁记录
      * GET /api/rentals/search/place?place=xxx
-     * @param place 地点关键字
+     * @param loanPlace 借车地点关键字
      * @return 租赁记录列表
      */
     @GetMapping("/search/place")
-    public ResponseEntity<List<RentalResponseDTO>> searchRentalsByPlace(@RequestParam String place) {
-        List<RentalResponseDTO> rentals = rentalService.searchRentalsByPlace(place);
+    public ResponseEntity<List<RentalResponseDTO>> searchRentalsByPlace(@RequestParam String loanPlace) {
+        List<RentalResponseDTO> rentals = rentalService.searchRentalsByPlace(loanPlace);
         return ResponseEntity.ok(rentals);
     }
 
