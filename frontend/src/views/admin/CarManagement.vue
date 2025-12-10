@@ -196,6 +196,23 @@
                 <el-tag type="info" effect="plain" round>{{ scope.row.TNo }}</el-tag>
               </template>
             </el-table-column>
+            
+            <el-table-column label="车型图片" width="120" align="center">
+              <template #default="scope">
+                <el-image 
+                  :src="scope.row.Image" 
+                  :preview-src-list="[scope.row.Image]"
+                  fit="cover" 
+                  class="type-thumb"
+                  preview-teleported
+                >
+                  <template #error>
+                    <div class="image-slot"><el-icon><Picture /></el-icon></div>
+                  </template>
+                </el-image>
+              </template>
+            </el-table-column>
+
             <el-table-column prop="TName" label="车型名称" min-width="200" align="center">
               <template #default="scope">
                 <span style="font-weight: 600; color: #1e293b;">{{ scope.row.TName }}</span>
@@ -269,6 +286,19 @@
             <template #prefix>¥</template>
           </el-input-number>
         </el-form-item>
+        <el-form-item label="车型图片" prop="Image">
+          <el-upload
+            class="avatar-uploader"
+            action="#"
+            :show-file-list="false"
+            :auto-upload="false"
+            :on-change="handleFileChange"
+          >
+            <img v-if="typeFormData.Image" :src="typeFormData.Image" class="avatar" />
+            <el-icon v-else class="avatar-uploader-icon"><Plus /></el-icon>
+          </el-upload>
+          <div class="form-tip">支持 jpg/png，建议尺寸 800x600</div>
+        </el-form-item>
       </el-form>
       <template #footer>
         <span class="dialog-footer">
@@ -296,7 +326,7 @@
 
 <script setup>
 import { ref, reactive, defineAsyncComponent } from 'vue'
-import { Search, Refresh, Plus, Edit, Delete, Van, Tools } from '@element-plus/icons-vue'
+import { Search, Refresh, Plus, Edit, Delete, Van, Tools, Picture } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 // 异步加载组件
@@ -345,7 +375,8 @@ const typePagination = reactive({
 const typeFormData = reactive({
   TNo: '',
   TName: '',
-  RentRate: 0
+  RentRate: 0,
+  Image: ''
 })
 
 const typeRules = {
@@ -404,10 +435,10 @@ const tableData = ref([
 
 // Mock Data (Types)
 const mockTypeData = [
-  { TNo: 'T001', TName: 'Toyota Camry', RentRate: 350.00 },
-  { TNo: 'T002', TName: 'Tesla Model 3', RentRate: 500.00 },
-  { TNo: 'T003', TName: 'Benz S-Class', RentRate: 1200.00 },
-  { TNo: 'T004', TName: 'BMW X5', RentRate: 1100.00 }
+  { TNo: 'T001', TName: 'Toyota Camry', RentRate: 350.00, Image: 'https://images.unsplash.com/photo-1621007947382-bb3c3968e3bb?auto=format&fit=crop&q=80&w=200' },
+  { TNo: 'T002', TName: 'Tesla Model 3', RentRate: 500.00, Image: 'https://images.unsplash.com/photo-1560958089-b8a1929cea89?auto=format&fit=crop&q=80&w=200' },
+  { TNo: 'T003', TName: 'Benz S-Class', RentRate: 1200.00, Image: 'https://images.unsplash.com/photo-1617788138017-80ad40651399?auto=format&fit=crop&q=80&w=200' },
+  { TNo: 'T004', TName: 'BMW X5', RentRate: 1100.00, Image: 'https://images.unsplash.com/photo-1555215695-3004980adade?auto=format&fit=crop&q=80&w=200' }
 ]
 const typeTableData = ref([...mockTypeData])
 
@@ -537,6 +568,11 @@ const handleTypeClose = () => {
   typeDialogVisible.value = false
 }
 
+const handleFileChange = (uploadFile) => {
+  // 模拟上传：生成本地预览 URL
+  typeFormData.Image = URL.createObjectURL(uploadFile.raw)
+}
+
 const handleTypeSubmit = async () => {
   if (!typeFormRef.value) return
   await typeFormRef.value.validate((valid) => {
@@ -633,6 +669,49 @@ const handleTypeCurrentChange = (val) => {
     font-weight: 600;
     color: #475569;
   }
+}
+
+.type-thumb {
+  width: 80px;
+  height: 50px;
+  border-radius: 6px;
+  border: 1px solid #f1f5f9;
+}
+
+.avatar-uploader .el-upload {
+  border: 1px dashed #d9d9d9;
+  border-radius: 6px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: var(--el-transition-duration-fast);
+  background: #fafafa;
+}
+
+.avatar-uploader .el-upload:hover {
+  border-color: #409eff;
+}
+
+.avatar-uploader-icon {
+  font-size: 28px;
+  color: #8c939d;
+  width: 120px;
+  height: 120px;
+  text-align: center;
+  line-height: 120px;
+}
+
+.avatar {
+  width: 120px;
+  height: 120px;
+  display: block;
+  object-fit: cover;
+}
+
+.form-tip {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 4px;
 }
 
 .custom-input,

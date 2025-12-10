@@ -10,8 +10,21 @@ const router = createRouter({
       component: Login
     },
     {
-      path: '/',
-      redirect: '/login'
+      path: '/user',
+      component: () => import('../layout/UserLayout.vue'),
+      redirect: '/user/cars',
+      children: [
+        {
+          path: 'cars',
+          name: 'user-cars',
+          component: () => import('../views/user/CarSelection.vue')
+        },
+        {
+          path: 'profile',
+          name: 'user-profile',
+          component: () => import('../views/user/UserProfile.vue')
+        }
+      ]
     },
     {
       path: '/admin',
