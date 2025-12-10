@@ -82,19 +82,26 @@
 | 字段名 | 类型 | 约束 | 说明 |
 |--------|------|------|------|
 | InvoiceNo | CHAR(20) | 主键 | 发票号 |
-| Date | DATE | NULL | 日期 |
-| Place | CHAR(100) | NULL | 地点 |
+| LoanDate | DATETIME | NULL | 借车日期时间 |
+| ReturnDate | DATETIME | NULL | 还车日期时间 |
+| LoanPlace | VARCHAR(100) | NULL | 借车地点 |
+| ReturnPlace | VARCHAR(100) | NULL | 还车地点 |
 | CarID | CHAR(10) | 外键 | 牌照号 |
 | CNo | CHAR(8) | 外键 | 客户号 |
 | DNo | CHAR(8) | 外键 | 司机号 |
-| RoundTripDistance | NUMERIC(8,2) | NULL | 往返里程 |
-| DriveTime | NUMERIC(4,2) | NULL | 行驶时间 |
-| Amount | NUMERIC(8,2) | NULL | 应付金额 |
+| RoundTripDistance | NUMERIC(8,2) | NULL | 往返里程(公里) |
+| DriveTime | NUMERIC(4,2) | NULL | 行驶时间(小时) |
+| Amount | NUMERIC(8,2) | NULL | 应付金额(元) |
 
 **外键关系**：
 - `CarID` → `Car(CarID)`
 - `CNo` → `Customer(CNo)`
 - `DNo` → `Driver(DNo)`
+
+**说明**：
+- DriveTime单位为小时，精确到小数点后两位（如1.50表示1小时30分钟）
+- RoundTripDistance单位为公里
+- Amount单位为人民币元
 
 ---
 

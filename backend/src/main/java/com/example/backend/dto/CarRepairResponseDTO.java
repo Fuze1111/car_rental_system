@@ -5,7 +5,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 /**
  * 车辆维修记录响应DTO
@@ -18,12 +18,12 @@ public class CarRepairResponseDTO {
     /**
      * 维修编号
      */
-    private Integer rNo;
+    private String rNo;
 
     /**
      * 维修日期
      */
-    private LocalDate rDate;
+    private LocalDateTime rDate;
 
     /**
      * 运行公里

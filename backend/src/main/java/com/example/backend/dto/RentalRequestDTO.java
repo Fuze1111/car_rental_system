@@ -3,7 +3,7 @@ package com.example.backend.dto;
 import lombok.Data;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 /**
  * 租赁业务请求DTO
@@ -20,12 +20,12 @@ public class RentalRequestDTO {
     /**
      * 借车日期
      */
-    private LocalDate loanDate;
+    private LocalDateTime loanDate;
 
     /**
      * 还车日期
      */
-    private LocalDate returnDate;
+    private LocalDateTime returnDate;
 
     /**
      * 借车地点

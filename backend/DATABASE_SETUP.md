@@ -114,6 +114,27 @@ SOURCE /path/to/data.sql;
 5. `car_repair` - 汽车维修表
 6. `rental` - 租赁业务表
 
+### 租赁业务表 (rental) 字段说明
+
+| 字段名 | 类型 | 约束 | 说明 |
+|--------|------|------|------|
+| InvoiceNo | CHAR(20) | 主键 | 发票号 |
+| LoanDate | DATETIME | NULL | 借车日期时间 |
+| ReturnDate | DATETIME | NULL | 还车日期时间 |
+| LoanPlace | VARCHAR(100) | NULL | 借车地点 |
+| ReturnPlace | VARCHAR(100) | NULL | 还车地点 |
+| CarID | CHAR(10) | 外键 | 牌照号 |
+| CNo | CHAR(8) | 外键 | 客户号 |
+| DNo | CHAR(8) | 外键 | 司机号 |
+| RoundTripDistance | NUMERIC(8,2) | NULL | 往返里程(公里) |
+| DriveTime | NUMERIC(4,2) | NULL | 行驶时间(小时) |
+| Amount | NUMERIC(8,2) | NULL | 应付金额(元) |
+
+**说明**：
+- DriveTime单位为小时，精确到小数点后两位（如1.50表示1小时30分钟）
+- RoundTripDistance单位为公里
+- Amount单位为人民币元
+
 ---
 
 ## ⚠️ 注意事项

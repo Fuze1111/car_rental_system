@@ -143,6 +143,9 @@ public class RentalService {
             throw new RuntimeException("租赁记录ID不能为空");
         }
         
+        // 自动计算金额
+        rental.setAmount(calculateRentalAmount(rental));
+        
         Rental savedRental = rentalRepository.save(rental);
         
         // 更新车辆状态为已租(1)
@@ -238,9 +241,9 @@ public class RentalService {
         if (rentalRequestDTO.getDriveTime() != null) {
             existingRental.setDriveTime(rentalRequestDTO.getDriveTime());
         }
-        if (rentalRequestDTO.getAmount() != null) {
-            existingRental.setAmount(rentalRequestDTO.getAmount());
-        }
+        
+        // 自动计算金额
+        existingRental.setAmount(calculateRentalAmount(existingRental));
 
         Rental updatedRental = rentalRepository.save(existingRental);
         return convertToResponseDTO(updatedRental);
@@ -409,6 +412,53 @@ public class RentalService {
     }
 
     /**
+     * 根据租赁信息自动计算金额
+     * 计算公式：amount = 每小时费用 × 时间差 + (每小时费用 ÷ 50) × 公里数
+     * @param rental 租赁实体
+     * @return 计算出的金额
+     */
+    private BigDecimal calculateRentalAmount(Rental rental) {
+        // 检查必要字段是否存在
+        if (rental.getCarId() == null || rental.getLoanDate() == null || rental.getReturnDate() == null) {
+            return BigDecimal.ZERO;
+        }
+
+        // 获取车辆信息
+        Car car = carRepository.findById(rental.getCarId()).orElse(null);
+        if (car == null) {
+            System.err.println("警告: 未找到车辆ID为 " + rental.getCarId() + " 的车辆信息");
+            return BigDecimal.ZERO;
+        }
+        
+        if (car.getCarType() == null) {
+            System.err.println("警告: 车辆ID为 " + rental.getCarId() + " 的车辆类型信息为空");
+            return BigDecimal.ZERO;
+        }
+
+        // 获取每小时费用
+        BigDecimal hourlyRate = car.getCarType().getRentRate();
+        if (hourlyRate == null) {
+            System.err.println("警告: 车辆类型 " + car.getCarType().getTName() + " 的租金率为空");
+            return BigDecimal.ZERO;
+        }
+
+        // 计算时间差（小时）
+        long hoursDiff = java.time.Duration.between(rental.getLoanDate(), rental.getReturnDate()).toHours();
+        BigDecimal timeCost = hourlyRate.multiply(BigDecimal.valueOf(hoursDiff));
+
+        // 计算里程费用（每小时费用 ÷ 50 × 公里数）
+        BigDecimal kilometerRate = hourlyRate.divide(BigDecimal.valueOf(50), 2, java.math.RoundingMode.HALF_UP);
+        BigDecimal distanceCost = BigDecimal.ZERO;
+        if (rental.getRoundTripDistance() != null) {
+            distanceCost = kilometerRate.multiply(rental.getRoundTripDistance());
+        }
+
+        // 总费用 = 时间费用 + 里程费用
+        BigDecimal totalAmount = timeCost.add(distanceCost);
+        return totalAmount.setScale(2, java.math.RoundingMode.HALF_UP);
+    }
+
+    /**
      * 将Rental实体转换为RentalResponseDTO
      */
     private RentalResponseDTO convertToResponseDTO(Rental rental) {
@@ -460,7 +510,7 @@ public class RentalService {
         rental.setDNo(dto.getDNo());
         rental.setRoundTripDistance(dto.getRoundTripDistance());
         rental.setDriveTime(dto.getDriveTime());
-        rental.setAmount(dto.getAmount());
+        // 不再从DTO获取amount，而是通过calculateRentalAmount方法计算
         return rental;
     }
 }
