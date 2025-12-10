@@ -143,3 +143,15 @@ CREATE TABLE IF NOT EXISTS car_type_image (
     PRIMARY KEY (ImageID),
     FOREIGN KEY (TNo, TName) REFERENCES car_type(TNo, TName) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='车型图片表';
+
+-- ================================================
+-- 表 4.5 Store（租车门店表）
+-- ================================================
+CREATE TABLE IF NOT EXISTS store (
+    StoreNo     INT             NOT NULL AUTO_INCREMENT COMMENT '门店号',
+    City        VARCHAR(50)     NOT NULL COMMENT '城市',
+    StoreName   VARCHAR(100)    NOT NULL COMMENT '门店名称',
+    Address     VARCHAR(200)    NOT NULL COMMENT '门店位置',
+
+    PRIMARY KEY (StoreNo)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='租车门店表';
