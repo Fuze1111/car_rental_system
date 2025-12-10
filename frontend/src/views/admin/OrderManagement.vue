@@ -25,12 +25,12 @@
             <el-form-item>
               <el-date-picker
                 v-model="activeSearchForm.dateRange"
-                type="daterange"
+                type="datetimerange"
                 range-separator="至"
                 start-placeholder="借车开始"
                 end-placeholder="借车结束"
-                value-format="YYYY-MM-DD"
-                style="width: 240px"
+                value-format="YYYY-MM-DD HH:mm:ss"
+                style="width: 380px"
               />
             </el-form-item>
             <el-form-item>
@@ -60,7 +60,7 @@
             </template>
           </el-table-column>
 
-          <el-table-column label="借还日期" width="220">
+          <el-table-column label="借还时间" width="320">
             <template #default="scope">
               <div class="date-range">
                 <span class="date">{{ scope.row.LoanDate }}</span>
@@ -122,15 +122,15 @@
                <span style="margin: 0 4px">-</span>
                <el-input-number v-model="historySearchForm.maxAmount" :min="0" :controls="false" placeholder="Max" style="width: 80px" />
             </el-form-item>
-            <el-form-item label="日期范围">
+            <el-form-item label="时间范围">
               <el-date-picker
                 v-model="historySearchForm.dateRange"
-                type="daterange"
+                type="datetimerange"
                 range-separator="至"
                 start-placeholder="开始"
                 end-placeholder="结束"
-                value-format="YYYY-MM-DD"
-                style="width: 220px"
+                value-format="YYYY-MM-DD HH:mm:ss"
+                style="width: 380px"
               />
             </el-form-item>
             <el-form-item>
@@ -169,7 +169,7 @@
             </template>
           </el-table-column>
           
-          <el-table-column label="借还日期" width="220" sortable>
+          <el-table-column label="借还时间" width="320" sortable>
             <template #default="scope">
               <div class="date-range">
                 <span class="date">{{ scope.row.LoanDate }}</span>
@@ -177,6 +177,15 @@
                 <span class="date">{{ scope.row.ReturnDate }}</span>
               </div>
             </template>
+          </el-table-column>
+
+          <el-table-column label="借还地点" min-width="180" show-overflow-tooltip>
+             <template #default="scope">
+               <div class="place-info">
+                 <div class="place-row"><el-icon><Location /></el-icon> 借: {{ scope.row.LoanPlace }}</div>
+                 <div class="place-row"><el-icon><LocationFilled /></el-icon> 还: {{ scope.row.ReturnPlace }}</div>
+               </div>
+             </template>
           </el-table-column>
 
           <el-table-column label="操作" width="80" fixed="right" align="center">
@@ -207,6 +216,7 @@
       width="420px"
       class="custom-dialog"
       destroy-on-close
+      append-to-body
     >
       <div class="dialog-content">
         <p class="dialog-tip">请录入车辆返回时的实际行驶数据</p>
@@ -235,6 +245,95 @@
         </span>
       </template>
     </el-dialog>
+
+    <!-- 订单详情弹窗 -->
+    <el-dialog
+      v-model="detailDialogVisible"
+      title="订单详情"
+      width="800px"
+      class="custom-dialog detail-dialog"
+      destroy-on-close
+      append-to-body
+      @opened="initMap"
+    >
+      <div class="detail-container" v-if="currentDetailOrder">
+        <!-- 左侧信息 -->
+        <div class="detail-info">
+          <div class="info-block">
+            <h4 class="block-title">基本信息</h4>
+            <div class="info-grid">
+              <div class="info-item">
+                <span class="label">订单号</span>
+                <span class="value code">{{ currentDetailOrder.InvoiceNo }}</span>
+              </div>
+              <div class="info-item">
+                <span class="label">车辆</span>
+                <span class="value plate">{{ currentDetailOrder.CarID }}</span>
+              </div>
+              <div class="info-item">
+                <span class="label">客户</span>
+                <span class="value">{{ getCustomerName(currentDetailOrder.CNo) }}</span>
+              </div>
+              <div class="info-item">
+                <span class="label">司机</span>
+                <span class="value">{{ currentDetailOrder.DNo ? getDriverName(currentDetailOrder.DNo) : '自驾' }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="info-block">
+            <h4 class="block-title">费用与数据</h4>
+            <div class="info-grid">
+              <div class="info-item">
+                <span class="label">实付金额</span>
+                <span class="value amount">¥{{ currentDetailOrder.Amount }}</span>
+              </div>
+              <div class="info-item">
+                <span class="label">行驶里程</span>
+                <span class="value">{{ currentDetailOrder.RoundTripDistance || '-' }} km</span>
+              </div>
+              <div class="info-item">
+                <span class="label">行驶时长</span>
+                <span class="value">{{ currentDetailOrder.DriveTime || '-' }} h</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="info-block">
+            <h4 class="block-title">行程路线</h4>
+            <div class="route-timeline">
+              <div class="route-point start">
+                <div class="dot"></div>
+                <div class="content">
+                  <span class="time">{{ currentDetailOrder.LoanDate }}</span>
+                  <span class="place">{{ currentDetailOrder.LoanPlace }}</span>
+                </div>
+              </div>
+              <div class="route-line"></div>
+              <div class="route-point end">
+                <div class="dot"></div>
+                <div class="content">
+                  <span class="time">{{ currentDetailOrder.ReturnDate }}</span>
+                  <span class="place">{{ currentDetailOrder.ReturnPlace }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 右侧地图 -->
+        <div class="detail-map">
+          <div id="order-map" class="map-container">
+            <!-- 占位提示，如果没有配置 Key -->
+            <div class="map-placeholder" v-if="!hasMapKey">
+              <el-icon class="map-icon"><LocationFilled /></el-icon>
+              <p>地图预览区域</p>
+              <span class="sub">请配置高德地图 Key 以查看真实轨迹</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -246,7 +345,15 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 const loading = ref(false)
 const submitting = ref(false)
 const dialogVisible = ref(false)
+const detailDialogVisible = ref(false)
 const currentOrder = ref(null)
+const currentDetailOrder = ref(null)
+const hasMapKey = ref(false) // 是否检测到地图API
+
+// 高德地图安全密钥配置 (请在此处填入您的 Key)
+// window._AMapSecurityConfig = {
+//   securityJsCode: '您的安全密钥',
+// }
 
 const activeSearchForm = reactive({ keyword: '' })
 const historySearchForm = reactive({ 
@@ -275,6 +382,86 @@ const getCarName = (id) => mockCars[id] || id
 const getCustomerName = (id) => mockCustomers[id] || id
 const getDriverName = (id) => mockDrivers[id] || id
 
+// Map Initialization
+const initMap = () => {
+  // 检查是否引入了高德地图 SDK
+  if (typeof AMap === 'undefined') {
+    hasMapKey.value = false
+    return
+  }
+  
+  hasMapKey.value = true
+  
+  const order = currentDetailOrder.value
+  const startAddr = order.LoanPlace
+  const endAddr = order.ReturnPlace
+
+  // 加载地理编码插件
+  AMap.plugin(['AMap.Geocoder', 'AMap.Polyline'], function() {
+    const geocoder = new AMap.Geocoder()
+    
+    // 创建地图实例
+    const map = new AMap.Map('order-map', {
+      zoom: 11,
+      viewMode: '3D'
+    })
+
+    // 解析借车地址
+    const p1 = new Promise((resolve) => {
+      geocoder.getLocation(startAddr, (status, result) => {
+        if (status === 'complete' && result.geocodes.length) {
+          resolve(result.geocodes[0].location)
+        } else {
+          console.warn('借车地址解析失败，使用默认坐标')
+          resolve(new AMap.LngLat(116.397428, 39.90923)) // 默认北京
+        }
+      })
+    })
+
+    // 解析还车地址
+    const p2 = new Promise((resolve) => {
+      geocoder.getLocation(endAddr, (status, result) => {
+        if (status === 'complete' && result.geocodes.length) {
+          resolve(result.geocodes[0].location)
+        } else {
+          console.warn('还车地址解析失败，使用默认坐标')
+          resolve(new AMap.LngLat(116.46, 39.92)) // 默认坐标
+        }
+      })
+    })
+
+    // 当两个地址都解析完成后绘制
+    Promise.all([p1, p2]).then(([startLngLat, endLngLat]) => {
+      // 起点 Marker
+      const startMarker = new AMap.Marker({
+        position: startLngLat,
+        title: startAddr,
+        label: { content: '取车: ' + startAddr, direction: 'top' }
+      })
+      
+      // 终点 Marker
+      const endMarker = new AMap.Marker({
+        position: endLngLat,
+        title: endAddr,
+        label: { content: '还车: ' + endAddr, direction: 'top' }
+      })
+
+      // 路线规划 (直线)
+      const polyline = new AMap.Polyline({
+        path: [startLngLat, endLngLat],
+        strokeColor: "#3366FF", 
+        strokeWeight: 6,
+        strokeStyle: "solid",
+        lineJoin: 'round',
+        lineCap: 'round'
+      })
+
+      map.add([startMarker, endMarker, polyline])
+      map.setFitView([startMarker, endMarker], false, [50, 50, 50, 50]) // 自动缩放视野以包含两点
+    })
+  })
+}
+
 // Mock Data Generation
 const generateData = () => {
   // Active Orders (Unfinished: No Amount, Distance, Time)
@@ -282,10 +469,10 @@ const generateData = () => {
   for (let i = 1; i <= 3; i++) {
     active.push({
       InvoiceNo: `INV2023129${i}`,
-      LoanDate: '2023-12-08',
-      ReturnDate: '2023-12-10',
-      LoanPlace: '北京大兴机场',
-      ReturnPlace: '北京首都机场',
+      LoanDate: `2023-12-08 09:${10 + i}:00`,
+      ReturnDate: `2023-12-10 14:${30 + i}:00`,
+      LoanPlace: '北京大兴国际机场',
+      ReturnPlace: '北京首都国际机场',
       CarID: Object.keys(mockCars)[i % 4],
       CNo: 'C0000001',
       DNo: null
@@ -296,13 +483,25 @@ const generateData = () => {
 
   // History Orders (Finished)
   const history = []
+  
+  // 测试用地名池 (覆盖不同城市和地标)
+  const locations = [
+    { loan: '上海虹桥国际机场', return: '上海浦东国际机场' },
+    { loan: '广州白云国际机场', return: '广州塔' },
+    { loan: '深圳宝安国际机场', return: '深圳北站' },
+    { loan: '成都双流国际机场', return: '成都春熙路' },
+    { loan: '杭州萧山国际机场', return: '杭州西湖风景名胜区' },
+    { loan: '武汉天河国际机场', return: '武汉黄鹤楼' }
+  ]
+
   for (let i = 1; i <= 10; i++) {
+    const loc = locations[(i - 1) % locations.length]
     history.push({
       InvoiceNo: `INV2023110${i}`,
-      LoanDate: '2023-11-01',
-      ReturnDate: '2023-11-03',
-      LoanPlace: '上海虹桥',
-      ReturnPlace: '上海浦东',
+      LoanDate: `2023-11-01 10:${15 + i}:00`,
+      ReturnDate: `2023-11-03 16:${45 + i}:00`,
+      LoanPlace: loc.loan,
+      ReturnPlace: loc.return,
       CarID: Object.keys(mockCars)[i % 4],
       CNo: 'C0000002',
       DNo: 'D0000001',
@@ -317,12 +516,28 @@ const generateData = () => {
 
 const handleActiveSearch = () => {
   loading.value = true
-  setTimeout(() => { loading.value = false; ElMessage.success('查询完成') }, 300)
+  // 模拟向后端发送查询请求
+  const queryParams = { ...activeSearchForm }
+  console.log('【后端查询】正在请求进行中订单，参数:', queryParams)
+  
+  // TODO: 对接后端时，使用 axios.post('/api/orders/active/search', queryParams)
+  setTimeout(() => { loading.value = false; ElMessage.success('查询完成 (Mock)') }, 300)
 }
 
 const handleHistorySearch = () => {
   loading.value = true
-  setTimeout(() => { loading.value = false; ElMessage.success('查询完成') }, 300)
+  // 模拟向后端发送查询请求
+  const queryParams = { 
+    ...historySearchForm,
+    // 如果日期范围存在，拆分为 startDate 和 endDate 发给后端 SQL 使用
+    startDate: historySearchForm.dateRange?.[0],
+    endDate: historySearchForm.dateRange?.[1]
+  }
+  console.log('【后端查询】正在请求历史订单，参数:', queryParams)
+
+  // TODO: 对接后端时，使用 axios.post('/api/orders/history/search', queryParams)
+  // 后端 SQL 示例: WHERE LoanDate BETWEEN #{startDate} AND #{endDate} AND Amount >= #{minAmount}...
+  setTimeout(() => { loading.value = false; ElMessage.success('查询完成 (Mock)') }, 300)
 }
 
 const handleHistoryReset = () => {
@@ -369,10 +584,9 @@ const handleCompleteSubmit = () => {
 }
 
 const handleView = (row) => {
-  ElMessageBox.alert(
-    `<p>订单号: ${row.InvoiceNo}</p><p>金额: ¥${row.Amount}</p>`,
-    '详情', { dangerouslyUseHTMLString: true }
-  )
+  currentDetailOrder.value = row
+  detailDialogVisible.value = true
+  hasMapKey.value = false // Reset, let initMap check again
 }
 
 const fetchHistory = () => {
@@ -399,6 +613,156 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
+/* Order Detail Dialog Styles */
+.detail-container {
+  display: flex;
+  gap: 24px;
+  height: 400px; /* Fixed height for layout */
+}
+
+.detail-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  overflow-y: auto;
+  padding-right: 12px;
+}
+
+.detail-map {
+  flex: 1;
+  background: #f8fafc;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  position: relative;
+}
+
+.map-container {
+  width: 100%;
+  height: 100%;
+}
+
+.map-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: #94a3b8;
+  background: #f1f5f9;
+  
+  .map-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    color: #cbd5e1;
+  }
+  
+  p {
+    margin: 0 0 8px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #64748b;
+  }
+  
+  .sub {
+    font-size: 12px;
+    color: #94a3b8;
+  }
+}
+
+.info-block {
+  .block-title {
+    margin: 0 0 16px 0;
+    font-size: 14px;
+    color: #64748b;
+    font-weight: 700;
+    padding-left: 8px;
+    border-left: 3px solid #3b82f6;
+  }
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  
+  .info-item {
+    display: flex;
+    flex-direction: column;
+    
+    .label {
+      font-size: 12px;
+      color: #94a3b8;
+      margin-bottom: 4px;
+    }
+    
+    .value {
+      font-size: 14px;
+      color: #1e293b;
+      font-weight: 600;
+      
+      &.code { font-family: monospace; }
+      &.plate { color: #3b82f6; }
+      &.amount { color: #10b981; font-size: 16px; }
+    }
+  }
+}
+
+.route-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: relative;
+  padding-left: 8px;
+  
+  .route-point {
+    display: flex;
+    gap: 16px;
+    position: relative;
+    z-index: 2;
+    
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-top: 6px;
+      background: white;
+      border: 2px solid #cbd5e1;
+      flex-shrink: 0;
+    }
+    
+    &.start .dot { border-color: #3b82f6; background: #3b82f6; }
+    &.end .dot { border-color: #10b981; background: #10b981; }
+    
+    .content {
+      display: flex;
+      flex-direction: column;
+      
+      .time {
+        font-size: 12px;
+        color: #94a3b8;
+      }
+      .place {
+        font-size: 14px;
+        font-weight: 600;
+        color: #334155;
+      }
+    }
+  }
+  
+  .route-line {
+    position: absolute;
+    left: 12px;
+    top: 14px;
+    bottom: 24px;
+    width: 2px;
+    background: #e2e8f0;
+    z-index: 1;
+  }
+}
+
 .order-management {
   max-width: 1600px;
   margin: 0 auto;

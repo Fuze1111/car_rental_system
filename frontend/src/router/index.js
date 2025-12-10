@@ -10,8 +10,26 @@ const router = createRouter({
       component: Login
     },
     {
-      path: '/',
-      redirect: '/login'
+      path: '/register',
+      name: 'register',
+      component: () => import('../views/Register.vue')
+    },
+    {
+      path: '/user',
+      component: () => import('../layout/UserLayout.vue'),
+      redirect: '/user/cars',
+      children: [
+        {
+          path: 'cars',
+          name: 'user-cars',
+          component: () => import('../views/user/CarSelection.vue')
+        },
+        {
+          path: 'profile',
+          name: 'user-profile',
+          component: () => import('../views/user/UserProfile.vue')
+        }
+      ]
     },
     {
       path: '/admin',
@@ -54,6 +72,19 @@ const router = createRouter({
           name: 'admin-settings',
           component: () => import('../views/admin/Settings.vue'),
           meta: { title: '系统设置' }
+        }
+      ]
+    },
+    {
+      path: '/driver',
+      component: () => import('../layout/DriverLayout.vue'),
+      redirect: '/driver/dashboard',
+      children: [
+        {
+          path: 'dashboard',
+          name: 'driver-dashboard',
+          component: () => import('../views/driver/DriverDashboard.vue'),
+          meta: { title: '司机工作台' }
         }
       ]
     }

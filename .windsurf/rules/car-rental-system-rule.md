@@ -3,3 +3,4 @@ trigger: manual
 ---
 
 回答时应该仔细观察要求，同时保持用中文（除非特别要求）。
+数据库定义在项目的.\backend\src\main\resources中，有需要时可以查看。

@@ -17,36 +17,6 @@
           
           <div class="tab-content">
             <el-form :model="generalForm" label-position="top" class="custom-form">
-              <el-row :gutter="40">
-                <el-col :span="12">
-                  <el-form-item label="系统名称">
-                    <el-input v-model="generalForm.systemName" placeholder="Car Rental System" />
-                  </el-form-item>
-                </el-col>
-                <el-col :span="12">
-                  <el-form-item label="备案号">
-                    <el-input v-model="generalForm.icpCode" placeholder="京ICP备..." />
-                  </el-form-item>
-                </el-col>
-              </el-row>
-
-              <el-form-item label="系统Logo">
-                <div class="upload-container">
-                  <el-avatar :size="80" shape="square" :src="generalForm.logoUrl" class="logo-preview" />
-                  <el-upload
-                    class="avatar-uploader"
-                    action="#"
-                    :show-file-list="false"
-                    :auto-upload="false"
-                  >
-                    <el-button type="primary" plain>更换Logo</el-button>
-                    <template #tip>
-                      <div class="el-upload__tip">只能上传 jpg/png 文件，且不超过 2MB</div>
-                    </template>
-                  </el-upload>
-                </div>
-              </el-form-item>
-
               <el-form-item label="系统维护模式">
                 <div class="switch-item">
                   <div class="switch-info">
@@ -109,6 +79,12 @@
                   </el-form-item>
                 </el-col>
               </el-row>
+
+              <div style="margin-top: 40px; display: flex; justify-content: flex-end;">
+                <el-button type="danger" plain size="large" @click="handleLogout">
+                  退出登录
+                </el-button>
+              </div>
             </el-form>
           </div>
         </el-tab-pane>
@@ -155,14 +131,6 @@
                 </div>
                 <el-switch v-model="notifyForm.dailyReport" />
               </div>
-
-              <div class="switch-row">
-                <div class="switch-info">
-                  <span class="label">用户注册提醒</span>
-                  <span class="desc">新用户注册待审核时通知</span>
-                </div>
-                <el-switch v-model="notifyForm.newUser" />
-              </div>
             </div>
           </div>
         </el-tab-pane>
@@ -201,11 +169,6 @@
                 <span class="value">MIT License</span>
               </div>
             </div>
-
-            <div class="actions">
-              <el-button type="primary" plain>检查更新</el-button>
-              <el-button link>开发文档</el-button>
-            </div>
           </div>
         </el-tab-pane>
       </el-tabs>
@@ -214,17 +177,17 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { Operation, User, Bell, InfoFilled, Check, Van } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { useRoute, useRouter } from 'vue-router'
 
+const route = useRoute()
+const router = useRouter()
 const activeTab = ref('general')
 const saving = ref(false)
 
 const generalForm = reactive({
-  systemName: 'Car Rental Management',
-  icpCode: '京ICP备20250001号',
-  logoUrl: 'https://cube.elemecdn.com/e/fd/0fc7d20532fdaf769a25683617711png.png',
   maintenanceMode: false
 })
 
@@ -238,8 +201,7 @@ const accountForm = reactive({
 const notifyForm = reactive({
   newOrder: true,
   carAlert: true,
-  dailyReport: false,
-  newUser: true
+  dailyReport: false
 })
 
 const handleSaveAll = () => {
@@ -249,6 +211,23 @@ const handleSaveAll = () => {
     ElMessage.success('系统设置已成功保存')
   }, 1000)
 }
+
+const handleLogout = () => {
+  ElMessageBox.confirm('确定要退出登录吗?', '提示', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning',
+  }).then(() => {
+    ElMessage.success('已退出登录')
+    router.push('/login')
+  }).catch(() => {})
+}
+
+onMounted(() => {
+  if (route.query.tab) {
+    activeTab.value = route.query.tab
+  }
+})
 </script>
 
 <style scoped lang="scss">

@@ -129,7 +129,7 @@
           </el-table-column>
           <el-table-column label="操作" width="120" align="center" fixed="right">
             <template #default="scope">
-              <el-button link type="primary" @click="handleView(scope.row, 'driver')">详情</el-button>
+              <el-button link type="primary" @click="handleEdit(scope.row)">编辑</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -147,6 +147,57 @@
         </div>
       </el-card>
     </div>
+
+    <!-- 编辑司机弹窗 -->
+    <el-dialog
+      v-model="editDialogVisible"
+      title="编辑司机信息"
+      width="500px"
+      class="custom-dialog"
+      destroy-on-close
+      append-to-body
+    >
+      <el-form :model="editDriverForm" label-width="100px" class="edit-form">
+        <el-form-item label="工号">
+          <el-input v-model="editDriverForm.DNo" disabled />
+        </el-form-item>
+        <el-form-item label="姓名">
+          <el-input v-model="editDriverForm.DName" disabled />
+        </el-form-item>
+        <el-form-item label="基本工资">
+          <el-input-number 
+            v-model="editDriverForm.Salary" 
+            :min="0" 
+            :step="100" 
+            style="width: 100%" 
+            controls-position="right"
+          >
+            <template #prefix>¥</template>
+          </el-input-number>
+        </el-form-item>
+        <el-form-item label="准驾车型">
+          <el-select v-model="editDriverForm.LicenseType" placeholder="请选择车型" style="width: 100%">
+            <el-option label="A1" value="A1" />
+            <el-option label="A2" value="A2" />
+            <el-option label="B1" value="B1" />
+            <el-option label="C1" value="C1" />
+            <el-option label="C2" value="C2" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="状态">
+          <el-radio-group v-model="editDriverForm.DStatus">
+            <el-radio-button label="在岗" />
+            <el-radio-button label="空闲" />
+          </el-radio-group>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="editDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="handleEditSubmit" :loading="submitting">保存</el-button>
+        </span>
+      </template>
+    </el-dialog>
 
   </div>
 </template>
@@ -167,6 +218,17 @@ const driverLoading = ref(false)
 const driverData = ref([])
 const driverSearchForm = reactive({ name: '', status: '', licenseType: '' })
 const driverPagination = reactive({ currentPage: 1, pageSize: 10, total: 0 })
+
+// Edit Logic
+const editDialogVisible = ref(false)
+const submitting = ref(false)
+const editDriverForm = reactive({
+  DNo: '',
+  DName: '',
+  Salary: 0,
+  LicenseType: '',
+  DStatus: ''
+})
 
 // Mock Generator
 const generateMockData = (type) => {
@@ -206,9 +268,24 @@ const getDriverStatusType = (status) => {
 // Fetch Functions
 const fetchCustomers = () => {
   customerLoading.value = true
+  
+  // 模拟构建后端查询参数
+  const queryParams = {
+    ...customerSearchForm,
+    page: customerPagination.currentPage,
+    size: customerPagination.pageSize
+  }
+  console.log('【后端查询】正在请求客户列表，参数:', queryParams)
+
+  // TODO: 对接后端时，使用 axios.post('/api/customers/search', queryParams)
+  // 后端 SQL: WHERE CName LIKE %name% AND Company LIKE %company% ...
+  
   setTimeout(() => {
+    // 仅为演示 Mock 数据过滤，实际应移除此前端过滤逻辑
     customerData.value = generateMockData('customer').filter(item => 
-      !customerSearchForm.name || item.CName.includes(customerSearchForm.name)
+      (!customerSearchForm.name || item.CName.includes(customerSearchForm.name)) &&
+      (!customerSearchForm.phone || item.Phone.includes(customerSearchForm.phone)) &&
+      (!customerSearchForm.company || item.Company.includes(customerSearchForm.company))
     )
     customerPagination.total = 85
     customerLoading.value = false
@@ -217,9 +294,22 @@ const fetchCustomers = () => {
 
 const fetchDrivers = () => {
   driverLoading.value = true
+  
+  const queryParams = {
+    ...driverSearchForm,
+    page: driverPagination.currentPage,
+    size: driverPagination.pageSize
+  }
+  console.log('【后端查询】正在请求司机列表，参数:', queryParams)
+
+  // TODO: 后端 SQL: WHERE DStatus = status AND LicenseType = licenseType ...
+
   setTimeout(() => {
+    // Mock 演示逻辑
     driverData.value = generateMockData('driver').filter(item => 
-      !driverSearchForm.name || item.DName.includes(driverSearchForm.name)
+      (!driverSearchForm.name || item.DName.includes(driverSearchForm.name)) &&
+      (!driverSearchForm.status || item.DStatus === driverSearchForm.status) &&
+      (!driverSearchForm.licenseType || item.LicenseType === driverSearchForm.licenseType)
     )
     driverPagination.total = 24
     driverLoading.value = false
@@ -256,6 +346,22 @@ const handleDriverSizeChange = (val) => {
 const handleView = (row, type) => {
   const name = type === 'customer' ? row.CName : row.DName
   ElMessage.info(`查看详情: ${name}`)
+}
+
+const handleEdit = (row) => {
+  Object.assign(editDriverForm, row)
+  editDialogVisible.value = true
+}
+
+const handleEditSubmit = () => {
+  submitting.value = true
+  // TODO: Call backend API to update driver info
+  setTimeout(() => {
+    submitting.value = false
+    editDialogVisible.value = false
+    ElMessage.success('司机信息修改成功')
+    fetchDrivers() // Refresh list
+  }, 500)
 }
 
 onMounted(() => {
