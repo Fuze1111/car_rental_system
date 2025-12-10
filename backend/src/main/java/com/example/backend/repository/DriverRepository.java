@@ -93,4 +93,11 @@ public interface DriverRepository extends JpaRepository<Driver, String> {
      */
     @Query("SELECT d FROM Driver d WHERE d.salary BETWEEN :minSalary AND :maxSalary")
     List<Driver> findBySalaryBetween(@Param("minSalary") BigDecimal minSalary, @Param("maxSalary") BigDecimal maxSalary);
+
+    /**
+     * 查询最大的司机号（用于生成递增编号）
+     * @return 最大的司机号
+     */
+    @Query("SELECT d.dNo FROM Driver d ORDER BY d.dNo DESC LIMIT 1")
+    String findMaxDNo();
 }

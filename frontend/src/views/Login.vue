@@ -90,6 +90,8 @@ import { ref, computed, reactive } from 'vue'
 import { User, Van, Management, Lock } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
+import { login } from '@/api/auth'
+import { setUserInfo, setUserRole } from '@/utils/auth'
 
 const router = useRouter()
 const activeRole = ref('customer')
@@ -125,13 +127,22 @@ const handleRoleChange = () => {
 const handleLogin = async () => {
   if (!loginFormRef.value) return
   
-  await loginFormRef.value.validate((valid) => {
+  await loginFormRef.value.validate(async (valid) => {
     if (valid) {
       loading.value = true
-      // 模拟登录请求
-      setTimeout(() => {
-        loading.value = false
-        ElMessage.success(`登录成功，欢迎${activeRole.value === 'admin' ? '管理员' : (activeRole.value === 'driver' ? '司机' : '客户')}`)
+      try {
+        // 调用登录API
+        const response = await login({
+          username: loginForm.username,
+          password: loginForm.password,
+          role: activeRole.value
+        })
+        
+        // 保存用户信息到localStorage
+        setUserInfo(response)
+        setUserRole(activeRole.value)
+        
+        ElMessage.success(response.message || '登录成功')
         
         // 根据角色跳转
         if (activeRole.value === 'admin') {
@@ -141,7 +152,12 @@ const handleLogin = async () => {
         } else if (activeRole.value === 'driver') {
           router.push('/driver/dashboard')
         }
-      }, 1000)
+      } catch (error) {
+        console.error('登录失败:', error)
+        // 错误处理已在axios拦截器中完成
+      } finally {
+        loading.value = false
+      }
     }
   })
 }

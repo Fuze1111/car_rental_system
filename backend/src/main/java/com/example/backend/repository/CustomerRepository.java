@@ -104,4 +104,11 @@ public interface CustomerRepository extends JpaRepository<Customer, String> {
      */
     @Query("SELECT COUNT(c) FROM Customer c WHERE c.company IS NOT NULL AND TRIM(c.company) <> ''")
     long countWithCompany();
+    
+    /**
+     * 查询最大的客户号（用于生成递增编号）
+     * @return 最大的客户号
+     */
+    @Query("SELECT c.cNo FROM Customer c ORDER BY c.cNo DESC LIMIT 1")
+    String findMaxCNo();
 }

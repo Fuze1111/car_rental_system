@@ -135,6 +135,7 @@ import { ref, reactive } from 'vue'
 import { User, Van, Lock, Phone, OfficeBuilding, Location, CreditCard } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
+import { registerCustomer, registerDriver } from '@/api/auth'
 
 const router = useRouter()
 const activeRole = ref('customer')
@@ -171,14 +172,23 @@ const validatePass2 = (rule, value, callback) => {
 
 const customerRules = {
   name: [{ required: true, message: '请输入姓名', trigger: 'blur' }],
-  phone: [{ required: true, message: '请输入手机号', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
+  phone: [
+    { required: true, message: '请输入手机号', trigger: 'blur' },
+    { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号', trigger: 'blur' }
+  ],
+  password: [
+    { required: true, message: '请输入密码', trigger: 'blur' },
+    { min: 6, message: '密码长度至少6位', trigger: 'blur' }
+  ],
   confirmPassword: [{ validator: validatePass2, trigger: 'blur' }]
 }
 
 const driverRules = {
   name: [{ required: true, message: '请输入姓名', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
+  password: [
+    { required: true, message: '请输入密码', trigger: 'blur' },
+    { min: 6, message: '密码长度至少6位', trigger: 'blur' }
+  ],
   confirmPassword: [{ validator: validatePass2, trigger: 'blur' }],
   licenseType: [{ required: true, message: '请选择准驾车型', trigger: 'change' }]
 }
@@ -191,14 +201,41 @@ const handleRegister = async () => {
   const formRef = activeRole.value === 'customer' ? customerFormRef.value : driverFormRef.value
   if (!formRef) return
   
-  await formRef.validate((valid) => {
+  await formRef.validate(async (valid) => {
     if (valid) {
       loading.value = true
-      setTimeout(() => {
+      try {
+        let response
+        if (activeRole.value === 'customer') {
+          // 客户注册
+          response = await registerCustomer({
+            name: customerForm.name,
+            phone: customerForm.phone,
+            password: customerForm.password,
+            company: customerForm.company || null,
+            address: customerForm.address || null
+          })
+        } else {
+          // 司机注册
+          response = await registerDriver({
+            name: driverForm.name,
+            password: driverForm.password,
+            licenseType: driverForm.licenseType
+          })
+        }
+        
+        ElMessage.success(response.message || '注册成功！请登录')
+        
+        // 延迟跳转，让用户看到成功消息
+        setTimeout(() => {
+          router.push('/login')
+        }, 1500)
+      } catch (error) {
+        console.error('注册失败:', error)
+        // 错误处理已在axios拦截器中完成
+      } finally {
         loading.value = false
-        ElMessage.success('注册成功！请登录')
-        router.push('/login')
-      }, 1000)
+      }
     }
   })
 }
