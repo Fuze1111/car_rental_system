@@ -20,6 +20,14 @@ import java.util.List;
 public interface RentalRepository extends JpaRepository<Rental, String> {
 
     /**
+     * 根据发票号模糊查询
+     * @param invoiceNo 发票号关键字
+     * @return 租赁记录列表
+     */
+    @Query("SELECT r FROM Rental r WHERE r.invoiceNo LIKE CONCAT('%', :invoiceNo, '%')")
+    List<Rental> findByInvoiceNoContaining(@Param("invoiceNo") String invoiceNo);
+
+    /**
      * 根据客户号查询租赁记录
      * @param cNo 客户号
      * @return 租赁记录列表
@@ -44,12 +52,12 @@ public interface RentalRepository extends JpaRepository<Rental, String> {
     List<Rental> findByCarId(@Param("carId") String carId);
 
     /**
-     * 根据地点模糊查询租赁记录
-     * @param place 地点关键字
+     * 根据借车地点模糊查询租赁记录
+     * @param loanPlace 借车地点关键字
      * @return 租赁记录列表
      */
-    @Query("SELECT r FROM Rental r WHERE r.place LIKE CONCAT('%', :place, '%')")
-    List<Rental> findByPlaceContaining(@Param("place") String place);
+    @Query("SELECT r FROM Rental r WHERE r.loanPlace LIKE CONCAT('%', :loanPlace, '%')")
+    List<Rental> findByLoanPlaceContaining(@Param("loanPlace") String loanPlace);
 
     /**
      * 根据日期范围查询租赁记录
@@ -57,7 +65,7 @@ public interface RentalRepository extends JpaRepository<Rental, String> {
      * @param endDate 结束日期
      * @return 租赁记录列表
      */
-    @Query("SELECT r FROM Rental r WHERE r.date BETWEEN :startDate AND :endDate")
+    @Query("SELECT r FROM Rental r WHERE r.loanDate BETWEEN :startDate AND :endDate")
     List<Rental> findByDateBetween(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
     /**
@@ -82,8 +90,8 @@ public interface RentalRepository extends JpaRepository<Rental, String> {
            "(:cNo IS NULL OR r.cNo = :cNo) AND " +
            "(:dNo IS NULL OR r.dNo = :dNo) AND " +
            "(:carId IS NULL OR r.carId = :carId) AND " +
-           "(:startDate IS NULL OR r.date >= :startDate) AND " +
-           "(:endDate IS NULL OR r.date <= :endDate)")
+           "(:startDate IS NULL OR r.loanDate >= :startDate) AND " +
+           "(:endDate IS NULL OR r.loanDate <= :endDate)")
     List<Rental> findByMultipleConditions(
         @Param("cNo") String cNo,
         @Param("dNo") String dNo,
@@ -129,7 +137,6 @@ public interface RentalRepository extends JpaRepository<Rental, String> {
      * @param endDate 结束日期
      * @return 收入金额
      */
-    @Query("SELECT COALESCE(SUM(r.amount), 0) FROM Rental r WHERE r.date BETWEEN :startDate AND :endDate")
+    @Query("SELECT COALESCE(SUM(r.amount), 0) FROM Rental r WHERE r.loanDate BETWEEN :startDate AND :endDate")
     BigDecimal calculateRevenueByDateRange(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 }
-

@@ -4,6 +4,10 @@ import com.example.backend.dto.RentalRequestDTO;
 import com.example.backend.dto.RentalResponseDTO;
 import com.example.backend.service.RentalService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -32,9 +36,30 @@ public class RentalController {
      * @return 租赁记录列表
      */
     @GetMapping
-    public ResponseEntity<List<RentalResponseDTO>> getAllRentals() {
-        List<RentalResponseDTO> rentals = rentalService.getAllRentals();
-        return ResponseEntity.ok(rentals);
+    public ResponseEntity<?> getAllRentals(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "invoiceNo") String[] sortBy) {
+        if (page < 0 || size <= 0) {
+            List<RentalResponseDTO> rentals = rentalService.getAllRentals();
+            return ResponseEntity.ok(rentals);
+        } else {
+            // 解析排序参数，支持多字段排序和方向控制
+            Sort sort = Sort.unsorted();
+            for (String sortParam : sortBy) {
+                String[] parts = sortParam.split(",");
+                String field = parts[0];
+                Sort.Direction direction = Sort.Direction.ASC;
+                if (parts.length > 1 && "desc".equalsIgnoreCase(parts[1])) {
+                    direction = Sort.Direction.DESC;
+                }
+                sort = sort.and(Sort.by(direction, field));
+            }
+            
+            Pageable pageable = PageRequest.of(page, size, sort);
+            Page<RentalResponseDTO> rentalPage = rentalService.getAllRentals(pageable);
+            return ResponseEntity.ok(rentalPage);
+        }
     }
 
     /**
@@ -126,14 +151,14 @@ public class RentalController {
     }
 
     /**
-     * 根据地点模糊查询租赁记录
+     * 根据借车地点模糊查询租赁记录
      * GET /api/rentals/search/place?place=xxx
-     * @param place 地点关键字
+     * @param loanPlace 借车地点关键字
      * @return 租赁记录列表
      */
     @GetMapping("/search/place")
-    public ResponseEntity<List<RentalResponseDTO>> searchRentalsByPlace(@RequestParam String place) {
-        List<RentalResponseDTO> rentals = rentalService.searchRentalsByPlace(place);
+    public ResponseEntity<List<RentalResponseDTO>> searchRentalsByPlace(@RequestParam String loanPlace) {
+        List<RentalResponseDTO> rentals = rentalService.searchRentalsByPlace(loanPlace);
         return ResponseEntity.ok(rentals);
     }
 
@@ -189,6 +214,18 @@ public class RentalController {
     }
 
     /**
+     * 根据发票号模糊查询租赁记录
+     * GET /api/rentals/search/invoice?invoiceNo=xxx
+     * @param invoiceNo 发票号关键字
+     * @return 租赁记录列表
+     */
+    @GetMapping("/search/invoice")
+    public ResponseEntity<List<RentalResponseDTO>> searchRentalsByInvoiceNo(@RequestParam String invoiceNo) {
+        List<RentalResponseDTO> rentals = rentalService.searchRentalsByInvoiceNo(invoiceNo);
+        return ResponseEntity.ok(rentals);
+    }
+
+    /**
      * 获取租赁统计信息
      * GET /api/rentals/statistics
      * @return 统计信息
@@ -214,4 +251,3 @@ public class RentalController {
         return ResponseEntity.ok(Map.of("revenue", revenue));
     }
 }
-

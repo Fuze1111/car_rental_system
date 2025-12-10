@@ -4,6 +4,10 @@ import com.example.backend.dto.DriverRequestDTO;
 import com.example.backend.dto.DriverResponseDTO;
 import com.example.backend.service.DriverService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -30,9 +34,30 @@ public class DriverController {
      * @return 司机列表
      */
     @GetMapping
-    public ResponseEntity<List<DriverResponseDTO>> getAllDrivers() {
-        List<DriverResponseDTO> drivers = driverService.getAllDrivers();
-        return ResponseEntity.ok(drivers);
+    public ResponseEntity<?> getAllDrivers(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "dNo") String[] sortBy) {
+        if (page < 0 || size <= 0) {
+            List<DriverResponseDTO> drivers = driverService.getAllDrivers();
+            return ResponseEntity.ok(drivers);
+        } else {
+            // 解析排序参数，支持多字段排序和方向控制
+            Sort sort = Sort.unsorted();
+            for (String sortParam : sortBy) {
+                String[] parts = sortParam.split(",");
+                String field = parts[0];
+                Sort.Direction direction = Sort.Direction.ASC;
+                if (parts.length > 1 && "desc".equalsIgnoreCase(parts[1])) {
+                    direction = Sort.Direction.DESC;
+                }
+                sort = sort.and(Sort.by(direction, field));
+            }
+            
+            Pageable pageable = PageRequest.of(page, size, sort);
+            Page<DriverResponseDTO> driverPage = driverService.getAllDrivers(pageable);
+            return ResponseEntity.ok(driverPage);
+        }
     }
 
     /**
@@ -143,6 +168,18 @@ public class DriverController {
     }
 
     /**
+     * 根据司机号模糊查询司机
+     * GET /api/drivers/search/dno?dno=xxx
+     * @param dNo 司机号关键字
+     * @return 司机列表
+     */
+    @GetMapping("/search/dno")
+    public ResponseEntity<List<DriverResponseDTO>> searchDriversByDNo(@RequestParam String dNo) {
+        List<DriverResponseDTO> drivers = driverService.searchDriversByDNo(dNo);
+        return ResponseEntity.ok(drivers);
+    }
+
+    /**
      * 根据工资范围查询司机
      * GET /api/drivers/salary?min=xxx&max=xxx
      * @param min 最低工资
@@ -212,4 +249,3 @@ public class DriverController {
         return ResponseEntity.ok(statistics);
     }
 }
-

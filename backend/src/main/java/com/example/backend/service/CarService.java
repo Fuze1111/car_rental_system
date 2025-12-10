@@ -4,12 +4,14 @@ import com.example.backend.dto.CarRequestDTO;
 import com.example.backend.dto.CarResponseDTO;
 import com.example.backend.entity.Car;
 import com.example.backend.entity.CarRepair;
-import com.example.backend.entity.CarType;
 import com.example.backend.repository.CarRepairRepository;
 import com.example.backend.repository.CarRepository;
 import com.example.backend.repository.CarTypeRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -42,6 +44,19 @@ public class CarService {
         return cars.stream()
                 .map(this::convertToResponseDTO)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * 分页获取所有车辆信息
+     * @param pageable 分页参数
+     * @return 车辆信息分页结果
+     */
+    public Page<CarResponseDTO> getAllCars(Pageable pageable) {
+        Page<Car> carPage = carRepository.findAll(pageable);
+        List<CarResponseDTO> carDTOs = carPage.getContent().stream()
+                .map(this::convertToResponseDTO)
+                .collect(Collectors.toList());
+        return new PageImpl<>(carDTOs, pageable, carPage.getTotalElements());
     }
 
     /**
@@ -121,7 +136,17 @@ public class CarService {
         if (!carRepository.existsById(carId)) {
             throw new RuntimeException("车辆不存在: " + carId);
         }
-        carRepository.deleteById(carId);
+        
+        try {
+            carRepository.deleteById(carId);
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            // 检查是否有外键约束导致删除失败
+            if (e.getMessage().contains("foreign key constraint")) {
+                throw new RuntimeException("无法删除车辆: 存在关联的租赁记录或维修记录", e);
+            } else {
+                throw new RuntimeException("删除失败: " + e.getMessage(), e);
+            }
+        }
     }
 
     /**
@@ -167,6 +192,18 @@ public class CarService {
      */
     public List<CarResponseDTO> searchCars(String carStatus, String tNo, String tName) {
         List<Car> cars = carRepository.findByMultipleConditions(carStatus, tNo, tName);
+        return cars.stream()
+                .map(this::convertToResponseDTO)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 根据车牌号模糊查询车辆
+     * @param carId 车牌号关键字
+     * @return 车辆列表
+     */
+    public List<CarResponseDTO> searchCarsByCarId(String carId) {
+        List<Car> cars = carRepository.findByCarIdContaining(carId);
         return cars.stream()
                 .map(this::convertToResponseDTO)
                 .collect(Collectors.toList());
@@ -246,4 +283,3 @@ public class CarService {
         return car;
     }
 }
-

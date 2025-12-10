@@ -18,6 +18,14 @@ import java.util.List;
 public interface CustomerRepository extends JpaRepository<Customer, String> {
 
     /**
+     * 根据客户号模糊查询
+     * @param cNo 客户号关键字
+     * @return 客户列表
+     */
+    @Query("SELECT c FROM Customer c WHERE c.cNo LIKE CONCAT('%', :cNo, '%')")
+    List<Customer> findByCNoContaining(@Param("cNo") String cNo);
+
+    /**
      * 根据客户姓名模糊查询
      * @param cName 客户姓名关键字
      * @return 客户列表
@@ -89,5 +97,11 @@ public interface CustomerRepository extends JpaRepository<Customer, String> {
      */
     @Query("SELECT COUNT(c) FROM Customer c WHERE c.company = :company")
     long countByCompany(@Param("company") String company);
+    
+    /**
+     * 统计有公司的客户数量
+     * @return 有公司的客户数量
+     */
+    @Query("SELECT COUNT(c) FROM Customer c WHERE c.company IS NOT NULL AND TRIM(c.company) <> ''")
+    long countWithCompany();
 }
-

@@ -6,7 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 /**
  * 租赁业务实体类
@@ -23,20 +23,33 @@ public class Rental {
      * 发票号 - 主键
      */
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "InvoiceNo", length = 20, nullable = false)
-    private String invoiceNo;
+    private Integer invoiceNo;
 
     /**
-     * 日期
+     * 借车日期
      */
-    @Column(name = "Date")
-    private LocalDate date;
+    @Column(name = "LoanDate")
+    private LocalDateTime loanDate;
 
     /**
-     * 地点
+     * 还车日期
      */
-    @Column(name = "Place", length = 100)
-    private String place;
+    @Column(name = "ReturnDate")
+    private LocalDateTime returnDate;
+
+    /**
+     * 借车地点
+     */
+    @Column(name = "LoanPlace", length = 100)
+    private String loanPlace;
+
+    /**
+     * 还车地点
+     */
+    @Column(name = "ReturnPlace", length = 100)
+    private String returnPlace;
 
     /**
      * 牌照号（外键）
@@ -95,4 +108,3 @@ public class Rental {
     @JoinColumn(name = "DNo", referencedColumnName = "DNo", insertable = false, updatable = false)
     private Driver driver;
 }
-

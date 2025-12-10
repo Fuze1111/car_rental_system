@@ -4,8 +4,12 @@ import com.example.backend.dto.DriverRequestDTO;
 import com.example.backend.dto.DriverResponseDTO;
 import com.example.backend.entity.Driver;
 import com.example.backend.repository.DriverRepository;
+import com.example.backend.repository.RentalRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -28,6 +32,9 @@ public class DriverService {
     @Autowired
     private DriverRepository driverRepository;
 
+    @Autowired
+    private RentalRepository rentalRepository;
+
     /**
      * 获取所有司机信息
      * @return 司机信息列表
@@ -37,6 +44,19 @@ public class DriverService {
         return drivers.stream()
                 .map(this::convertToResponseDTO)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * 分页获取所有司机信息
+     * @param pageable 分页参数
+     * @return 司机信息分页结果
+     */
+    public Page<DriverResponseDTO> getAllDrivers(Pageable pageable) {
+        Page<Driver> driverPage = driverRepository.findAll(pageable);
+        List<DriverResponseDTO> driverDTOs = driverPage.getContent().stream()
+                .map(this::convertToResponseDTO)
+                .collect(Collectors.toList());
+        return new PageImpl<>(driverDTOs, driverPage.getPageable(), driverPage.getTotalElements());
     }
 
     /**
@@ -154,6 +174,18 @@ public class DriverService {
     public List<DriverResponseDTO> searchDrivers(String dStatus, String licenseType,
                                                   BigDecimal minSalary, BigDecimal maxSalary) {
         List<Driver> drivers = driverRepository.findByMultipleConditions(dStatus, licenseType, minSalary, maxSalary);
+        return drivers.stream()
+                .map(this::convertToResponseDTO)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 根据司机号模糊查询司机
+     * @param dNo 司机号关键字
+     * @return 司机列表
+     */
+    public List<DriverResponseDTO> searchDriversByDNo(String dNo) {
+        List<Driver> drivers = driverRepository.findByDNoContaining(dNo);
         return drivers.stream()
                 .map(this::convertToResponseDTO)
                 .collect(Collectors.toList());
@@ -281,4 +313,3 @@ public class DriverService {
         return driver;
     }
 }
-

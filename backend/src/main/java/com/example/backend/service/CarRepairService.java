@@ -8,6 +8,9 @@ import com.example.backend.repository.CarRepairRepository;
 import com.example.backend.repository.CarRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -19,8 +22,12 @@ import java.util.stream.Collectors;
  * 提供车辆维修记录的业务逻辑处理
  */
 @Service
-@Transactional
 public class CarRepairService {
+
+    // 车辆状态常量
+    private static final String CAR_STATUS_AVAILABLE = "0"; // 可租
+    private static final String CAR_STATUS_RENTED = "1";    // 已租
+    private static final String CAR_STATUS_REPAIR = "2";    // 维修
 
     @Autowired
     private CarRepairRepository carRepairRepository;
@@ -37,6 +44,19 @@ public class CarRepairService {
         return repairs.stream()
                 .map(this::convertToResponseDTO)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * 分页获取所有维修记录
+     * @param pageable 分页参数
+     * @return 维修记录分页结果
+     */
+    public Page<CarRepairResponseDTO> getAllRepairs(Pageable pageable) {
+        Page<CarRepair> repairPage = carRepairRepository.findAll(pageable);
+        List<CarRepairResponseDTO> repairDTOs = repairPage.getContent().stream()
+                .map(this::convertToResponseDTO)
+                .collect(Collectors.toList());
+        return new PageImpl<>(repairDTOs, pageable, repairPage.getTotalElements());
     }
 
     /**
@@ -66,6 +86,7 @@ public class CarRepairService {
      * @param repairRequestDTO 维修记录请求DTO
      * @return 创建的维修记录
      */
+    @Transactional
     public CarRepairResponseDTO createRepair(CarRepairRequestDTO repairRequestDTO) {
         // 验证车辆是否存在
         Car car = carRepository.findById(repairRequestDTO.getCarId())
@@ -75,7 +96,7 @@ public class CarRepairService {
         CarRepair savedRepair = carRepairRepository.save(repair);
 
         // 更新车辆状态为维修中
-        car.setCarStatus("2");
+        car.setCarStatus(CAR_STATUS_REPAIR);
         carRepository.save(car);
 
         return convertToResponseDTO(savedRepair);
@@ -87,6 +108,7 @@ public class CarRepairService {
      * @param repairRequestDTO 维修记录请求DTO
      * @return 更新后的维修记录
      */
+    @Transactional
     public CarRepairResponseDTO updateRepair(Integer rNo, CarRepairRequestDTO repairRequestDTO) {
         CarRepair existingRepair = carRepairRepository.findById(rNo)
                 .orElseThrow(() -> new RuntimeException("维修记录不存在: " + rNo));
@@ -110,6 +132,7 @@ public class CarRepairService {
      * 删除维修记录
      * @param rNo 维修编号
      */
+    @Transactional
     public void deleteRepair(Integer rNo) {
         if (!carRepairRepository.existsById(rNo)) {
             throw new RuntimeException("维修记录不存在: " + rNo);
@@ -157,4 +180,3 @@ public class CarRepairService {
         return repair;
     }
 }
-
