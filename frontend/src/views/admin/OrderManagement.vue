@@ -25,12 +25,12 @@
             <el-form-item>
               <el-date-picker
                 v-model="activeSearchForm.dateRange"
-                type="daterange"
+                type="datetimerange"
                 range-separator="至"
                 start-placeholder="借车开始"
                 end-placeholder="借车结束"
-                value-format="YYYY-MM-DD"
-                style="width: 240px"
+                value-format="YYYY-MM-DD HH:mm:ss"
+                style="width: 380px"
               />
             </el-form-item>
             <el-form-item>
@@ -60,7 +60,7 @@
             </template>
           </el-table-column>
 
-          <el-table-column label="借还日期" width="220">
+          <el-table-column label="借还时间" width="320">
             <template #default="scope">
               <div class="date-range">
                 <span class="date">{{ scope.row.LoanDate }}</span>
@@ -122,15 +122,15 @@
                <span style="margin: 0 4px">-</span>
                <el-input-number v-model="historySearchForm.maxAmount" :min="0" :controls="false" placeholder="Max" style="width: 80px" />
             </el-form-item>
-            <el-form-item label="日期范围">
+            <el-form-item label="时间范围">
               <el-date-picker
                 v-model="historySearchForm.dateRange"
-                type="daterange"
+                type="datetimerange"
                 range-separator="至"
                 start-placeholder="开始"
                 end-placeholder="结束"
-                value-format="YYYY-MM-DD"
-                style="width: 220px"
+                value-format="YYYY-MM-DD HH:mm:ss"
+                style="width: 380px"
               />
             </el-form-item>
             <el-form-item>
@@ -169,7 +169,7 @@
             </template>
           </el-table-column>
           
-          <el-table-column label="借还日期" width="220" sortable>
+          <el-table-column label="借还时间" width="320" sortable>
             <template #default="scope">
               <div class="date-range">
                 <span class="date">{{ scope.row.LoanDate }}</span>
@@ -467,8 +467,8 @@ const generateData = () => {
   for (let i = 1; i <= 3; i++) {
     active.push({
       InvoiceNo: `INV2023129${i}`,
-      LoanDate: '2023-12-08',
-      ReturnDate: '2023-12-10',
+      LoanDate: `2023-12-08 09:${10 + i}:00`,
+      ReturnDate: `2023-12-10 14:${30 + i}:00`,
       LoanPlace: '北京大兴国际机场',
       ReturnPlace: '北京首都国际机场',
       CarID: Object.keys(mockCars)[i % 4],
@@ -496,8 +496,8 @@ const generateData = () => {
     const loc = locations[(i - 1) % locations.length]
     history.push({
       InvoiceNo: `INV2023110${i}`,
-      LoanDate: '2023-11-01',
-      ReturnDate: '2023-11-03',
+      LoanDate: `2023-11-01 10:${15 + i}:00`,
+      ReturnDate: `2023-11-03 16:${45 + i}:00`,
       LoanPlace: loc.loan,
       ReturnPlace: loc.return,
       CarID: Object.keys(mockCars)[i % 4],

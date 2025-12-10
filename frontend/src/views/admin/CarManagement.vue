@@ -11,7 +11,10 @@
             </el-form-item>
             <el-form-item>
               <el-select v-model="searchForm.TName" placeholder="选择车型" clearable filterable style="width: 180px">
-                <el-option v-for="type in mockTypeData" :key="type.TNo" :label="type.TName" :value="type.TName" />
+                <el-option v-for="type in mockTypeData" :key="type.TName" :label="type.TName" :value="type.TName">
+                   <span style="float: left">{{ type.TName }}</span>
+                   <span style="float: right; color: #8492a6; font-size: 13px">{{ type.TNo }}</span>
+                </el-option>
               </el-select>
             </el-form-item>
             <el-form-item label="价格范围">
@@ -269,7 +272,7 @@
     >
       <el-form ref="typeFormRef" :model="typeFormData" :rules="typeRules" label-width="100px" class="type-form">
         <el-form-item label="类型编号" prop="TNo">
-          <el-input v-model="typeFormData.TNo" placeholder="例如: T001" :disabled="isTypeEdit" class="custom-input" />
+          <el-input v-model="typeFormData.TNo" placeholder="例如: C1" class="custom-input" />
         </el-form-item>
         <el-form-item label="车型名称" prop="TName">
           <el-input v-model="typeFormData.TName" placeholder="例如: Toyota Camry" class="custom-input" />
@@ -385,11 +388,11 @@ const typeRules = {
   RentRate: [{ required: true, message: '请输入日租金', trigger: 'blur' }]
 }
 
-// Mock 数据 (Cars)
+//  Mock 数据 (Cars) - Updated TNo to match new types
 const tableData = ref([
   {
     CarID: '京A88888',
-    TNo: 'T001',
+    TNo: 'C1',
     TName: 'Toyota Camry 2023款',
     RentRate: 350.00,
     CarStatus: '0',
@@ -400,7 +403,7 @@ const tableData = ref([
   },
   {
     CarID: '京AD12345',
-    TNo: 'T002',
+    TNo: 'C1',
     TName: 'Tesla Model 3 Performance',
     RentRate: 500.00,
     CarStatus: '1',
@@ -411,7 +414,7 @@ const tableData = ref([
   },
   {
     CarID: '京A66666',
-    TNo: 'T003',
+    TNo: 'C1',
     TName: 'Mercedes-Benz S-Class',
     RentRate: 1200.00,
     CarStatus: '2',
@@ -422,7 +425,7 @@ const tableData = ref([
   },
   {
     CarID: '京A99999',
-    TNo: 'T004',
+    TNo: 'C2',
     TName: 'BMW X5 xDrive40i',
     RentRate: 1100.00,
     CarStatus: '0',
@@ -433,12 +436,12 @@ const tableData = ref([
   },
 ])
 
-// Mock Data (Types)
+// Mock Data (Types) - TNo Represents License Type (e.g., C1, C2)
 const mockTypeData = [
-  { TNo: 'T001', TName: 'Toyota Camry', RentRate: 350.00, Image: 'https://images.unsplash.com/photo-1621007947382-bb3c3968e3bb?auto=format&fit=crop&q=80&w=200' },
-  { TNo: 'T002', TName: 'Tesla Model 3', RentRate: 500.00, Image: 'https://images.unsplash.com/photo-1560958089-b8a1929cea89?auto=format&fit=crop&q=80&w=200' },
-  { TNo: 'T003', TName: 'Benz S-Class', RentRate: 1200.00, Image: 'https://images.unsplash.com/photo-1617788138017-80ad40651399?auto=format&fit=crop&q=80&w=200' },
-  { TNo: 'T004', TName: 'BMW X5', RentRate: 1100.00, Image: 'https://images.unsplash.com/photo-1555215695-3004980adade?auto=format&fit=crop&q=80&w=200' }
+  { TNo: 'C1', TName: 'Toyota Camry', RentRate: 350.00, Image: 'https://images.unsplash.com/photo-1621007947382-bb3c3968e3bb?auto=format&fit=crop&q=80&w=200' },
+  { TNo: 'C1', TName: 'Tesla Model 3', RentRate: 500.00, Image: 'https://images.unsplash.com/photo-1560958089-b8a1929cea89?auto=format&fit=crop&q=80&w=200' },
+  { TNo: 'C1', TName: 'Benz S-Class', RentRate: 1200.00, Image: 'https://images.unsplash.com/photo-1617788138017-80ad40651399?auto=format&fit=crop&q=80&w=200' },
+  { TNo: 'C2', TName: 'BMW X5', RentRate: 1100.00, Image: 'https://images.unsplash.com/photo-1555215695-3004980adade?auto=format&fit=crop&q=80&w=200' }
 ]
 const typeTableData = ref([...mockTypeData])
 
@@ -539,8 +542,11 @@ const resetTypeSearch = () => {
   handleTypeSearch()
 }
 
+const currentEditTypeOriginalName = ref('') // Track original PK name
+
 const handleTypeAdd = () => {
   isTypeEdit.value = false
+  currentEditTypeOriginalName.value = ''
   typeFormData.TNo = ''
   typeFormData.TName = ''
   typeFormData.RentRate = 0
@@ -549,6 +555,7 @@ const handleTypeAdd = () => {
 
 const handleTypeEdit = (row) => {
   isTypeEdit.value = true
+  currentEditTypeOriginalName.value = row.TName // Save original name
   Object.assign(typeFormData, row)
   typeDialogVisible.value = true
 }
@@ -559,7 +566,8 @@ const handleTypeDelete = (row) => {
     confirmButtonText: '删除',
     cancelButtonText: '取消'
   }).then(() => {
-    typeTableData.value = typeTableData.value.filter(item => item.TNo !== row.TNo)
+    // TNo is NOT unique, filter by TName (assuming unique name per type)
+    typeTableData.value = typeTableData.value.filter(item => item.TName !== row.TName)
     ElMessage.success('删除成功')
   }).catch(() => {})
 }
@@ -579,7 +587,9 @@ const handleTypeSubmit = async () => {
     if (valid) {
       setTimeout(() => {
         if (isTypeEdit.value) {
-          const index = typeTableData.value.findIndex(item => item.TNo === typeFormData.TNo)
+          // Find by ORIGINAL Name + Current TNo (Assuming TNo doesn't change usually, but TName is the key unique part here)
+          // Ideally should match both, but simplified to TName as unique identifier
+          const index = typeTableData.value.findIndex(item => item.TName === currentEditTypeOriginalName.value)
           if (index !== -1) typeTableData.value[index] = { ...typeFormData }
         } else {
           typeTableData.value.push({ ...typeFormData })
