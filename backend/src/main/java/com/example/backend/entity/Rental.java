@@ -23,9 +23,8 @@ public class Rental {
      * 发票号 - 主键
      */
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "InvoiceNo", length = 20, nullable = false)
-    private Integer invoiceNo;
+    @Column(name = "InvoiceNo", length = 10, nullable = false)
+    private String invoiceNo;
 
     /**
      * 借车日期

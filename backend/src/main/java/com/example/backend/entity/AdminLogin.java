@@ -17,12 +17,11 @@ import lombok.NoArgsConstructor;
 public class AdminLogin {
 
     /**
-     * 管理员ID - 主键（自增）
+     * 管理员ID - 主键
      */
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "AdminID")
-    private Integer adminId;
+    @Column(name = "AdminID", length = 8, nullable = false)
+    private String adminId;
 
     /**
      * 用户名（唯一）

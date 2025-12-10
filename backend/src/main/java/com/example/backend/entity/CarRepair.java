@@ -20,18 +20,17 @@ import java.time.LocalDate;
 public class CarRepair {
 
     /**
-     * 维修编号 - 主键（自增）
+     * 维修编号 - 主键
      */
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "RNo")
-    private Integer rNo;
+    @Column(name = "RNo", length = 10, nullable = false)
+    private String rNo;
 
     /**
      * 维修日期
      */
     @Column(name = "RDate")
-    private LocalDate rDate;
+    private LocalDateTime rDate;
 
     /**
      * 运行公里

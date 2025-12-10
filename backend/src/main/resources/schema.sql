@@ -6,8 +6,24 @@
 -- ================================================
 
 -- ================================================
+-- 0. 清理旧表
+-- ================================================
+DROP TABLE IF EXISTS customer_login;
+DROP TABLE IF EXISTS driver_login;
+DROP TABLE IF EXISTS admin_login;
+DROP TABLE IF EXISTS car_type_image;
+DROP TABLE IF EXISTS store;
+DROP TABLE IF EXISTS rental;
+DROP TABLE IF EXISTS car_repair;
+DROP TABLE IF EXISTS car;
+DROP TABLE IF EXISTS car_type;
+DROP TABLE IF EXISTS driver;
+DROP TABLE IF EXISTS customer;
+
+-- ================================================
 -- 表 3.1 Customer（客户表）
 -- ================================================
+DROP TABLE IF EXISTS customer;
 CREATE TABLE IF NOT EXISTS customer (
     CNo         CHAR(8)         NOT NULL COMMENT '客户号',
     CName       CHAR(50)        NOT NULL COMMENT '客户姓名',
@@ -22,6 +38,7 @@ CREATE TABLE IF NOT EXISTS customer (
 -- ================================================
 -- 表 3.2 Driver（司机表）
 -- ================================================
+DROP TABLE IF EXISTS driver;
 CREATE TABLE IF NOT EXISTS driver (
     DNo             CHAR(8)         NOT NULL COMMENT '司机号',
     DName           CHAR(50)        NOT NULL COMMENT '姓名',
@@ -36,6 +53,7 @@ CREATE TABLE IF NOT EXISTS driver (
 -- ================================================
 -- 表 3.5 CarType（汽车类型表）
 -- ================================================
+DROP TABLE IF EXISTS car_type;
 CREATE TABLE IF NOT EXISTS car_type (
     TNo             CHAR(4)         NOT NULL COMMENT '类型编号',
     TName           CHAR(20)        NOT NULL COMMENT '汽车型号',
@@ -47,6 +65,7 @@ CREATE TABLE IF NOT EXISTS car_type (
 -- ================================================
 -- 表 3.3 Car（汽车表）
 -- ================================================
+DROP TABLE IF EXISTS car;
 CREATE TABLE IF NOT EXISTS car (
     CarID           CHAR(10)        NOT NULL COMMENT '注册号码',
     PurchaseDate    DATE            NULL COMMENT '购入日期',
@@ -64,9 +83,10 @@ CREATE TABLE IF NOT EXISTS car (
 -- ================================================
 -- 表 3.4 CarRepair（汽车维修表）
 -- ================================================
+DROP TABLE IF EXISTS car_repair;
 CREATE TABLE IF NOT EXISTS car_repair (
-    RNo             INT             NOT NULL AUTO_INCREMENT COMMENT '维修编号',
-    RDate           DATETIME            NULL COMMENT '维修日期',
+    RNo             CHAR(10)        NOT NULL COMMENT '维修编号',
+    RDate           DATETIME        NULL COMMENT '维修日期',
     RunKM           NUMERIC(10,2)   NULL COMMENT '运行公里',
     RunHour         NUMERIC(8,2)    NULL COMMENT '运行小时',
     CarID           CHAR(10)        NULL COMMENT '注册号码（外键）',
@@ -78,8 +98,9 @@ CREATE TABLE IF NOT EXISTS car_repair (
 -- ================================================
 -- 表 3.6 Rental（租赁业务表）
 -- ================================================
+DROP TABLE IF EXISTS rental;
 CREATE TABLE IF NOT EXISTS rental (
-    InvoiceNo           INT             NOT NULL AUTO_INCREMENT COMMENT '发票号',
+    InvoiceNo           CHAR(10)        NOT NULL COMMENT '发票号',
     LoanDate            DATETIME        NULL COMMENT '借车日期',
     ReturnDate          DATETIME        NULL COMMENT '还车日期',
     LoanPlace           CHAR(100)       NULL COMMENT '借车地点',
@@ -100,6 +121,7 @@ CREATE TABLE IF NOT EXISTS rental (
 -- ================================================
 -- 表 4.1 CustomerLogin（客户登录表）
 -- ================================================
+DROP TABLE IF EXISTS customer_login;
 CREATE TABLE IF NOT EXISTS customer_login (
     CNo         CHAR(8)         NOT NULL COMMENT '客户号',
     Password    VARCHAR(100)    NOT NULL COMMENT '密码',
@@ -111,6 +133,7 @@ CREATE TABLE IF NOT EXISTS customer_login (
 -- ================================================
 -- 表 4.2 DriverLogin（司机登录表）
 -- ================================================
+DROP TABLE IF EXISTS driver_login;
 CREATE TABLE IF NOT EXISTS driver_login (
     DNo         CHAR(8)         NOT NULL COMMENT '司机号',
     Password    VARCHAR(100)    NOT NULL COMMENT '密码',
@@ -122,8 +145,9 @@ CREATE TABLE IF NOT EXISTS driver_login (
 -- ================================================
 -- 表 4.3 AdminLogin（管理员登录表）
 -- ================================================
+DROP TABLE IF EXISTS admin_login;
 CREATE TABLE IF NOT EXISTS admin_login (
-    AdminID     INT             NOT NULL AUTO_INCREMENT COMMENT '管理员ID',
+    AdminID     CHAR(8)         NOT NULL COMMENT '管理员ID',
     Username    VARCHAR(50)     NOT NULL COMMENT '用户名',
     Password    VARCHAR(100)    NOT NULL COMMENT '密码',
 
@@ -134,6 +158,7 @@ CREATE TABLE IF NOT EXISTS admin_login (
 -- ================================================
 -- 表 4.4 CarTypeImage（车型图片表）
 -- ================================================
+DROP TABLE IF EXISTS car_type_image;
 CREATE TABLE IF NOT EXISTS car_type_image (
     ImageID     INT             NOT NULL AUTO_INCREMENT COMMENT '图片索引',
     TNo         CHAR(4)         NOT NULL COMMENT '类型编号',
@@ -147,8 +172,9 @@ CREATE TABLE IF NOT EXISTS car_type_image (
 -- ================================================
 -- 表 4.5 Store（租车门店表）
 -- ================================================
+DROP TABLE IF EXISTS store;
 CREATE TABLE IF NOT EXISTS store (
-    StoreNo     INT             NOT NULL AUTO_INCREMENT COMMENT '门店号',
+    StoreNo     CHAR(4)         NOT NULL COMMENT '门店号',
     City        VARCHAR(50)     NOT NULL COMMENT '城市',
     StoreName   VARCHAR(100)    NOT NULL COMMENT '门店名称',
     Address     VARCHAR(200)    NOT NULL COMMENT '门店位置',
