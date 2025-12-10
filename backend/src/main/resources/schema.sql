@@ -66,7 +66,7 @@ CREATE TABLE IF NOT EXISTS car (
 -- ================================================
 CREATE TABLE IF NOT EXISTS car_repair (
     RNo             INT             NOT NULL AUTO_INCREMENT COMMENT '维修编号',
-    RDate           DATE            NULL COMMENT '维修日期',
+    RDate           DATETIME            NULL COMMENT '维修日期',
     RunKM           NUMERIC(10,2)   NULL COMMENT '运行公里',
     RunHour         NUMERIC(8,2)    NULL COMMENT '运行小时',
     CarID           CHAR(10)        NULL COMMENT '注册号码（外键）',
