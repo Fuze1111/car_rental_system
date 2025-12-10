@@ -133,29 +133,73 @@
         <div class="section-header">
           <div class="title-group">
             <h3>租赁趋势分析</h3>
-            <p>近7天车辆租赁与营收数据</p>
+            <p>近7天订单量与营收对比</p>
           </div>
           <div class="actions">
             <div class="time-switch">
-              <span class="switch-item active">周</span>
-              <span class="switch-item">月</span>
-              <span class="switch-item">年</span>
+              <span class="switch-item" :class="{ active: activeTimeRange === 'week' }" @click="handleTimeSwitch('week')">周</span>
+              <span class="switch-item" :class="{ active: activeTimeRange === 'month' }" @click="handleTimeSwitch('month')">月</span>
+              <span class="switch-item" :class="{ active: activeTimeRange === 'year' }" @click="handleTimeSwitch('year')">年</span>
             </div>
           </div>
         </div>
         
+        <!-- 图例 -->
+        <div class="chart-legend">
+          <div class="legend-item">
+            <span class="legend-dot blue"></span>
+            <span>订单数量</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-dot green"></span>
+            <span>营收金额 (¥千)</span>
+          </div>
+        </div>
+        
         <div class="chart-container">
-          <!-- 模拟图表 -->
+          <!-- 双Y轴柱状图 -->
           <div class="mock-chart">
-            <div class="chart-grid">
-              <div class="grid-line" v-for="i in 5" :key="i"></div>
-            </div>
-            <div class="chart-bars">
-              <div class="bar-group" v-for="(height, index) in [40, 60, 35, 80, 55, 90, 70]" :key="index">
-                <div class="bar" :style="{ height: height + '%' }">
-                  <div class="bar-glow"></div>
+            <!-- 左侧Y轴 (订单数量) -->
+            <div class="y-axis left">
+              <div class="axis-label">订单数</div>
+              <div class="y-labels">
+                <div class="y-label" v-for="val in yAxisLeftTicks" :key="'left-' + val">
+                  <span class="value">{{ val }}</span>
                 </div>
-                <span class="bar-label">{{ ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][index] }}</span>
+              </div>
+            </div>
+            
+            <!-- 图表主体 -->
+            <div class="chart-main">
+              <div class="chart-grid">
+                <div class="grid-line" v-for="i in 6" :key="i"></div>
+              </div>
+              <div class="chart-bars">
+                <div class="bar-group" v-for="(day, index) in chartData" :key="index">
+                  <div class="dual-bars">
+                    <!-- 订单数量柱 -->
+                    <div class="bar orders" :style="{ height: (day.orders / currentScale.maxOrders * 100) + '%' }">
+                      <div class="bar-glow"></div>
+                      <span class="bar-value">{{ day.orders }}</span>
+                    </div>
+                    <!-- 营收金额柱 -->
+                    <div class="bar revenue" :style="{ height: (day.revenue / currentScale.maxRevenue * 100) + '%' }">
+                      <div class="bar-glow"></div>
+                      <span class="bar-value">{{ day.revenue }}k</span>
+                    </div>
+                  </div>
+                  <span class="bar-label">{{ day.label }}</span>
+                </div>
+              </div>
+            </div>
+            
+            <!-- 右侧Y轴 (营收金额) -->
+            <div class="y-axis right">
+              <div class="axis-label">营收(¥千)</div>
+              <div class="y-labels">
+                <div class="y-label" v-for="val in yAxisRightTicks" :key="'right-' + val">
+                  <span class="value">{{ val }}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -168,19 +212,19 @@
         <div class="main-card quick-actions-card">
           <h3>快捷操作</h3>
           <div class="quick-actions-grid">
-            <div class="action-btn-modern">
+            <div class="action-btn-modern" @click="handleQuickAction('add-car')">
               <div class="icon-circle blue"><el-icon><Plus /></el-icon></div>
               <span>添加车辆</span>
             </div>
-            <div class="action-btn-modern">
-              <div class="icon-circle green"><el-icon><UserFilled /></el-icon></div>
-              <span>注册审核</span>
+            <div class="action-btn-modern" @click="handleQuickAction('return-car')">
+              <div class="icon-circle green"><el-icon><CircleCheck /></el-icon></div>
+              <span>还车处理</span>
             </div>
-            <div class="action-btn-modern">
+            <div class="action-btn-modern" @click="handleQuickAction('export-report')">
               <div class="icon-circle purple"><el-icon><Document /></el-icon></div>
               <span>导出报表</span>
             </div>
-            <div class="action-btn-modern">
+            <div class="action-btn-modern" @click="handleQuickAction('system-settings')">
               <div class="icon-circle orange"><el-icon><Setting /></el-icon></div>
               <span>系统设置</span>
             </div>
@@ -219,15 +263,120 @@
         </div>
       </div>
     </div>
+
+    <!-- 导出报表弹窗 -->
+    <el-dialog
+      v-model="reportDialogVisible"
+      title="导出数据报表"
+      width="480px"
+      destroy-on-close
+      class="custom-dialog"
+    >
+      <div class="report-selection">
+        <p class="instruction">请选择要导出的报表类型：</p>
+        
+        <div class="report-options">
+          <div 
+            class="report-option" 
+            :class="{ active: reportType === 'financial' }"
+            @click="reportType = 'financial'"
+          >
+            <div class="icon-box blue"><el-icon><Money /></el-icon></div>
+            <div class="option-info">
+              <span class="name">财务营收报表</span>
+              <span class="desc">包含本周/本月的营收明细与统计</span>
+            </div>
+            <div class="check-mark" v-if="reportType === 'financial'"><el-icon><Select /></el-icon></div>
+          </div>
+
+          <div 
+            class="report-option" 
+            :class="{ active: reportType === 'cars' }"
+            @click="reportType = 'cars'"
+          >
+            <div class="icon-box green"><el-icon><Van /></el-icon></div>
+            <div class="option-info">
+              <span class="name">车辆库存清单</span>
+              <span class="desc">当前所有车辆的状态、里程与保养信息</span>
+            </div>
+            <div class="check-mark" v-if="reportType === 'cars'"><el-icon><Select /></el-icon></div>
+          </div>
+
+          <div 
+            class="report-option" 
+            :class="{ active: reportType === 'types' }"
+            @click="reportType = 'types'"
+          >
+            <div class="icon-box purple"><el-icon><List /></el-icon></div>
+            <div class="option-info">
+              <span class="name">车型配置清单</span>
+              <span class="desc">所有车型规格、定价与总持有量</span>
+            </div>
+            <div class="check-mark" v-if="reportType === 'types'"><el-icon><Select /></el-icon></div>
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="reportDialogVisible = false" class="footer-btn">取消</el-button>
+          <el-button type="primary" @click="handleExportConfirm" :loading="exportLoading" class="footer-btn submit-btn">
+            <el-icon class="el-icon--left"><Download /></el-icon>确认导出
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { computed, ref, onMounted, onUnmounted } from 'vue'
-import { Van, User, List, Money, Top, Bottom, Plus, UserFilled, Document, Warning, Setting, Monitor, Bell, DataLine, Timer, CircleCheck } from '@element-plus/icons-vue'
+import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import { Van, User, List, Money, Top, Bottom, Plus, UserFilled, Document, Warning, Setting, Monitor, Bell, DataLine, Timer, CircleCheck, Download, Select } from '@element-plus/icons-vue'
 
+const router = useRouter()
 const currentTime = ref(new Date())
 let timer = null
+
+// 报表相关状态
+const reportDialogVisible = ref(false)
+const reportType = ref('financial')
+const exportLoading = ref(false)
+
+// 快捷操作跳转
+const handleQuickAction = (action) => {
+  switch (action) {
+    case 'add-car':
+      router.push('/admin/cars')
+      break
+    case 'return-car':
+      router.push('/admin/orders')
+      break
+    case 'export-report':
+      reportType.value = 'financial' // 重置默认选中
+      reportDialogVisible.value = true
+      break
+    case 'system-settings':
+      router.push('/admin/settings')
+      break
+  }
+}
+
+const handleExportConfirm = () => {
+  exportLoading.value = true
+  setTimeout(() => {
+    exportLoading.value = false
+    reportDialogVisible.value = false
+    
+    const map = {
+      'financial': '财务营收报表',
+      'cars': '车辆库存清单',
+      'types': '车型配置清单'
+    }
+    ElMessage.success(`《${map[reportType.value]}》已导出成功`)
+  }, 1000)
+}
 
 onMounted(() => {
   timer = setInterval(() => {
@@ -275,6 +424,73 @@ const greetingText = computed(() => {
   if (hour < 18) return '忙碌之余，记得休息'
   return '愿您有个美好的夜晚'
 })
+
+// 时间范围切换
+const activeTimeRange = ref('week')
+
+// 刻度配置
+const chartScales = {
+  week: { maxOrders: 50, maxRevenue: 15 },
+  month: { maxOrders: 200, maxRevenue: 80 },
+  year: { maxOrders: 800, maxRevenue: 300 }
+}
+
+const currentScale = computed(() => chartScales[activeTimeRange.value])
+
+// 计算左侧Y轴刻度 (分5段)
+const yAxisLeftTicks = computed(() => {
+  const max = currentScale.value.maxOrders
+  const step = max / 5
+  return [max, max - step, max - step * 2, max - step * 3, max - step * 4, 0]
+})
+
+// 计算右侧Y轴刻度 (分5段)
+const yAxisRightTicks = computed(() => {
+  const max = currentScale.value.maxRevenue
+  const step = max / 5
+  return [max, max - step, max - step * 2, max - step * 3, max - step * 4, 0]
+})
+
+const handleTimeSwitch = (range) => {
+  activeTimeRange.value = range
+  // 切换模拟数据
+  if (range === 'week') {
+    chartData.value = [
+      { label: 'Mon', orders: 18, revenue: 6.3 },
+      { label: 'Tue', orders: 25, revenue: 8.9 },
+      { label: 'Wed', orders: 15, revenue: 5.2 },
+      { label: 'Thu', orders: 32, revenue: 11.5 },
+      { label: 'Fri', orders: 28, revenue: 9.8 },
+      { label: 'Sat', orders: 45, revenue: 14.2 },
+      { label: 'Sun', orders: 38, revenue: 12.6 }
+    ]
+  } else if (range === 'month') {
+    chartData.value = [
+      { label: 'W1', orders: 120, revenue: 45.2 },
+      { label: 'W2', orders: 150, revenue: 58.6 },
+      { label: 'W3', orders: 180, revenue: 62.4 },
+      { label: 'W4', orders: 140, revenue: 51.0 }
+    ]
+  } else {
+    chartData.value = [
+      { label: 'Q1', orders: 450, revenue: 150.5 },
+      { label: 'Q2', orders: 520, revenue: 180.2 },
+      { label: 'Q3', orders: 480, revenue: 165.8 },
+      { label: 'Q4', orders: 600, revenue: 210.5 }
+    ]
+  }
+}
+
+// 图表数据 (默认周数据)
+const chartData = ref([
+  { label: 'Mon', orders: 18, revenue: 6.3 },
+  { label: 'Tue', orders: 25, revenue: 8.9 },
+  { label: 'Wed', orders: 15, revenue: 5.2 },
+  { label: 'Thu', orders: 32, revenue: 11.5 },
+  { label: 'Fri', orders: 28, revenue: 9.8 },
+  { label: 'Sat', orders: 45, revenue: 14.2 },
+  { label: 'Sun', orders: 38, revenue: 12.6 }
+])
 </script>
 
 <style scoped lang="scss">
@@ -593,7 +809,7 @@ const greetingText = computed(() => {
   background: rgba(255, 255, 255, 0.8);
   backdrop-filter: blur(20px);
   border-radius: 24px;
-  padding: 32px;
+  padding: 24px;
   box-shadow: 0 8px 32px rgba(0,0,0,0.05);
   border: 1px solid rgba(255, 255, 255, 0.6);
   
@@ -605,12 +821,16 @@ const greetingText = computed(() => {
   }
 }
 
+.chart-section {
+  padding: 28px !important;
+}
+
 /* ... existing chart and layout styles ... */
 .section-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 40px;
+  margin-bottom: 32px;
 
   .title-group {
     h3 { margin-bottom: 4px; }
@@ -641,58 +861,202 @@ const greetingText = computed(() => {
   }
 }
 
+.chart-legend {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 24px;
+  padding-left: 8px;
+  
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #64748b;
+    font-weight: 500;
+    
+    .legend-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      
+      &.blue { background: linear-gradient(135deg, #3b82f6, #60a5fa); }
+      &.green { background: linear-gradient(135deg, #10b981, #34d399); }
+    }
+  }
+}
+
+.chart-container {
+  width: 100%;
+  margin-top: 0;
+}
+
 .mock-chart {
-  height: 300px;
+  height: 400px;
+  display: flex;
+  gap: 12px;
   position: relative;
-  .chart-grid {
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
+  padding-bottom: 30px; /* 预留标签空间 */
+  
+  .y-axis {
+    width: 60px;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
-    z-index: 1;
-    .grid-line { height: 1px; background: rgba(241, 245, 249, 0.6); width: 100%; }
-  }
-  /* ... bars styles ... */
-  .chart-bars {
-    position: absolute;
-    top: 20px; left: 20px; right: 20px; bottom: 0;
-    display: flex;
-    justify-content: space-around;
-    align-items: flex-end;
-    z-index: 2;
-
-    .bar-group {
+    
+    &.left {
+      align-items: flex-end;
+    }
+    
+    &.right {
+      align-items: flex-start;
+    }
+    
+    .axis-label {
+      font-size: 12px;
+      color: #64748b;
+      font-weight: 700;
+      margin-bottom: 8px;
+      padding: 0 4px;
+      white-space: nowrap;
+    }
+    
+    .y-labels {
+      flex: 1;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      gap: 12px;
-      height: 100%;
-      justify-content: flex-end;
-
-      .bar {
-        width: 32px;
-        background: linear-gradient(180deg, #3b82f6 0%, #60a5fa 100%);
-        border-radius: 8px 8px 0 0;
-        position: relative;
-        transition: all 0.3s;
-        cursor: pointer;
-        opacity: 0.9; 
-
-        &:hover {
-          transform: scaleY(1.05);
-          opacity: 1;
-          box-shadow: 0 10px 20px rgba(59, 130, 246, 0.3);
-        }
-        .bar-glow {
-          position: absolute;
-          top: 0; left: 0; right: 0;
-          height: 20px;
-          background: rgba(255,255,255,0.2);
-          border-radius: 8px 8px 0 0;
+      justify-content: space-between;
+      padding: 10px 0 0 0; /* 底部不再留白，直接对齐 Grid 底部 */
+      
+      .y-label {
+        display: flex;
+        align-items: center;
+        height: 0;
+        
+        .value {
+          font-size: 12px;
+          color: #94a3b8;
+          font-weight: 600;
+          font-family: 'Inter', monospace;
+          padding: 0 4px;
         }
       }
-      .bar-label { font-size: 12px; color: #64748b; font-weight: 500; }
+    }
+  }
+  
+  .chart-main {
+    flex: 1;
+    position: relative;
+    
+    .chart-grid {
+      position: absolute;
+      top: 20px;
+      left: 0;
+      right: 0;
+      bottom: 0; /* 底部归零 */
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      z-index: 1;
+      
+      .grid-line {
+        height: 1px;
+        background: rgba(203, 213, 225, 0.4);
+        width: 100%;
+      }
+    }
+    
+    .chart-bars {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      right: 20px;
+      bottom: 0; /* 底部归零 */
+      display: flex;
+      justify-content: space-around;
+      align-items: flex-end;
+      z-index: 2;
+
+      .bar-group {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        height: 100%;
+        justify-content: flex-end;
+        flex: 1;
+        position: relative; /* 为标签定位 */
+
+        .dual-bars {
+          display: flex;
+          gap: 6px;
+          align-items: flex-end;
+          height: 100%;
+        }
+
+        .bar {
+          width: 32px;
+          border-radius: 8px 8px 0 0;
+          position: relative;
+          transition: all 0.3s;
+          cursor: pointer;
+          opacity: 0.9;
+          
+          &.orders {
+            background: linear-gradient(180deg, #3b82f6 0%, #60a5fa 100%);
+            
+            &:hover {
+              transform: translateY(-4px);
+              opacity: 1;
+              box-shadow: 0 10px 20px rgba(59, 130, 246, 0.4);
+            }
+          }
+          
+          &.revenue {
+            background: linear-gradient(180deg, #10b981 0%, #34d399 100%);
+            
+            &:hover {
+              transform: translateY(-4px);
+              opacity: 1;
+              box-shadow: 0 10px 20px rgba(16, 185, 129, 0.4);
+            }
+          }
+
+          .bar-glow {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 20px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 8px 8px 0 0;
+          }
+          
+          .bar-value {
+            position: absolute;
+            top: -26px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 12px;
+            font-weight: 700;
+            color: #1e293b;
+            white-space: nowrap;
+            opacity: 1;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 2px 6px;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+          }
+        }
+        
+        .bar-label {
+          position: absolute;
+          bottom: -30px;
+          font-size: 13px;
+          color: #64748b;
+          font-weight: 600;
+          white-space: nowrap;
+        }
+      }
     }
   }
 }
@@ -789,6 +1153,102 @@ const greetingText = computed(() => {
     color: #b45309;
     font-size: 13px;
     font-weight: 500;
+  }
+}
+
+/* 报表导出弹窗样式 */
+.report-selection {
+  padding: 8px 0;
+  
+  .instruction {
+    margin: 0 0 16px 0;
+    font-size: 14px;
+    color: #64748b;
+  }
+
+  .report-options {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+
+    .report-option {
+      display: flex;
+      align-items: center;
+      padding: 16px;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+      background: white;
+
+      &:hover {
+        border-color: #cbd5e1;
+        background: #f8fafc;
+      }
+
+      &.active {
+        border-color: #3b82f6;
+        background: #eff6ff;
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
+      }
+
+      .icon-box {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        margin-right: 16px;
+        
+        &.blue { background: #dbeafe; color: #3b82f6; }
+        &.green { background: #d1fae5; color: #10b981; }
+        &.purple { background: #ede9fe; color: #8b5cf6; }
+      }
+
+      .option-info {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        
+        .name {
+          font-size: 14px;
+          font-weight: 600;
+          color: #1e293b;
+          margin-bottom: 2px;
+        }
+        
+        .desc {
+          font-size: 12px;
+          color: #64748b;
+        }
+      }
+
+      .check-mark {
+        color: #3b82f6;
+        font-size: 18px;
+        font-weight: bold;
+      }
+    }
+  }
+}
+
+.footer-btn {
+  border-radius: 8px;
+  padding: 10px 24px;
+  font-weight: 500;
+  
+  &.submit-btn {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    border: none;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+    
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(37, 99, 235, 0.3);
+    }
   }
 }
 

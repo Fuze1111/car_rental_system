@@ -206,9 +206,24 @@ const getDriverStatusType = (status) => {
 // Fetch Functions
 const fetchCustomers = () => {
   customerLoading.value = true
+  
+  // 模拟构建后端查询参数
+  const queryParams = {
+    ...customerSearchForm,
+    page: customerPagination.currentPage,
+    size: customerPagination.pageSize
+  }
+  console.log('【后端查询】正在请求客户列表，参数:', queryParams)
+
+  // TODO: 对接后端时，使用 axios.post('/api/customers/search', queryParams)
+  // 后端 SQL: WHERE CName LIKE %name% AND Company LIKE %company% ...
+  
   setTimeout(() => {
+    // 仅为演示 Mock 数据过滤，实际应移除此前端过滤逻辑
     customerData.value = generateMockData('customer').filter(item => 
-      !customerSearchForm.name || item.CName.includes(customerSearchForm.name)
+      (!customerSearchForm.name || item.CName.includes(customerSearchForm.name)) &&
+      (!customerSearchForm.phone || item.Phone.includes(customerSearchForm.phone)) &&
+      (!customerSearchForm.company || item.Company.includes(customerSearchForm.company))
     )
     customerPagination.total = 85
     customerLoading.value = false
@@ -217,9 +232,22 @@ const fetchCustomers = () => {
 
 const fetchDrivers = () => {
   driverLoading.value = true
+  
+  const queryParams = {
+    ...driverSearchForm,
+    page: driverPagination.currentPage,
+    size: driverPagination.pageSize
+  }
+  console.log('【后端查询】正在请求司机列表，参数:', queryParams)
+
+  // TODO: 后端 SQL: WHERE DStatus = status AND LicenseType = licenseType ...
+
   setTimeout(() => {
+    // Mock 演示逻辑
     driverData.value = generateMockData('driver').filter(item => 
-      !driverSearchForm.name || item.DName.includes(driverSearchForm.name)
+      (!driverSearchForm.name || item.DName.includes(driverSearchForm.name)) &&
+      (!driverSearchForm.status || item.DStatus === driverSearchForm.status) &&
+      (!driverSearchForm.licenseType || item.LicenseType === driverSearchForm.licenseType)
     )
     driverPagination.total = 24
     driverLoading.value = false

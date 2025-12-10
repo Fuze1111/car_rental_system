@@ -5,6 +5,7 @@
     width="600px"
     @close="handleClose"
     destroy-on-close
+    class="custom-dialog"
   >
     <el-form 
       ref="formRef"
@@ -14,7 +15,7 @@
       class="car-form"
     >
       <el-form-item label="车牌号" prop="CarID">
-        <el-input v-model="formData.CarID" placeholder="例如: 京A88888" :disabled="isEdit" />
+        <el-input v-model="formData.CarID" placeholder="例如: 京A88888" :disabled="isEdit" class="custom-input" />
       </el-form-item>
 
       <el-form-item label="车型" prop="TNo">
@@ -23,6 +24,7 @@
           placeholder="请选择车型" 
           style="width: 100%"
           @change="handleTypeChange"
+          class="custom-select"
         >
           <el-option 
             v-for="item in carTypes" 
@@ -42,6 +44,7 @@
               :step="50" 
               style="width: 100%"
               controls-position="right"
+              class="custom-input-number"
             >
               <template #prefix>¥</template>
             </el-input-number>
@@ -55,6 +58,7 @@
               :step="1000" 
               style="width: 100%"
               controls-position="right"
+              class="custom-input-number"
             >
               <template #prefix>¥</template>
             </el-input-number>
@@ -70,6 +74,7 @@
           format="YYYY-MM-DD"
           value-format="YYYY-MM-DD"
           style="width: 100%"
+          class="custom-date-picker"
         />
       </el-form-item>
 
@@ -82,6 +87,7 @@
               :step="100" 
               style="width: 100%"
               controls-position="right"
+              class="custom-input-number"
             >
               <template #append>km</template>
             </el-input-number>
@@ -95,6 +101,7 @@
               :step="10" 
               style="width: 100%"
               controls-position="right"
+              class="custom-input-number"
             >
               <template #append>h</template>
             </el-input-number>
@@ -103,7 +110,7 @@
       </el-row>
 
       <el-form-item label="车辆状态" prop="CarStatus">
-        <el-radio-group v-model="formData.CarStatus">
+        <el-radio-group v-model="formData.CarStatus" class="custom-radio-group">
           <el-radio-button label="0">可租</el-radio-button>
           <el-radio-button label="2">维修中</el-radio-button>
           <el-radio-button label="1" disabled>已租</el-radio-button>
@@ -113,8 +120,8 @@
 
     <template #footer>
       <span class="dialog-footer">
-        <el-button @click="handleClose">取消</el-button>
-        <el-button type="primary" @click="handleSubmit" :loading="loading">
+        <el-button @click="handleClose" class="footer-btn">取消</el-button>
+        <el-button type="primary" @click="handleSubmit" :loading="loading" class="footer-btn submit-btn">
           确定
         </el-button>
       </span>
@@ -222,3 +229,110 @@ const handleSubmit = async () => {
   })
 }
 </script>
+
+<style lang="scss">
+/* 全局样式覆盖 - 必须不加 scoped 才能影响到 teleport 到 body 的 dialog */
+.custom-dialog {
+  border-radius: 16px !important;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+
+  .el-dialog__header {
+    margin: 0;
+    padding: 20px 24px;
+    border-bottom: 1px solid #f1f5f9;
+    background: #f8fafc;
+    
+    .el-dialog__title {
+      font-weight: 700;
+      color: #1e293b;
+      font-size: 18px;
+    }
+  }
+
+  .el-dialog__body {
+    padding: 32px 24px !important;
+  }
+
+  .el-dialog__footer {
+    padding: 20px 24px;
+    border-top: 1px solid #f1f5f9;
+    background: #f8fafc;
+  }
+}
+</style>
+
+<style scoped lang="scss">
+.car-form {
+  :deep(.el-form-item__label) {
+    font-weight: 600;
+    color: #475569;
+  }
+}
+
+.custom-input,
+.custom-select,
+.custom-input-number,
+.custom-date-picker {
+  :deep(.el-input__wrapper) {
+    border-radius: 8px;
+    box-shadow: 0 0 0 1px #e2e8f0 inset;
+    padding: 4px 12px;
+    transition: all 0.2s;
+    
+    &:hover {
+      box-shadow: 0 0 0 1px #cbd5e1 inset;
+    }
+    
+    &.is-focus {
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2) !important;
+      border-color: #3b82f6;
+    }
+  }
+}
+
+.custom-radio-group {
+  :deep(.el-radio-button__inner) {
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    box-shadow: none !important;
+    margin-right: 8px;
+    padding: 8px 20px;
+    transition: all 0.2s;
+    
+    &:hover {
+      color: #3b82f6;
+      border-color: #3b82f6;
+    }
+  }
+  
+  :deep(.el-radio-button:first-child .el-radio-button__inner),
+  :deep(.el-radio-button:last-child .el-radio-button__inner) {
+    border-radius: 6px;
+  }
+  
+  :deep(.el-radio-button__original-radio:checked + .el-radio-button__inner) {
+    background-color: #3b82f6;
+    border-color: #3b82f6;
+    box-shadow: none;
+    color: white;
+  }
+}
+
+.footer-btn {
+  border-radius: 8px;
+  padding: 10px 24px;
+  font-weight: 500;
+  
+  &.submit-btn {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    border: none;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+    
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(37, 99, 235, 0.3);
+    }
+  }
+}
+</style>

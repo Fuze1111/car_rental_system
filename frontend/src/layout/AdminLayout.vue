@@ -1,5 +1,10 @@
 <template>
   <el-container class="admin-layout" @mousemove="handleMouseMove" direction="vertical">
+    <!-- 动态背景层 -->
+    <div class="layout-bg">
+      <div class="bg-image" :style="bgStyle"></div>
+    </div>
+
     <!-- 动态鼠标跟随光斑 -->
     <div class="mouse-light" :style="lightStyle"></div>
     
@@ -70,10 +75,40 @@
 
         <!-- 右侧用户信息 -->
         <div class="header-right">
-          <div class="action-item">
-            <el-icon><Bell /></el-icon>
-            <span class="badge"></span>
-          </div>
+          <!-- 通知中心 Popover -->
+          <el-popover
+            placement="bottom"
+            :width="320"
+            trigger="click"
+            popper-class="notification-popover"
+          >
+            <template #reference>
+              <div class="action-item">
+                <el-icon><Bell /></el-icon>
+                <span class="badge" v-if="unreadCount > 0"></span>
+              </div>
+            </template>
+            
+            <div class="notification-container">
+              <div class="notification-header">
+                <span>通知 ({{ unreadCount }})</span>
+                <el-button link type="primary" size="small" @click="handleClearNotifications" :disabled="unreadCount === 0">全部已读</el-button>
+              </div>
+              <div class="notification-list" v-if="notifications.length > 0">
+                <div class="notification-item" v-for="(item, index) in notifications" :key="index">
+                  <div class="dot" :class="item.type"></div>
+                  <div class="content">
+                    <p class="title">{{ item.title }}</p>
+                    <p class="time">{{ item.time }}</p>
+                  </div>
+                </div>
+              </div>
+              <div class="empty-notification" v-else>
+                <p>暂无新通知</p>
+              </div>
+            </div>
+          </el-popover>
+
           <el-dropdown trigger="click" @command="handleCommand">
             <div class="user-info">
               <el-avatar :size="32" src="https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png" class="user-avatar" />
@@ -108,14 +143,38 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 const route = useRoute()
 const router = useRouter()
 const isScrolled = ref(false)
+const scrollY = ref(0)
 const lightStyle = ref({
   left: '50%',
   top: '50%'
 })
 
+const bgStyle = computed(() => {
+  // 背景图移动速度比滚动速度慢，产生视差
+  // 向上移动，显示图片下半部分
+  return {
+    transform: `translate3d(0, -${scrollY.value * 0.3}px, 0)`
+  }
+})
+
+// 通知数据
+const notifications = ref([
+  { title: '新订单: 京A88888 租赁申请', time: '10分钟前', type: 'info' },
+  { title: '系统将于今晚 02:00 进行维护', time: '2小时前', type: 'warning' },
+  { title: '新用户注册: 张三', time: '5小时前', type: 'success' }
+])
+
+const unreadCount = computed(() => notifications.value.length)
+
+const handleClearNotifications = () => {
+  notifications.value = []
+  ElMessage.success('所有通知已标记为已读')
+}
+
 const activeMenu = computed(() => route.path)
 
 const handleScroll = () => {
+  scrollY.value = window.scrollY
   isScrolled.value = window.scrollY > 20
 }
 
@@ -145,6 +204,8 @@ const handleCommand = (command) => {
       ElMessage.success('已退出登录')
       router.push('/login')
     }).catch(() => {})
+  } else if (command === 'profile') {
+    router.push('/admin/settings?tab=account')
   }
 }
 
@@ -200,10 +261,51 @@ const scrollToHash = (hash) => {
 .admin-layout {
   min-height: 100vh;
   position: relative;
-  /* 淡米白色背景 */
-  background: linear-gradient(135deg, #fdfbfb 0%, #f7f5f2 100%);
+  /* 移除原来的背景色，让图片显示出来 */
+  background: transparent;
   overflow-x: hidden;
   font-family: 'Inter', sans-serif;
+}
+
+.layout-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100vh;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: #fdfbfb; /* 图片加载前的底色 */
+
+  .bg-image {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    /* 高度设为130%以支持视差滚动而不露底 */
+    height: 160vh;
+    background-image: url('@/assets/images/bg-large.jpg');
+    background-size: cover;
+    background-position: center top;
+    will-change: transform;
+    /* 默认渐变背景，防止无图时太丑 */
+    background-color: #f1f5f9;
+    
+    /* 毛玻璃模糊效果 */
+    filter: blur(8px);
+    
+    /* 遮罩层，增加一点白色半透明，让文字更清晰 */
+    &::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(255, 255, 255, 0.6);
+    }
+  }
 }
 
 .mouse-light {
@@ -395,6 +497,8 @@ const scrollToHash = (hash) => {
   /* 顶部留出空间，防止内容被固定头部遮挡 */
   padding: 120px 60px 40px 60px;
   overflow-y: visible;
+  position: relative;
+  z-index: 2;
 }
 
 /* 动画效果 */
@@ -461,6 +565,86 @@ const scrollToHash = (hash) => {
         background: rgba(255, 255, 255, 0.6) !important;
         box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
       }
+    }
+  }
+}
+
+/* 通知中心 Popover 样式 */
+.el-popper.notification-popover {
+  padding: 0 !important;
+  border-radius: 12px !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1) !important;
+  overflow: hidden;
+
+  .notification-container {
+    .notification-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid #f1f5f9;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 600;
+      color: #1e293b;
+      background: #f8fafc;
+    }
+
+    .notification-list {
+      max-height: 300px;
+      overflow-y: auto;
+
+      .notification-item {
+        padding: 12px 16px;
+        display: flex;
+        gap: 12px;
+        cursor: pointer;
+        transition: background 0.2s;
+        border-bottom: 1px solid #f8fafc;
+
+        &:last-child {
+          border-bottom: none;
+        }
+
+        &:hover {
+          background: #f1f5f9;
+        }
+
+        .dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          margin-top: 6px;
+          flex-shrink: 0;
+
+          &.info { background: #3b82f6; }
+          &.warning { background: #f59e0b; }
+          &.success { background: #10b981; }
+        }
+
+        .content {
+          flex: 1;
+          
+          .title {
+            font-size: 13px;
+            color: #334155;
+            margin: 0 0 4px 0;
+            line-height: 1.4;
+          }
+          
+          .time {
+            font-size: 11px;
+            color: #94a3b8;
+            margin: 0;
+          }
+        }
+      }
+    }
+
+    .empty-notification {
+      padding: 32px 0;
+      text-align: center;
+      color: #94a3b8;
+      font-size: 13px;
     }
   }
 }

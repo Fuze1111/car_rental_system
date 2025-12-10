@@ -248,24 +248,32 @@
       width="500px"
       @close="handleTypeClose"
       destroy-on-close
+      class="custom-dialog"
     >
-      <el-form ref="typeFormRef" :model="typeFormData" :rules="typeRules" label-width="100px">
+      <el-form ref="typeFormRef" :model="typeFormData" :rules="typeRules" label-width="100px" class="type-form">
         <el-form-item label="类型编号" prop="TNo">
-          <el-input v-model="typeFormData.TNo" placeholder="例如: T001" :disabled="isTypeEdit" />
+          <el-input v-model="typeFormData.TNo" placeholder="例如: T001" :disabled="isTypeEdit" class="custom-input" />
         </el-form-item>
         <el-form-item label="车型名称" prop="TName">
-          <el-input v-model="typeFormData.TName" placeholder="例如: Toyota Camry" />
+          <el-input v-model="typeFormData.TName" placeholder="例如: Toyota Camry" class="custom-input" />
         </el-form-item>
         <el-form-item label="日租金" prop="RentRate">
-          <el-input-number v-model="typeFormData.RentRate" :min="0" :step="50" style="width: 100%" controls-position="right">
+          <el-input-number 
+            v-model="typeFormData.RentRate" 
+            :min="0" 
+            :step="50" 
+            style="width: 100%" 
+            controls-position="right"
+            class="custom-input-number"
+          >
             <template #prefix>¥</template>
           </el-input-number>
         </el-form-item>
       </el-form>
       <template #footer>
         <span class="dialog-footer">
-          <el-button @click="handleTypeClose">取消</el-button>
-          <el-button type="primary" @click="handleTypeSubmit">确定</el-button>
+          <el-button @click="handleTypeClose" class="footer-btn">取消</el-button>
+          <el-button type="primary" @click="handleTypeSubmit" class="footer-btn submit-btn">确定</el-button>
         </span>
       </template>
     </el-dialog>
@@ -423,9 +431,23 @@ const getStatusLabel = (status) => {
 
 const handleSearch = () => {
   loading.value = true
+  
+  // 模拟构建后端查询参数
+  const queryParams = {
+    ...searchForm,
+    page: pagination.currentPage,
+    size: pagination.pageSize
+  }
+  console.log('【后端查询】正在请求车辆列表，参数:', queryParams)
+
+  // TODO: 对接后端时，发送 queryParams 给后端，由后端拼接 SQL 进行筛选
+  // 例如: SELECT * FROM car WHERE Price BETWEEN #{minPrice} AND #{maxPrice} ...
+  
   setTimeout(() => {
+    // 仅为演示 Mock 数据重置，实际应使用后端返回数据
+    tableData.value = [ ...tableData.value ] 
     loading.value = false
-    ElMessage.success('搜索结果已更新')
+    ElMessage.success('搜索请求已发送 (Mock)')
   }, 500)
 }
 
@@ -467,14 +489,17 @@ const typeFormRef = ref(null)
 
 const handleTypeSearch = () => {
   typeLoading.value = true
+  
+  const queryParams = {
+    keyword: typeSearchForm.keyword,
+    page: typePagination.currentPage,
+    size: typePagination.pageSize
+  }
+  console.log('【后端查询】正在请求车型列表，参数:', queryParams)
+
+  // TODO: 后端 SQL 处理: WHERE TName LIKE %keyword% OR TNo = keyword
   setTimeout(() => {
-    typeTableData.value = mockTypeData.filter(item => 
-      !typeSearchForm.keyword || 
-      item.TName.toLowerCase().includes(typeSearchForm.keyword.toLowerCase()) || 
-      item.TNo.toLowerCase().includes(typeSearchForm.keyword.toLowerCase())
-    )
     typeLoading.value = false
-    ElMessage.success('车型搜索完成')
   }, 300)
 }
 
@@ -570,7 +595,82 @@ const handleTypeCurrentChange = (val) => {
 }
 </script>
 
+<style lang="scss">
+/* 全局样式覆盖 - 必须不加 scoped 才能影响到 teleport 到 body 的 dialog */
+.custom-dialog {
+  border-radius: 16px !important;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+
+  .el-dialog__header {
+    margin: 0;
+    padding: 20px 24px;
+    border-bottom: 1px solid #f1f5f9;
+    background: #f8fafc;
+    
+    .el-dialog__title {
+      font-weight: 700;
+      color: #1e293b;
+      font-size: 18px;
+    }
+  }
+
+  .el-dialog__body {
+    padding: 32px 24px !important;
+  }
+
+  .el-dialog__footer {
+    padding: 20px 24px;
+    border-top: 1px solid #f1f5f9;
+    background: #f8fafc;
+  }
+}
+</style>
+
 <style scoped lang="scss">
+.type-form {
+  :deep(.el-form-item__label) {
+    font-weight: 600;
+    color: #475569;
+  }
+}
+
+.custom-input,
+.custom-input-number {
+  :deep(.el-input__wrapper) {
+    border-radius: 8px;
+    box-shadow: 0 0 0 1px #e2e8f0 inset;
+    padding: 4px 12px;
+    transition: all 0.2s;
+    
+    &:hover {
+      box-shadow: 0 0 0 1px #cbd5e1 inset;
+    }
+    
+    &.is-focus {
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2) !important;
+      border-color: #3b82f6;
+    }
+  }
+}
+
+.footer-btn {
+  border-radius: 8px;
+  padding: 10px 24px;
+  font-weight: 500;
+  
+  &.submit-btn {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    border: none;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+    
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(37, 99, 235, 0.3);
+    }
+  }
+}
+
 .car-management {
   padding: 0;
   
