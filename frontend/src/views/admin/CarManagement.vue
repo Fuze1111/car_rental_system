@@ -578,8 +578,12 @@ const handleTypeClose = () => {
 }
 
 const handleFileChange = (uploadFile) => {
-  // 模拟上传：生成本地预览 URL
-  typeFormData.Image = URL.createObjectURL(uploadFile.raw)
+  // 模拟上传：将图片转换为 Base64 进行预览
+  const reader = new FileReader()
+  reader.readAsDataURL(uploadFile.raw)
+  reader.onload = () => {
+    typeFormData.Image = reader.result
+  }
 }
 
 const handleTypeSubmit = async () => {

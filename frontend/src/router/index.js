@@ -10,6 +10,11 @@ const router = createRouter({
       component: Login
     },
     {
+      path: '/register',
+      name: 'register',
+      component: () => import('../views/Register.vue')
+    },
+    {
       path: '/user',
       component: () => import('../layout/UserLayout.vue'),
       redirect: '/user/cars',

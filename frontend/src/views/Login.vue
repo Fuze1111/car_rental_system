@@ -136,9 +136,10 @@ const handleLogin = async () => {
         // 根据角色跳转
         if (activeRole.value === 'admin') {
           router.push('/admin/dashboard')
-        } else {
-          // TODO: 暂时没有其他角色页面，先统一跳或者留空
-          // router.push('/')
+        } else if (activeRole.value === 'customer') {
+          router.push('/user/cars')
+        } else if (activeRole.value === 'driver') {
+          router.push('/driver/dashboard')
         }
       }, 1000)
     }
@@ -146,7 +147,7 @@ const handleLogin = async () => {
 }
 
 const handleRegister = () => {
-  ElMessage.info('跳转到注册页面')
+  router.push('/register')
 }
 </script>
 
