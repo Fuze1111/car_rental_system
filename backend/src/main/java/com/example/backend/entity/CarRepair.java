@@ -6,7 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 /**
  * 汽车维修记录实体类
@@ -31,7 +31,7 @@ public class CarRepair {
      * 维修日期
      */
     @Column(name = "RDate")
-    private LocalDate rDate;
+    private LocalDateTime rDate;
 
     /**
      * 运行公里

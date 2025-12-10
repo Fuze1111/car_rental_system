@@ -66,7 +66,7 @@ CREATE TABLE IF NOT EXISTS car (
 -- ================================================
 CREATE TABLE IF NOT EXISTS car_repair (
     RNo             INT             NOT NULL AUTO_INCREMENT COMMENT '维修编号',
-    RDate           DATE            NULL COMMENT '维修日期',
+    RDate           DATETIME        NULL COMMENT '维修日期',
     RunKM           NUMERIC(10,2)   NULL COMMENT '运行公里',
     RunHour         NUMERIC(8,2)    NULL COMMENT '运行小时',
     CarID           CHAR(10)        NULL COMMENT '注册号码（外键）',
@@ -80,8 +80,8 @@ CREATE TABLE IF NOT EXISTS car_repair (
 -- ================================================
 CREATE TABLE IF NOT EXISTS rental (
     InvoiceNo           INT             NOT NULL AUTO_INCREMENT COMMENT '发票号',
-    LoanDate            DATE            NULL COMMENT '借车日期',
-    ReturnDate          DATE            NULL COMMENT '还车日期',
+    LoanDate            DATETIME        NULL COMMENT '借车日期',
+    ReturnDate          DATETIME        NULL COMMENT '还车日期',
     LoanPlace           CHAR(100)       NULL COMMENT '借车地点',
     ReturnPlace         CHAR(100)       NULL COMMENT '还车地点',
     CarID               CHAR(10)        NULL COMMENT '牌照号（外键）',
