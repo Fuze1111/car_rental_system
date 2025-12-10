@@ -481,13 +481,25 @@ const generateData = () => {
 
   // History Orders (Finished)
   const history = []
+  
+  // 测试用地名池 (覆盖不同城市和地标)
+  const locations = [
+    { loan: '上海虹桥国际机场', return: '上海浦东国际机场' },
+    { loan: '广州白云国际机场', return: '广州塔' },
+    { loan: '深圳宝安国际机场', return: '深圳北站' },
+    { loan: '成都双流国际机场', return: '成都春熙路' },
+    { loan: '杭州萧山国际机场', return: '杭州西湖风景名胜区' },
+    { loan: '武汉天河国际机场', return: '武汉黄鹤楼' }
+  ]
+
   for (let i = 1; i <= 10; i++) {
+    const loc = locations[(i - 1) % locations.length]
     history.push({
       InvoiceNo: `INV2023110${i}`,
       LoanDate: '2023-11-01',
       ReturnDate: '2023-11-03',
-      LoanPlace: '上海虹桥国际机场',
-      ReturnPlace: '上海浦东国际机场',
+      LoanPlace: loc.loan,
+      ReturnPlace: loc.return,
       CarID: Object.keys(mockCars)[i % 4],
       CNo: 'C0000002',
       DNo: 'D0000001',
