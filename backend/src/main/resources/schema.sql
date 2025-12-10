@@ -66,7 +66,7 @@ CREATE TABLE IF NOT EXISTS car (
 -- ================================================
 CREATE TABLE IF NOT EXISTS car_repair (
     RNo             INT             NOT NULL AUTO_INCREMENT COMMENT '维修编号',
-    RDate           DATE            NULL COMMENT '维修日期',
+    RDate           DATETIME            NULL COMMENT '维修日期',
     RunKM           NUMERIC(10,2)   NULL COMMENT '运行公里',
     RunHour         NUMERIC(8,2)    NULL COMMENT '运行小时',
     CarID           CHAR(10)        NULL COMMENT '注册号码（外键）',
@@ -80,8 +80,8 @@ CREATE TABLE IF NOT EXISTS car_repair (
 -- ================================================
 CREATE TABLE IF NOT EXISTS rental (
     InvoiceNo           INT             NOT NULL AUTO_INCREMENT COMMENT '发票号',
-    LoanDate            DATE            NULL COMMENT '借车日期',
-    ReturnDate          DATE            NULL COMMENT '还车日期',
+    LoanDate            DATETIME        NULL COMMENT '借车日期',
+    ReturnDate          DATETIME        NULL COMMENT '还车日期',
     LoanPlace           CHAR(100)       NULL COMMENT '借车地点',
     ReturnPlace         CHAR(100)       NULL COMMENT '还车地点',
     CarID               CHAR(10)        NULL COMMENT '牌照号（外键）',
@@ -97,3 +97,49 @@ CREATE TABLE IF NOT EXISTS rental (
     FOREIGN KEY (DNo) REFERENCES driver(DNo)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='租赁业务表';
 
+-- ================================================
+-- 表 4.1 CustomerLogin（客户登录表）
+-- ================================================
+CREATE TABLE IF NOT EXISTS customer_login (
+    CNo         CHAR(8)         NOT NULL COMMENT '客户号',
+    Password    VARCHAR(100)    NOT NULL COMMENT '密码',
+
+    PRIMARY KEY (CNo),
+    FOREIGN KEY (CNo) REFERENCES customer(CNo) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='客户登录表';
+
+-- ================================================
+-- 表 4.2 DriverLogin（司机登录表）
+-- ================================================
+CREATE TABLE IF NOT EXISTS driver_login (
+    DNo         CHAR(8)         NOT NULL COMMENT '司机号',
+    Password    VARCHAR(100)    NOT NULL COMMENT '密码',
+
+    PRIMARY KEY (DNo),
+    FOREIGN KEY (DNo) REFERENCES driver(DNo) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='司机登录表';
+
+-- ================================================
+-- 表 4.3 AdminLogin（管理员登录表）
+-- ================================================
+CREATE TABLE IF NOT EXISTS admin_login (
+    AdminID     INT             NOT NULL AUTO_INCREMENT COMMENT '管理员ID',
+    Username    VARCHAR(50)     NOT NULL COMMENT '用户名',
+    Password    VARCHAR(100)    NOT NULL COMMENT '密码',
+
+    PRIMARY KEY (AdminID),
+    UNIQUE KEY (Username)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='管理员登录表';
+
+-- ================================================
+-- 表 4.4 CarTypeImage（车型图片表）
+-- ================================================
+CREATE TABLE IF NOT EXISTS car_type_image (
+    ImageID     INT             NOT NULL AUTO_INCREMENT COMMENT '图片索引',
+    TNo         CHAR(4)         NOT NULL COMMENT '类型编号',
+    TName       CHAR(20)        NOT NULL COMMENT '汽车型号',
+    ImagePath   VARCHAR(255)    NOT NULL COMMENT '图片路径',
+
+    PRIMARY KEY (ImageID),
+    FOREIGN KEY (TNo, TName) REFERENCES car_type(TNo, TName) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='车型图片表';
