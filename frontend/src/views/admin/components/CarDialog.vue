@@ -6,6 +6,7 @@
     @close="handleClose"
     destroy-on-close
     class="custom-dialog"
+    append-to-body
   >
     <el-form 
       ref="formRef"

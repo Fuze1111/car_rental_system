@@ -269,6 +269,7 @@
       @close="handleTypeClose"
       destroy-on-close
       class="custom-dialog"
+      append-to-body
     >
       <el-form ref="typeFormRef" :model="typeFormData" :rules="typeRules" label-width="100px" class="type-form">
         <el-form-item label="类型编号" prop="TNo">

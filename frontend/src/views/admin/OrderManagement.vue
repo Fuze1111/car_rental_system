@@ -216,6 +216,7 @@
       width="420px"
       class="custom-dialog"
       destroy-on-close
+      append-to-body
     >
       <div class="dialog-content">
         <p class="dialog-tip">请录入车辆返回时的实际行驶数据</p>
@@ -252,6 +253,7 @@
       width="800px"
       class="custom-dialog detail-dialog"
       destroy-on-close
+      append-to-body
       @opened="initMap"
     >
       <div class="detail-container" v-if="currentDetailOrder">

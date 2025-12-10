@@ -9,9 +9,6 @@
     <header class="user-header" :class="{ 'is-scrolled': isScrolled }">
       <div class="header-content">
         <div class="brand">
-          <div class="brand-logo">
-            <el-icon><Van /></el-icon>
-          </div>
           <div class="brand-text">
             <span class="cn">汽车租赁系统</span>
             <span class="en">CAR RENTAL</span>
@@ -20,10 +17,16 @@
 
         <nav class="main-nav">
           <router-link to="/user/cars" class="nav-item" active-class="active">
-            <el-icon><Van /></el-icon> 租车大厅
+            <div class="menu-text">
+              <span class="cn">租车大厅</span>
+              <span class="en">RENTAL</span>
+            </div>
           </router-link>
           <router-link to="/user/profile" class="nav-item" active-class="active">
-            <el-icon><User /></el-icon> 个人中心
+            <div class="menu-text">
+              <span class="cn">个人中心</span>
+              <span class="en">PROFILE</span>
+            </div>
           </router-link>
         </nav>
 
@@ -31,8 +34,6 @@
           <el-dropdown trigger="click" @command="handleCommand">
             <div class="user-profile">
               <el-avatar :size="32" src="https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png" class="avatar" />
-              <span class="username">用户</span>
-              <el-icon><CaretBottom /></el-icon>
             </div>
             <template #dropdown>
               <el-dropdown-menu class="custom-dropdown">
@@ -64,7 +65,6 @@
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { Van, CaretBottom, User } from '@element-plus/icons-vue'
 import { ElMessageBox, ElMessage } from 'element-plus'
 
 const router = useRouter()
@@ -108,6 +108,8 @@ onUnmounted(() => {
 </script>
 
 <style scoped lang="scss">
+@import url('https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;600;800&display=swap');
+
 .user-layout {
   min-height: 100vh;
   position: relative;
@@ -157,115 +159,141 @@ onUnmounted(() => {
   top: 0;
   left: 0;
   right: 0;
-  height: 64px;
-  background: rgba(255, 255, 255, 0.4);
-  backdrop-filter: blur(12px);
-  z-index: 100;
-  transition: all 0.3s ease;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+  height: 100px; /* Admin Style Height */
+  padding: 0 60px;
+  z-index: 1000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 
   &.is-scrolled {
+    height: 80px;
     background: rgba(255, 255, 255, 0.85);
-    box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+    backdrop-filter: blur(20px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+    padding: 0 40px;
   }
 
   .header-content {
-    max-width: 1200px;
-    margin: 0 auto;
+    width: 100%;
+    max-width: 1800px;
     height: 100%;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 24px;
   }
 }
 
 .brand {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 12px;
-  
-  .brand-logo {
-    width: 36px;
-    height: 36px;
-    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 20px;
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+  cursor: pointer;
+  transition: transform 0.3s;
+
+  &:hover {
+    transform: scale(1.02);
   }
 
   .brand-text {
     display: flex;
-    flex-direction: column;
+    align-items: baseline;
+    gap: 12px;
     
-    .cn { font-size: 16px; font-weight: 800; color: #1e293b; line-height: 1.2; }
-    .en { font-size: 10px; font-weight: 700; color: #94a3b8; letter-spacing: 1px; }
+    .cn {
+      font-size: 24px;
+      font-weight: 800;
+      color: #1e293b;
+      letter-spacing: 1px;
+    }
+    .en {
+      font-family: 'Anton', sans-serif;
+      font-size: 20px;
+      color: #94a3b8;
+      letter-spacing: 1px;
+    }
   }
 }
 
 .main-nav {
   display: flex;
-  gap: 8px;
-  background: rgba(255,255,255,0.5);
-  padding: 4px;
-  border-radius: 50px;
-  border: 1px solid rgba(255,255,255,0.5);
+  align-items: center;
+  gap: 32px;
+  height: 100%;
 
   .nav-item {
     text-decoration: none;
-    color: #64748b;
-    font-weight: 600;
-    font-size: 14px;
-    padding: 8px 20px;
-    border-radius: 20px;
-    transition: all 0.3s;
+    height: 100%;
     display: flex;
     align-items: center;
-    gap: 6px;
+    padding: 0 8px;
+    position: relative;
+
+    .menu-text {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s;
+      
+      .cn {
+        font-size: 15px;
+        font-weight: 700;
+        color: #64748b;
+        transition: color 0.3s;
+      }
+      
+      .en {
+        font-family: 'Inter', sans-serif;
+        font-size: 9px;
+        font-weight: 800;
+        color: #cbd5e1;
+        letter-spacing: 1px;
+        margin-top: 2px;
+        transition: color 0.3s;
+      }
+    }
 
     &:hover {
-      color: #3b82f6;
-      background: rgba(255,255,255,0.5);
+      .menu-text {
+        transform: translateY(-2px);
+        .cn { color: #1e293b; }
+        .en { color: #94a3b8; }
+      }
     }
 
     &.active {
-      color: white;
-      background: #3b82f6;
-      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+      .menu-text {
+        .cn { color: #1e293b; }
+        .en { color: #1e293b; }
+      }
     }
   }
 }
 
 .user-profile {
-  display: flex;
-  align-items: center;
-  gap: 10px;
   cursor: pointer;
-  padding: 4px 12px 4px 4px;
-  background: rgba(255,255,255,0.5);
-  border: 1px solid rgba(255,255,255,0.5);
-  border-radius: 30px;
-  transition: all 0.3s;
-
+  transition: transform 0.3s;
+  
   &:hover {
-    background: white;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    transform: scale(1.1);
   }
 
-  .avatar { border: 2px solid white; }
-  .username { font-size: 14px; font-weight: 600; color: #1e293b; }
+  .avatar {
+    border: 2px solid white;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  }
 }
 
 .user-main {
   position: relative;
   z-index: 1;
-  padding-top: 100px;
+  padding-top: 120px; /* Match Admin padding */
   min-height: calc(100vh - 60px);
   width: 100%;
+  padding-left: 60px;
+  padding-right: 60px;
 }
 
 .user-footer {

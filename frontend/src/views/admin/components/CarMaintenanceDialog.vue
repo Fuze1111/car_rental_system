@@ -5,7 +5,8 @@
     width="500px"
     @close="handleClose"
     destroy-on-close
-    custom-class="maintenance-dialog"
+    class="custom-dialog"
+    append-to-body
   >
     <el-form 
       ref="formRef"

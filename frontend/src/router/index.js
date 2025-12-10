@@ -69,6 +69,19 @@ const router = createRouter({
           meta: { title: '系统设置' }
         }
       ]
+    },
+    {
+      path: '/driver',
+      component: () => import('../layout/DriverLayout.vue'),
+      redirect: '/driver/dashboard',
+      children: [
+        {
+          path: 'dashboard',
+          name: 'driver-dashboard',
+          component: () => import('../views/driver/DriverDashboard.vue'),
+          meta: { title: '司机工作台' }
+        }
+      ]
     }
   ]
 })
