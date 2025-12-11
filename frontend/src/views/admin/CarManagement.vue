@@ -11,9 +11,13 @@
             </el-form-item>
             <el-form-item>
               <el-select v-model="searchForm.TName" placeholder="选择车型" clearable filterable style="width: 180px">
-                <el-option v-for="type in mockTypeData" :key="type.TName" :label="type.TName" :value="type.TName">
-                   <span style="float: left">{{ type.TName }}</span>
-                   <span style="float: right; color: #8492a6; font-size: 13px">{{ type.TNo }}</span>
+                <el-option 
+                  v-for="type in carTypeOptions" 
+                  :key="type.tNo + type.tName" 
+                  :label="type.tName" 
+                  :value="type.tName">
+                   <span style="float: left">{{ type.tName }}</span>
+                   <span style="float: right; color: #8492a6; font-size: 13px">{{ type.tNo }}</span>
                 </el-option>
               </el-select>
             </el-form-item>
@@ -75,12 +79,12 @@
         </el-table-column>
 
         <!-- 租金率 (RentRate) -->
-        <el-table-column prop="RentRate" label="日租金" width="150" align="left">
+        <el-table-column prop="RentRate" label="小时租金" width="150" align="left">
           <template #default="scope">
             <div class="price-tag">
               <span class="currency">¥</span>
               <span class="amount">{{ scope.row.RentRate }}</span>
-              <span class="unit">/天</span>
+              <span class="unit">/小时</span>
             </div>
           </template>
         </el-table-column>
@@ -224,12 +228,12 @@
                 <span style="font-weight: 600; color: #1e293b;">{{ scope.row.TName }}</span>
               </template>
             </el-table-column>
-            <el-table-column prop="RentRate" label="基准日租金" min-width="150" align="right">
+            <el-table-column prop="rentRate" label="基准小时租金" min-width="150" align="right">
               <template #default="scope">
                 <div class="price-tag">
                   <span class="currency">¥</span>
-                  <span class="amount">{{ scope.row.RentRate }}</span>
-                  <span class="unit">/天</span>
+                  <span class="amount">{{ scope.row.rentRate }}</span>
+                  <span class="unit">/小时</span>
                 </div>
               </template>
             </el-table-column>
@@ -276,12 +280,12 @@
     >
       <el-form ref="typeFormRef" :model="typeFormData" :rules="typeRules" label-width="100px" class="type-form">
         <el-form-item label="类型编号" prop="TNo">
-          <el-input v-model="typeFormData.TNo" placeholder="例如: C1" class="custom-input" />
+          <el-input v-model="typeFormData.TNo" placeholder="例如: C1" class="custom-input" :disabled="isTypeEdit" />
         </el-form-item>
         <el-form-item label="车型名称" prop="TName">
-          <el-input v-model="typeFormData.TName" placeholder="例如: Toyota Camry" class="custom-input" />
+          <el-input v-model="typeFormData.TName" placeholder="例如: Toyota Camry" class="custom-input" :disabled="isTypeEdit" />
         </el-form-item>
-        <el-form-item label="日租金" prop="RentRate">
+        <el-form-item label="小时租金" prop="RentRate">
           <el-input-number 
             v-model="typeFormData.RentRate" 
             :min="0" 
@@ -291,6 +295,7 @@
             class="custom-input-number"
           >
             <template #prefix>¥</template>
+            <template #append>/小时</template>
           </el-input-number>
         </el-form-item>
         <el-form-item label="车型图片" prop="Image">
@@ -335,7 +340,19 @@
 import { ref, reactive, defineAsyncComponent, onMounted } from 'vue'
 import { Search, Refresh, Plus, Edit, Delete, Van, Tools, Picture } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getCars, createCar, updateCar, deleteCar, getCarById, createRepair, updateCarStatus } from '@/api/car'
+import { 
+  getCars, 
+  createCar, 
+  updateCar, 
+  deleteCar, 
+  getCarById, 
+  createRepair, 
+  updateCarStatus,
+  getCarTypes,
+  createCarType,
+  updateCarType,
+  deleteCarType
+} from '@/api/car'
 
 // 异步加载组件
 const CarEditDialog = defineAsyncComponent(() => 
@@ -376,7 +393,7 @@ const pagination = reactive({
 const typePagination = reactive({
   currentPage: 1,
   pageSize: 10,
-  total: 4
+  total: 0
 })
 
 // Form Data for Types
@@ -390,20 +407,13 @@ const typeFormData = reactive({
 const typeRules = {
   TNo: [{ required: true, message: '请输入类型编号', trigger: 'blur' }],
   TName: [{ required: true, message: '请输入车型名称', trigger: 'blur' }],
-  RentRate: [{ required: true, message: '请输入日租金', trigger: 'blur' }]
+  RentRate: [{ required: true, message: '请输入小时租金', trigger: 'blur' }]
 }
 
 // 车辆数据
 const tableData = ref([])
-
-// Mock Data (Types) - TNo Represents License Type (e.g., C1, C2)
-const mockTypeData = [
-  { TNo: 'C1', TName: 'Toyota Camry', RentRate: 350.00, Image: 'https://images.unsplash.com/photo-1621007947382-bb3c3968e3bb?auto=format&fit=crop&q=80&w=200' },
-  { TNo: 'C1', TName: 'Tesla Model 3', RentRate: 500.00, Image: 'https://images.unsplash.com/photo-1560958089-b8a1929cea89?auto=format&fit=crop&q=80&w=200' },
-  { TNo: 'C1', TName: 'Benz S-Class', RentRate: 1200.00, Image: 'https://images.unsplash.com/photo-1617788138017-80ad40651399?auto=format&fit=crop&q=80&w=200' },
-  { TNo: 'C2', TName: 'BMW X5', RentRate: 1100.00, Image: 'https://images.unsplash.com/photo-1555215695-3004980adade?auto=format&fit=crop&q=80&w=200' }
-]
-const typeTableData = ref([...mockTypeData])
+const typeTableData = ref([])
+const carTypeOptions = ref([])
 
 const getStatusClass = (status) => {
   const map = {
@@ -437,6 +447,7 @@ const formatDateTime = (dateString) => {
 // 页面加载时获取车辆数据
 onMounted(() => {
   fetchCars()
+  fetchCarTypes()
 })
 
 // 获取车辆列表
@@ -463,11 +474,11 @@ const fetchCars = async () => {
     const response = await getCars(params)
     const { content, totalElements, totalPages } = response
     
-    // 转换数据格式以适配前端显示
+    // 转换数据格式以适配前端显示（注意后端返回的是小写字段名）
     tableData.value = content.map(car => ({
       CarID: car.carId,
-      TNo: car.tNo,
-      TName: car.tName,
+      TNo: car.tno,
+      TName: car.tname,
       RentRate: car.rentRate,
       CarStatus: car.carStatus,
       PurchaseDate: car.purchaseDate,
@@ -480,11 +491,62 @@ const fetchCars = async () => {
     pagination.total = totalElements
   } catch (error) {
     console.error('获取车辆列表失败:', error)
-    ElMessage.error('获取车辆列表失败')
+    ElMessage.error('获取车辆列表失败: ' + (error.message || '网络错误'))
   } finally {
     loading.value = false
   }
 }
+
+// 获取所有车型选项
+const fetchCarTypes = async () => {
+  try {
+    const response = await getCarTypes()
+    console.log('车型数据:', response); // 调试信息
+    
+    // 确保数据有正确的属性名（注意后端返回的是小写字段名）
+    carTypeOptions.value = response.map(type => ({
+      tNo: type.tno,       // 注意这里使用的是tno而不是tNo
+      tName: type.tname,   // 注意这里使用的是tname而不是tName
+      rentRate: type.rentRate
+    }))
+    
+    // 更新车型表格数据
+    typeTableData.value = response.map(type => ({
+      TNo: type.tno,       // 注意这里使用的是tno而不是tNo
+      TName: type.tname,   // 注意这里使用的是tname而不是tName
+      rentRate: type.rentRate,
+      Image: getImageForCarType(type.tname || type.TName)  // 根据车型名称获取对应图片
+    }))
+    
+    typePagination.total = response.length
+  } catch (error) {
+    console.error('获取车型列表失败:', error)
+    ElMessage.error('获取车型列表失败: ' + (error.message || '网络错误'))
+  }
+}
+
+// 根据车型名称获取对应图片的辅助函数
+const getImageForCarType = (typeName) => {
+  // 清理可能存在的乱码字符，只保留中文、英文字母和数字
+  const cleanTypeName = typeName.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '');
+  
+  console.log('原始车型名称:', typeName, '清理后:', cleanTypeName); // 调试信息
+  
+  // 图片URL映射
+  const imageMap = {
+    '丰田凯美瑞': 'https://images.unsplash.com/photo-1542362567-b07e54358753?auto=format&fit=crop&q=80&w=400',
+    '本田雅阁': 'https://images.unsplash.com/photo-1549399542-7e3f8b79578f?auto=format&fit=crop&q=80&w=400',
+    '奔驰E级': 'https://images.unsplash.com/photo-1617358038732-7a3d5de4b20f?auto=format&fit=crop&q=80&w=400',
+    '宝马5系': 'https://images.unsplash.com/photo-1617395310245-0a558b39c01f?auto=format&fit=crop&q=80&w=400',
+    '奥迪A6L': 'https://images.unsplash.com/photo-1584345604476-8ec5e12e42dd?auto=format&fit=crop&q=80&w=400',
+    '大众帕萨特': 'https://images.unsplash.com/photo-1622340767794-5412803c7344?auto=format&fit=crop&q=80&w=400'
+  };
+  
+  // 返回对应图片URL，如果没有找到则使用默认图片
+  const imageUrl = imageMap[cleanTypeName] || 'https://images.unsplash.com/photo-1621007947382-bb3c3968e3bb?auto=format&fit=crop&q=80&w=400';
+  console.log('匹配图片URL:', imageUrl);
+  return imageUrl;
+};
 
 const handleSearch = () => {
   pagination.currentPage = 1
@@ -511,7 +573,7 @@ const handleEdit = (row) => {
     CarID: row.CarID,
     TNo: row.TNo,
     TName: row.TName,
-    RentRate: row.RentRate,
+    rentRate: row.rentRate,
     Price: row.Price,
     PurchaseDate: row.PurchaseDate,
     CarStatus: row.CarStatus,
@@ -559,14 +621,9 @@ const typeFormRef = ref(null)
 const handleTypeSearch = () => {
   typeLoading.value = true
   
-  const queryParams = {
-    keyword: typeSearchForm.keyword,
-    page: typePagination.currentPage,
-    size: typePagination.pageSize
-  }
-  console.log('【后端查询】正在请求车型列表，参数:', queryParams)
-
-  // TODO: 后端 SQL 处理: WHERE TName LIKE %keyword% OR TNo = keyword
+  // 实际实现搜索逻辑
+  fetchCarTypes()
+  
   setTimeout(() => {
     typeLoading.value = false
   }, 300)
@@ -577,11 +634,8 @@ const resetTypeSearch = () => {
   handleTypeSearch()
 }
 
-const currentEditTypeOriginalName = ref('') // Track original PK name
-
 const handleTypeAdd = () => {
   isTypeEdit.value = false
-  currentEditTypeOriginalName.value = ''
   typeFormData.TNo = ''
   typeFormData.TName = ''
   typeFormData.RentRate = 0
@@ -590,8 +644,13 @@ const handleTypeAdd = () => {
 
 const handleTypeEdit = (row) => {
   isTypeEdit.value = true
-  currentEditTypeOriginalName.value = row.TName // Save original name
-  Object.assign(typeFormData, row)
+  // 确保字段名匹配后端返回的小写字段名
+  Object.assign(typeFormData, {
+    TNo: row.TNo || row.tno,
+    TName: row.TName || row.tname,
+    RentRate: row.rentRate || row.RentRate || 0,
+    Image: row.Image || ''
+  })
   typeDialogVisible.value = true
 }
 
@@ -600,10 +659,15 @@ const handleTypeDelete = (row) => {
     type: 'warning',
     confirmButtonText: '删除',
     cancelButtonText: '取消'
-  }).then(() => {
-    // TNo is NOT unique, filter by TName (assuming unique name per type)
-    typeTableData.value = typeTableData.value.filter(item => item.TName !== row.TName)
-    ElMessage.success('删除成功')
+  }).then(async () => {
+    try {
+      await deleteCarType(row.TNo || row.tno, row.TName || row.tname)
+      ElMessage.success('删除成功')
+      fetchCarTypes()
+    } catch (error) {
+      console.error('删除失败:', error)
+      ElMessage.error('删除失败: ' + (error.message || '未知错误'))
+    }
   }).catch(() => {})
 }
 
@@ -622,20 +686,33 @@ const handleFileChange = (uploadFile) => {
 
 const handleTypeSubmit = async () => {
   if (!typeFormRef.value) return
-  await typeFormRef.value.validate((valid) => {
+  await typeFormRef.value.validate(async (valid) => {
     if (valid) {
-      setTimeout(() => {
+      try {
         if (isTypeEdit.value) {
-          // Find by ORIGINAL Name + Current TNo (Assuming TNo doesn't change usually, but TName is the key unique part here)
-          // Ideally should match both, but simplified to TName as unique identifier
-          const index = typeTableData.value.findIndex(item => item.TName === currentEditTypeOriginalName.value)
-          if (index !== -1) typeTableData.value[index] = { ...typeFormData }
+          // 更新车型
+          await updateCarType(typeFormData.TNo, typeFormData.TName, {
+            tno: typeFormData.TNo,
+            tname: typeFormData.TName,
+            rentRate: typeFormData.RentRate
+          })
+          ElMessage.success('修改成功')
         } else {
-          typeTableData.value.push({ ...typeFormData })
+          // 创建新车型
+          await createCarType({
+            tno: typeFormData.TNo,
+            tname: typeFormData.TName,
+            rentRate: typeFormData.RentRate
+          })
+          ElMessage.success('新增成功')
         }
+        
         typeDialogVisible.value = false
-        ElMessage.success(isTypeEdit.value ? '修改成功' : '新增成功')
-      }, 500)
+        fetchCarTypes()
+      } catch (error) {
+        console.error('操作失败:', error)
+        ElMessage.error('操作失败: ' + (error.message || '未知错误'))
+      }
     }
   })
 }
@@ -672,7 +749,7 @@ const handleDialogSubmit = async (formData) => {
 }
 
 const handleDelete = (row) => {
-  ElMessageBox.confirm(`确定要删除 ${row.TName} (${row.CarID}) 吗？`, '删除确认', {
+  ElMessageBox.confirm(`确定要删除 ${row.TName} (${row.CarID}) 含？`, '删除确认', {
     confirmButtonText: '删除',
     cancelButtonText: '取消',
     type: 'warning',
@@ -705,6 +782,7 @@ const handleTypeSizeChange = (val) => {
 }
 
 const handleTypeCurrentChange = (val) => {
+  typePagination.currentPage = val
   handleTypeSearch()
 }
 </script>
@@ -970,7 +1048,7 @@ const handleTypeCurrentChange = (val) => {
     .add-btn {
       border-radius: 50px;
       padding: 10px 24px;
-      background: linear-gradient(135deg, #10b981 0%, #059669 100%); /* Green for Add action */
+      background: linear-gradient(135deg, #10b981, #059669); /* Green for Add action */
       border: none;
       box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
       transition: all 0.3s;
@@ -982,7 +1060,7 @@ const handleTypeCurrentChange = (val) => {
       &:hover {
         transform: translateY(-2px);
         box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
-        background: linear-gradient(135deg, #34d399 0%, #059669 100%);
+        background: linear-gradient(135deg, #34d399, #059669);
       }
     }
   }

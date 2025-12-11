@@ -35,7 +35,7 @@ public class CarType {
     private String tName;
 
     /**
-     * 租金率（元/公里或元/小时）
+     * 租金率（元/小时）
      */
     @Column(name = "RentRate", precision = 4, scale = 2)
     private BigDecimal rentRate;

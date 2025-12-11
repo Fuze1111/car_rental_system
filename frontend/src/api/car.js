@@ -151,3 +151,37 @@ export function getRepairCountByCarId(carId) {
     method: 'get'
   })
 }
+
+// 获取所有车型
+export function getCarTypes() {
+  return request({
+    url: '/car-types',
+    method: 'get'
+  })
+}
+
+// 创建车型
+export function createCarType(data) {
+  return request({
+    url: '/car-types',
+    method: 'post',
+    data
+  })
+}
+
+// 更新车型
+export function updateCarType(tNo, tName, data) {
+  return request({
+    url: `/car-types/${tNo}/${tName}`,
+    method: 'put',
+    data
+  })
+}
+
+// 删除车型
+export function deleteCarType(tNo, tName) {
+  return request({
+    url: `/car-types/${tNo}/${tName}`,
+    method: 'delete'
+  })
+}

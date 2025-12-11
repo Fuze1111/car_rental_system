@@ -68,6 +68,16 @@ public class CarResponseDTO {
     private LocalDateTime lastRepairDate;
 
     /**
+     * 运行公里
+     */
+    private BigDecimal runKm;
+
+    /**
+     * 运行小时
+     */
+    private BigDecimal runHour;
+
+    /**
      * 获取车辆状态描述
      */
     public String getCarStatusDesc() {
@@ -86,4 +96,3 @@ public class CarResponseDTO {
         }
     }
 }
-

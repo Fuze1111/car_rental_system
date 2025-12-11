@@ -253,6 +253,8 @@ public class CarService {
         dto.setCarStatus(car.getCarStatus());
         dto.setTNo(car.getTNo());
         dto.setTName(car.getTName());
+        dto.setRunKm(car.getRunKm());
+        dto.setRunHour(car.getRunHour());
 
         // 设置租金率（如果车型信息存在）
         if (car.getCarType() != null) {

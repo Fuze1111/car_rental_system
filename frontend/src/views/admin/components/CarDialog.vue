@@ -38,16 +38,17 @@
 
       <el-row :gutter="20">
         <el-col :span="12">
-          <el-form-item label="日租金" prop="RentRate">
+          <el-form-item label="小时租金" prop="RentRate">
             <el-input-number 
               v-model="formData.RentRate" 
               :min="0" 
-              :step="50" 
+              :step="10" 
               style="width: 100%"
               controls-position="right"
               class="custom-input-number"
             >
               <template #prefix>¥</template>
+              <template #append>/小时</template>
             </el-input-number>
           </el-form-item>
         </el-col>

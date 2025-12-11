@@ -316,9 +316,10 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, nextTick } from 'vue'
+import { ref, reactive, computed, nextTick, onMounted } from 'vue'
 import { Search, InfoFilled, Cpu, Van, Right, LocationFilled, User, ArrowUp, ArrowDown } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import { getAllCars } from '@/api/car'
 
 const loading = ref(false)
 const searchKeyword = ref('')
@@ -357,15 +358,83 @@ const returnStores = computed(() => {
   return stores.filter(s => s.City === returnCity.value)
 })
 
-// Mock Car Data
-const cars = ref([
-  { id: 1, brand: 'Toyota', model: 'Camry', type: '轿车', price: 200, seats: 5, transmission: '自动', fuel: '汽油', image: 'https://images.unsplash.com/photo-1621007947382-bb3c3968e3bb?auto=format&fit=crop&q=80&w=400' },
-  { id: 2, brand: 'Tesla', model: 'Model 3', type: '轿车', price: 350, seats: 5, transmission: '自动', fuel: '电动', image: 'https://images.unsplash.com/photo-1560958089-b8a1929cea89?auto=format&fit=crop&q=80&w=400' },
-  { id: 3, brand: 'Mercedes', model: 'C-Class', type: '轿车', price: 450, seats: 5, transmission: '自动', fuel: '汽油', image: 'https://images.unsplash.com/photo-1617788138017-80ad40651399?auto=format&fit=crop&q=80&w=400' },
-  { id: 4, brand: 'BMW', model: 'X5', type: 'SUV', price: 600, seats: 5, transmission: '自动', fuel: '汽油', image: 'https://images.unsplash.com/photo-1555215695-3004980adade?auto=format&fit=crop&q=80&w=400' },
-  { id: 5, brand: 'Ford', model: 'Mustang', type: '跑车', price: 550, seats: 4, transmission: '自动', fuel: '汽油', image: 'https://images.unsplash.com/photo-1584345604476-8ec5e12e42dd?auto=format&fit=crop&q=80&w=400' },
-  { id: 6, brand: 'Honda', model: 'Odyssey', type: 'MPV', price: 400, seats: 7, transmission: '自动', fuel: '汽油', image: 'https://images.unsplash.com/photo-1622340767794-5412803c7344?auto=format&fit=crop&q=80&w=400' }
-])
+// Car Data from API
+const cars = ref([])
+
+// 根据车型名称推断车辆信息
+const getCarInfoFromTName = (tName) => {
+  const info = {
+    brand: '未知品牌',
+    model: tName || '未知型号',
+    seats: 5,
+    transmission: '自动',
+    fuel: '汽油'
+  }
+  
+  if (tName) {
+    // 从车型名称中提取品牌信息
+    if (tName.includes('丰田')) info.brand = '丰田'
+    else if (tName.includes('本田')) info.brand = '本田'
+    else if (tName.includes('奔驰')) info.brand = '奔驰'
+    else if (tName.includes('宝马')) info.brand = '宝马'
+    else if (tName.includes('奥迪')) info.brand = '奥迪'
+    else if (tName.includes('大众')) info.brand = '大众'
+    else if (tName.includes('特斯拉')) info.brand = '特斯拉'
+    else if (tName.includes('福特')) info.brand = '福特'
+    
+    // 根据车型推断座位数
+    if (tName.includes('MPV') || tName.includes('商务车')) info.seats = 7
+    else if (tName.includes('跑车')) info.seats = 4
+    else if (tName.includes('SUV')) info.seats = 5
+    
+    // 根据车型推断燃油类型
+    if (tName.includes('电动') || tName.includes('新能源')) info.fuel = '电动'
+  }
+  
+  return info
+}
+
+// Load cars data from API
+const loadCars = async () => {
+  loading.value = true
+  try {
+    const response = await getAllCars()
+    // 转换API返回的数据格式，确保与前端兼容
+    cars.value = response.map(car => {
+      const carInfo = getCarInfoFromTName(car.tName)
+      return {
+        id: car.carId,
+        brand: carInfo.brand,
+        model: carInfo.model,
+        type: car.tName || '轿车',
+        price: car.rentRate ? Number(car.rentRate) * 8 : 200, // 租金率转换为日租金（假设8小时/天）
+        seats: carInfo.seats,
+        transmission: carInfo.transmission,
+        fuel: carInfo.fuel,
+        image: `https://images.unsplash.com/photo-1621007947382-bb3c3968e3bb?auto=format&fit=crop&q=80&w=400&text=${encodeURIComponent(car.tName || '汽车')}`
+      }
+    })
+  } catch (error) {
+    console.error('加载车辆数据失败:', error)
+    ElMessage.error('加载车辆数据失败，请稍后重试')
+    // 如果API调用失败，使用备用mock数据
+    cars.value = [
+      { id: '京A12345', brand: '丰田', model: '凯美瑞', type: '轿车', price: 240, seats: 5, transmission: '自动', fuel: '汽油', image: 'https://images.unsplash.com/photo-1621007947382-bb3c3968e3bb?auto=format&fit=crop&q=80&w=400' },
+      { id: '京B67890', brand: '本田', model: '雅阁', type: '轿车', price: 280, seats: 5, transmission: '自动', fuel: '汽油', image: 'https://images.unsplash.com/photo-1560958089-b8a1929cea89?auto=format&fit=crop&q=80&w=400' },
+      { id: '京C11111', brand: '奔驰', model: 'E级', type: '轿车', price: 480, seats: 5, transmission: '自动', fuel: '汽油', image: 'https://images.unsplash.com/photo-1617788138017-80ad40651399?auto=format&fit=crop&q=80&w=400' },
+      { id: '京D22222', brand: '宝马', model: '5系', type: '轿车', price: 560, seats: 5, transmission: '自动', fuel: '汽油', image: 'https://images.unsplash.com/photo-1555215695-3004980adade?auto=format&fit=crop&q=80&w=400' },
+      { id: '京E33333', brand: '奥迪', model: 'A6L', type: '轿车', price: 440, seats: 5, transmission: '自动', fuel: '汽油', image: 'https://images.unsplash.com/photo-1584345604476-8ec5e12e42dd?auto=format&fit=crop&q=80&w=400' },
+      { id: '京F44444', brand: '大众', model: '帕萨特', type: '轿车', price: 200, seats: 5, transmission: '自动', fuel: '汽油', image: 'https://images.unsplash.com/photo-1622340767794-5412803c7344?auto=format&fit=crop&q=80&w=400' }
+    ]
+  } finally {
+    loading.value = false
+  }
+}
+
+// Load cars when component mounted
+onMounted(() => {
+  loadCars()
+})
 
 // Filtering
 const filteredCars = computed(() => {
