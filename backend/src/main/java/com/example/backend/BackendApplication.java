@@ -13,6 +13,7 @@ public class BackendApplication {
 		SpringApplication.run(BackendApplication.class, args);
 		System.out.println("汽车租赁系统后端服务已启动！");
 		System.out.println("访问 http://localhost:8080 查看测试管理面板");
+        System.out.println("访问  http://localhost:3010/login  查看前端登录页面");
 	}
 
 	@Bean

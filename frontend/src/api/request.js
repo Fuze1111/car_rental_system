@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
+import { getToken } from '@/utils/auth'
 
 // 创建axios实例
 const request = axios.create({
@@ -10,8 +11,8 @@ const request = axios.create({
 // 请求拦截器
 request.interceptors.request.use(
   config => {
-    // 可以在这里添加token等
-    const token = localStorage.getItem('token')
+    // 添加token到请求头
+    const token = getToken()
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`
     }
@@ -26,7 +27,8 @@ request.interceptors.request.use(
 // 响应拦截器
 request.interceptors.response.use(
   response => {
-    return response.data
+    // 直接返回整个响应对象，让调用者可以访问response.data和其他属性
+    return response
   },
   error => {
     // 统一错误处理

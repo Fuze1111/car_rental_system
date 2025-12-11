@@ -139,10 +139,10 @@ const handleLogin = async () => {
         })
         
         // 保存用户信息到localStorage
-        setUserInfo(response)
+        setUserInfo(response.data || response)
         setUserRole(activeRole.value)
         
-        ElMessage.success(response.message || '登录成功')
+        ElMessage.success((response.data || response).message || '登录成功')
         
         // 根据角色跳转
         if (activeRole.value === 'admin') {
@@ -455,7 +455,6 @@ const handleRegister = () => {
 }
 
 .login-form {
-  /* ... existing styles ... */
   min-height: 200px; /* 防止切换时高度塌陷导致抖动 */
   :deep(.el-input__wrapper) {
     background-color: white;
