@@ -21,10 +21,10 @@
         
         <div class="center-panel">
           <div class="glass-stat-pill">
-            <div class="icon-box blue"><el-icon><DataLine /></el-icon></div>
+            <div class="icon-box blue"><el-icon><List /></el-icon></div>
             <div class="pill-info">
-              <span class="label">今日浏览</span>
-              <span class="value">2,845</span>
+              <span class="label">今日订单</span>
+              <span class="value">15</span>
             </div>
           </div>
           <div class="glass-stat-pill">
@@ -35,10 +35,17 @@
             </div>
           </div>
           <div class="glass-stat-pill">
-            <div class="icon-box green"><el-icon><CircleCheck /></el-icon></div>
+            <div class="icon-box orange"><el-icon><Tools /></el-icon></div>
             <div class="pill-info">
-              <span class="label">准点还车</span>
-              <span class="value">98%</span>
+              <span class="label">今日维修</span>
+              <span class="value">2辆</span>
+            </div>
+          </div>
+          <div class="glass-stat-pill">
+            <div class="icon-box green"><el-icon><Trophy /></el-icon></div>
+            <div class="pill-info">
+              <span class="label">最多租赁</span>
+              <span class="value">舒适型</span>
             </div>
           </div>
         </div>
@@ -65,7 +72,7 @@
           <div class="stat-footer">
             <div class="footer-item">
               <span class="dot"></span>
-              2 辆新增
+              2 辆本月新增
             </div>
             <el-icon class="bg-icon"><Van /></el-icon>
           </div>
@@ -82,7 +89,7 @@
           <div class="stat-footer">
             <div class="footer-item">
               <span class="dot"></span>
-              12 位今日注册
+              12 位今日下单
             </div>
             <el-icon class="bg-icon"><User /></el-icon>
           </div>
@@ -333,7 +340,7 @@
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Van, User, List, Money, Top, Bottom, Plus, UserFilled, Document, Warning, Setting, Monitor, Bell, DataLine, Timer, CircleCheck, Download, Select } from '@element-plus/icons-vue'
+import { Van, User, List, Money, Top, Bottom, Plus, UserFilled, Document, Warning, Setting, Monitor, Bell, DataLine, Timer, CircleCheck, Download, Select, Tools, Trophy } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const currentTime = ref(new Date())
@@ -620,6 +627,7 @@ const chartData = ref([
         &.blue { background: #eff6ff; color: #3b82f6; }
         &.purple { background: #f5f3ff; color: #8b5cf6; }
         &.green { background: #ecfdf5; color: #10b981; }
+        &.orange { background: #fff7ed; color: #f97316; }
       }
 
       .pill-info {
