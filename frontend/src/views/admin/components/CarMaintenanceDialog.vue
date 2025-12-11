@@ -120,11 +120,14 @@ const handleSubmit = async () => {
     if (valid) {
       loading.value = true
       // Simulate API call
-      setTimeout(() => {
-        loading.value = false
+      try {
         emit('submit', { ...formData })
         handleClose()
-      }, 500)
+      } catch (error) {
+        console.error('提交失败:', error)
+      } finally {
+        loading.value = false
+      }
     }
   })
 }

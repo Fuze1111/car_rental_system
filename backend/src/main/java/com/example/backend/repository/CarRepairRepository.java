@@ -14,7 +14,7 @@ import java.util.Optional;
  * 提供汽车维修记录的数据访问操作
  */
 @Repository
-public interface CarRepairRepository extends JpaRepository<CarRepair, Integer> {
+public interface CarRepairRepository extends JpaRepository<CarRepair, String> {
 
     /**
      * 根据车辆号查询所有维修记录

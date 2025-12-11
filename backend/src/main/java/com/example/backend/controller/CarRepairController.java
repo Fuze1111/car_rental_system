@@ -40,7 +40,7 @@ public class CarRepairController {
      * @return 维修记录
      */
     @GetMapping("/{rNo}")
-    public ResponseEntity<CarRepairResponseDTO> getRepairById(@PathVariable Integer rNo) {
+    public ResponseEntity<CarRepairResponseDTO> getRepairById(@PathVariable String rNo) {
         return carRepairService.getRepairById(rNo)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -79,7 +79,7 @@ public class CarRepairController {
      */
     @PutMapping("/{rNo}")
     public ResponseEntity<CarRepairResponseDTO> updateRepair(
-            @PathVariable Integer rNo,
+            @PathVariable String rNo,
             @RequestBody CarRepairRequestDTO repairRequestDTO) {
         CarRepairResponseDTO updatedRepair = carRepairService.updateRepair(rNo, repairRequestDTO);
         return ResponseEntity.ok(updatedRepair);
@@ -92,7 +92,7 @@ public class CarRepairController {
      * @return 无内容
      */
     @DeleteMapping("/{rNo}")
-    public ResponseEntity<Void> deleteRepair(@PathVariable Integer rNo) {
+    public ResponseEntity<Void> deleteRepair(@PathVariable String rNo) {
         carRepairService.deleteRepair(rNo);
         return ResponseEntity.noContent().build();
     }

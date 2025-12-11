@@ -64,7 +64,7 @@ public class CarRepairService {
      * @param rNo 维修编号
      * @return 维修记录
      */
-    public Optional<CarRepairResponseDTO> getRepairById(Integer rNo) {
+    public Optional<CarRepairResponseDTO> getRepairById(String rNo) {
         return carRepairRepository.findById(rNo)
                 .map(this::convertToResponseDTO);
     }
@@ -93,6 +93,8 @@ public class CarRepairService {
                 .orElseThrow(() -> new RuntimeException("车辆不存在: " + repairRequestDTO.getCarId()));
 
         CarRepair repair = convertToEntity(repairRequestDTO);
+        // 生成维修编号
+        repair.setRNo(generateRepairNo());
         CarRepair savedRepair = carRepairRepository.save(repair);
 
         // 更新车辆状态为维修中
@@ -109,7 +111,7 @@ public class CarRepairService {
      * @return 更新后的维修记录
      */
     @Transactional
-    public CarRepairResponseDTO updateRepair(Integer rNo, CarRepairRequestDTO repairRequestDTO) {
+    public CarRepairResponseDTO updateRepair(String rNo, CarRepairRequestDTO repairRequestDTO) {
         CarRepair existingRepair = carRepairRepository.findById(rNo)
                 .orElseThrow(() -> new RuntimeException("维修记录不存在: " + rNo));
 
@@ -133,7 +135,7 @@ public class CarRepairService {
      * @param rNo 维修编号
      */
     @Transactional
-    public void deleteRepair(Integer rNo) {
+    public void deleteRepair(String rNo) {
         if (!carRepairRepository.existsById(rNo)) {
             throw new RuntimeException("维修记录不存在: " + rNo);
         }
@@ -178,5 +180,23 @@ public class CarRepairService {
         repair.setRunHour(dto.getRunHour());
         repair.setCarId(dto.getCarId());
         return repair;
+    }
+
+    /**
+     * 生成新的维修编号
+     * @return 新的维修编号
+     */
+    private String generateRepairNo() {
+        // 查找最大的维修编号并加1
+        String maxRNo = carRepairRepository.findAll().stream()
+                .map(CarRepair::getRNo)
+                .filter(rNo -> rNo != null && rNo.startsWith("R"))
+                .max(String::compareTo)
+                .orElse("R0000000");
+        
+        // 提取数字部分并加1
+        String numPart = maxRNo.substring(1); // 去掉前缀'R'
+        int nextNum = Integer.parseInt(numPart) + 1;
+        return String.format("R%07d", nextNum);
     }
 }

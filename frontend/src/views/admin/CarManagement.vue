@@ -113,6 +113,13 @@
           </template>
         </el-table-column>
 
+        <!-- 最后维修日期 (LastRepairDate) -->
+        <el-table-column prop="LastRepairDate" label="最后维修日期" width="160" align="center">
+          <template #default="scope">
+            <span class="text-secondary">{{ scope.row.LastRepairDate ? formatDateTime(scope.row.LastRepairDate) : '-' }}</span>
+          </template>
+        </el-table-column>
+
         <!-- 状态 (CarStatus) -->
         <el-table-column label="状态" width="120" align="center">
           <template #default="scope">
@@ -328,7 +335,7 @@
 import { ref, reactive, defineAsyncComponent, onMounted } from 'vue'
 import { Search, Refresh, Plus, Edit, Delete, Van, Tools, Picture } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getCars, createCar, updateCar, deleteCar, getCarById } from '@/api/car'
+import { getCars, createCar, updateCar, deleteCar, getCarById, createRepair, updateCarStatus } from '@/api/car'
 
 // 异步加载组件
 const CarEditDialog = defineAsyncComponent(() => 
@@ -416,6 +423,17 @@ const getStatusLabel = (status) => {
   return map[status] || '未知'
 }
 
+// 格式化日期时间
+const formatDateTime = (dateString) => {
+  if (!dateString) return '-'
+  const date = new Date(dateString)
+  return date.getFullYear() + '-' + 
+         String(date.getMonth() + 1).padStart(2, '0') + '-' + 
+         String(date.getDate()).padStart(2, '0') + ' ' +
+         String(date.getHours()).padStart(2, '0') + ':' +
+         String(date.getMinutes()).padStart(2, '0')
+}
+
 // 页面加载时获取车辆数据
 onMounted(() => {
   fetchCars()
@@ -443,7 +461,7 @@ const fetchCars = async () => {
     }
     
     const response = await getCars(params)
-    const { content, totalElements, totalPages } = response.data
+    const { content, totalElements, totalPages } = response
     
     // 转换数据格式以适配前端显示
     tableData.value = content.map(car => ({
@@ -454,8 +472,9 @@ const fetchCars = async () => {
       CarStatus: car.carStatus,
       PurchaseDate: car.purchaseDate,
       Price: car.price,
-      RUNKM: 0, // 这些数据需要额外获取或计算
-      RunHour: 0
+      LastRepairDate: car.lastRepairDate,
+      RUNKM: car.runKm || 0,
+      RunHour: car.runHour || 0
     }))
     
     pagination.total = totalElements
@@ -508,12 +527,29 @@ const handleMaintenance = (row) => {
   maintenanceDialogVisible.value = true
 }
 
-const handleMaintenanceSubmit = (formData) => {
-  const index = tableData.value.findIndex(item => item.CarID === formData.CarID)
-  if (index !== -1) {
-    // Update status to '2' (Maintenance)
-    tableData.value[index].CarStatus = '2'
+const handleMaintenanceSubmit = async (formData) => {
+  try {
+    // 准备维修记录数据
+    const repairData = {
+      carId: formData.CarID,
+      rDate: formData.RDate,
+      runKm: formData.RunKM,
+      runHour: formData.RunHour
+    }
+    
+    // 创建维修记录
+    await createRepair(repairData)
+    
+    // 更新车辆状态为维修中
+    await updateCarStatus(formData.CarID, { carStatus: '2' })
+    
     ElMessage.success('车辆已送修')
+    
+    // 刷新车辆列表以显示最新的状态
+    fetchCars()
+  } catch (error) {
+    console.error('送修失败:', error)
+    ElMessage.error('送修失败: ' + (error.message || '未知错误'))
   }
 }
 
