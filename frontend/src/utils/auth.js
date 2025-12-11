@@ -11,14 +11,7 @@ const TOKEN_KEY = 'token'
  * @param {Object} userInfo - 用户信息对象
  */
 export function setUserInfo(userInfo) {
-  // 保存token（如果有的话）
-  if (userInfo.token) {
-    setToken(userInfo.token)
-  }
-  
-  // 保存用户信息（去除token字段）
-  const { token, ...userInfoWithoutToken } = userInfo
-  localStorage.setItem(USER_INFO_KEY, JSON.stringify(userInfoWithoutToken))
+  localStorage.setItem(USER_INFO_KEY, JSON.stringify(userInfo))
 }
 
 /**

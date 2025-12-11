@@ -133,9 +133,7 @@ SOURCE /path/to/data.sql;
 **说明**：
 - DriveTime单位为小时，精确到小数点后两位（如1.50表示1小时30分钟）
 - RoundTripDistance单位为公里
-- Amount单位为人民币元，计算公式为：每小时费用×DriveTime + 每公里费用×RoundTripDistance
-  - 每小时费用来自车型表(car_type)的RentRate字段
-  - 每公里费用为每小时费用÷50
+- Amount单位为人民币元
 
 ---
 
@@ -165,3 +163,4 @@ SOURCE /path/to/data.sql;
 ### Q: 想要清空数据但保留表结构
 
 **A:** 执行 `TRUNCATE TABLE 表名` 或删除 `data.sql` 的内容
+
