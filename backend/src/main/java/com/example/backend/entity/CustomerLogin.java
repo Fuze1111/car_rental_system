@@ -24,6 +24,12 @@ public class CustomerLogin {
     private String cNo;
 
     /**
+     * 手机号（用于登录）
+     */
+    @Column(name = "Phone", length = 20, nullable = false)
+    private String phone;
+
+    /**
      * 密码
      */
     @Column(name = "Password", length = 100, nullable = false)
@@ -33,7 +39,6 @@ public class CustomerLogin {
      * 关联的客户信息
      */
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "CNo", referencedColumnName = "CNo")
-    @MapsId // 共享主键
+    @JoinColumn(name = "CNo", referencedColumnName = "CNo", insertable = false, updatable = false)
     private Customer customer;
 }

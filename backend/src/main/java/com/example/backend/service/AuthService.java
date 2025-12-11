@@ -171,14 +171,14 @@ public class AuthService {
         customer.setPhone(request.getPhone());
         customer.setCompany(request.getCompany());
         customer.setAddress(request.getAddress());
-        customer.setPostCode(null); // 可选字段
+        customer.setPostCode(request.getPostCode());
         customerRepository.save(customer);
 
         // 创建登录凭证（密码加密）
         CustomerLogin customerLogin = new CustomerLogin();
         customerLogin.setCNo(cNo);
+        customerLogin.setPhone(request.getPhone());
         customerLogin.setPassword(PasswordUtil.encode(request.getPassword()));
-        customerLogin.setCustomer(customer);
         customerLoginRepository.save(customerLogin);
 
         return new LoginResponse(
@@ -198,6 +198,12 @@ public class AuthService {
      */
     @Transactional
     public LoginResponse registerDriver(DriverRegisterRequest request) {
+        // 验证手机号是否已存在
+        Optional<DriverLogin> existingDriver = driverLoginRepository.findByPhone(request.getPhone());
+        if (existingDriver.isPresent()) {
+            throw new IllegalArgumentException("该手机号已被注册");
+        }
+        
         // 生成司机号
         String dNo = generateDriverNo();
 
@@ -214,8 +220,8 @@ public class AuthService {
         // 创建登录凭证（密码加密）
         DriverLogin driverLogin = new DriverLogin();
         driverLogin.setDNo(dNo);
+        driverLogin.setPhone(request.getPhone());
         driverLogin.setPassword(PasswordUtil.encode(request.getPassword()));
-        driverLogin.setDriver(driver);
         driverLoginRepository.save(driverLogin);
 
         return new LoginResponse(

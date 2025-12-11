@@ -24,6 +24,12 @@ public class DriverLogin {
     private String dNo;
 
     /**
+     * 手机号（用于登录）
+     */
+    @Column(name = "Phone", length = 20, nullable = false)
+    private String phone;
+
+    /**
      * 密码
      */
     @Column(name = "Password", length = 100, nullable = false)
@@ -33,7 +39,6 @@ public class DriverLogin {
      * 关联的司机信息
      */
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "DNo", referencedColumnName = "DNo")
-    @MapsId // 共享主键
+    @JoinColumn(name = "DNo", referencedColumnName = "DNo", insertable = false, updatable = false)
     private Driver driver;
 }

@@ -42,6 +42,7 @@ DROP TABLE IF EXISTS driver;
 CREATE TABLE IF NOT EXISTS driver (
     DNo             CHAR(8)         NOT NULL COMMENT '司机号',
     DName           CHAR(50)        NOT NULL COMMENT '姓名',
+    Phone           CHAR(20)        NULL COMMENT '司机电话',
     StartWork       DATE            NULL COMMENT '入职年月',
     Salary          NUMERIC(6,2)    NULL COMMENT '基本工资',
     DStatus         CHAR(5)         NULL COMMENT '司机状态（在岗/空闲等）',
@@ -124,9 +125,11 @@ CREATE TABLE IF NOT EXISTS rental (
 DROP TABLE IF EXISTS customer_login;
 CREATE TABLE IF NOT EXISTS customer_login (
     CNo         CHAR(8)         NOT NULL COMMENT '客户号',
+    Phone       CHAR(20)        NOT NULL COMMENT '手机号（用于登录）',
     Password    VARCHAR(100)    NOT NULL COMMENT '密码',
 
     PRIMARY KEY (CNo),
+    UNIQUE KEY (Phone),
     FOREIGN KEY (CNo) REFERENCES customer(CNo) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='客户登录表';
 
@@ -136,9 +139,11 @@ CREATE TABLE IF NOT EXISTS customer_login (
 DROP TABLE IF EXISTS driver_login;
 CREATE TABLE IF NOT EXISTS driver_login (
     DNo         CHAR(8)         NOT NULL COMMENT '司机号',
+    Phone       CHAR(20)        NOT NULL COMMENT '手机号（用于登录）',
     Password    VARCHAR(100)    NOT NULL COMMENT '密码',
 
     PRIMARY KEY (DNo),
+    UNIQUE KEY (Phone),
     FOREIGN KEY (DNo) REFERENCES driver(DNo) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='司机登录表';
 
