@@ -133,6 +133,7 @@
 <script setup>
 import { ref, reactive, watch } from 'vue'
 import { ElMessage } from 'element-plus'
+import { getAllCars } from '@/api/car'
 
 const props = defineProps({
   visible: {
@@ -150,14 +151,7 @@ const emit = defineEmits(['update:visible', 'submit'])
 const formRef = ref(null)
 const loading = ref(false)
 const isEdit = ref(false)
-
-// Mock 车型数据
-const carTypes = [
-  { TNo: 'T001', TName: 'Toyota Camry' },
-  { TNo: 'T002', TName: 'Tesla Model 3' },
-  { TNo: 'T003', TName: 'Benz S-Class' },
-  { TNo: 'T004', TName: 'BMW X5' },
-]
+const carTypes = ref([])
 
 const formData = reactive({
   CarID: '',
@@ -178,6 +172,23 @@ const rules = {
   CarStatus: [{ required: true, message: '请选择状态', trigger: 'change' }]
 }
 
+// 获取车型列表
+const fetchCarTypes = async () => {
+  try {
+    // TODO: 实际应该从后端获取车型列表
+    // 目前使用模拟数据
+    carTypes.value = [
+      { TNo: 'T001', TName: 'Toyota Camry' },
+      { TNo: 'T002', TName: 'Tesla Model 3' },
+      { TNo: 'T003', TName: 'Benz S-Class' },
+      { TNo: 'T004', TName: 'BMW X5' },
+    ]
+  } catch (error) {
+    console.error('获取车型列表失败:', error)
+    ElMessage.error('获取车型列表失败')
+  }
+}
+
 const resetForm = () => {
   formData.CarID = ''
   formData.TNo = ''
@@ -194,15 +205,31 @@ const resetForm = () => {
 watch(() => props.editData, (newVal) => {
   if (newVal) {
     isEdit.value = true
-    Object.assign(formData, newVal)
+    // 将后端数据映射到前端表单
+    formData.CarID = newVal.CarID || newVal.carId || ''
+    formData.TNo = newVal.TNo || newVal.tNo || ''
+    formData.TName = newVal.TName || newVal.tName || ''
+    formData.RentRate = newVal.RentRate || newVal.rentRate || 0
+    formData.Price = newVal.Price || newVal.price || 0
+    formData.PurchaseDate = newVal.PurchaseDate || newVal.purchaseDate || ''
+    formData.RUNKM = newVal.RUNKM || 0
+    formData.RunHour = newVal.RunHour || 0
+    formData.CarStatus = newVal.CarStatus || newVal.carStatus || '0'
   } else {
     isEdit.value = false
     resetForm()
   }
 }, { immediate: true })
 
+// 初始化时获取车型列表
+watch(() => props.visible, (newVal) => {
+  if (newVal) {
+    fetchCarTypes()
+  }
+}, { immediate: true })
+
 const handleTypeChange = (val) => {
-  const type = carTypes.find(t => t.TNo === val)
+  const type = carTypes.value.find(t => t.TNo === val)
   if (type) {
     formData.TName = type.TName
   }
@@ -222,8 +249,17 @@ const handleSubmit = async () => {
       // 模拟请求延迟
       setTimeout(() => {
         loading.value = false
-        emit('submit', { ...formData })
-        // ElMessage.success(isEdit.value ? '修改成功' : '新增成功') // 让父组件处理提示
+        // 将前端表单数据转换为后端DTO格式
+        const submitData = {
+          carId: formData.CarID,
+          tNo: formData.TNo,
+          tName: formData.TName,
+          rentRate: formData.RentRate,
+          price: formData.Price,
+          purchaseDate: formData.PurchaseDate,
+          carStatus: formData.CarStatus
+        }
+        emit('submit', submitData)
         handleClose()
       }, 500)
     }

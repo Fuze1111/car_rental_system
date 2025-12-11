@@ -208,11 +208,7 @@
                   fit="cover" 
                   class="type-thumb"
                   preview-teleported
-                >
-                  <template #error>
-                    <div class="image-slot"><el-icon><Picture /></el-icon></div>
-                  </template>
-                </el-image>
+                />
               </template>
             </el-table-column>
 
@@ -329,9 +325,10 @@
 </template>
 
 <script setup>
-import { ref, reactive, defineAsyncComponent } from 'vue'
+import { ref, reactive, defineAsyncComponent, onMounted } from 'vue'
 import { Search, Refresh, Plus, Edit, Delete, Van, Tools, Picture } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { getCars, createCar, updateCar, deleteCar, getCarById } from '@/api/car'
 
 // 异步加载组件
 const CarEditDialog = defineAsyncComponent(() => 
@@ -366,7 +363,7 @@ const typeLoading = ref(false) // Loading for types
 const pagination = reactive({
   currentPage: 1,
   pageSize: 10,
-  total: 4
+  total: 0
 })
 
 const typePagination = reactive({
@@ -389,53 +386,8 @@ const typeRules = {
   RentRate: [{ required: true, message: '请输入日租金', trigger: 'blur' }]
 }
 
-//  Mock 数据 (Cars) - Updated TNo to match new types
-const tableData = ref([
-  {
-    CarID: '京A88888',
-    TNo: 'C1',
-    TName: 'Toyota Camry 2023款',
-    RentRate: 350.00,
-    CarStatus: '0',
-    PurchaseDate: '2022-05-15',
-    Price: 200000.00,
-    RUNKM: 15000.5,
-    RunHour: 320.0
-  },
-  {
-    CarID: '京AD12345',
-    TNo: 'C1',
-    TName: 'Tesla Model 3 Performance',
-    RentRate: 500.00,
-    CarStatus: '1',
-    PurchaseDate: '2023-01-10',
-    Price: 280000.00,
-    RUNKM: 5000.0,
-    RunHour: 100.0
-  },
-  {
-    CarID: '京A66666',
-    TNo: 'C1',
-    TName: 'Mercedes-Benz S-Class',
-    RentRate: 1200.00,
-    CarStatus: '2',
-    PurchaseDate: '2021-11-20',
-    Price: 900000.00,
-    RUNKM: 35000.0,
-    RunHour: 800.0
-  },
-  {
-    CarID: '京A99999',
-    TNo: 'C2',
-    TName: 'BMW X5 xDrive40i',
-    RentRate: 1100.00,
-    CarStatus: '0',
-    PurchaseDate: '2022-08-08',
-    Price: 750000.00,
-    RUNKM: 12000.0,
-    RunHour: 280.0
-  },
-])
+// 车辆数据
+const tableData = ref([])
 
 // Mock Data (Types) - TNo Represents License Type (e.g., C1, C2)
 const mockTypeData = [
@@ -464,26 +416,60 @@ const getStatusLabel = (status) => {
   return map[status] || '未知'
 }
 
-const handleSearch = () => {
-  loading.value = true
-  
-  // 模拟构建后端查询参数
-  const queryParams = {
-    ...searchForm,
-    page: pagination.currentPage,
-    size: pagination.pageSize
-  }
-  console.log('【后端查询】正在请求车辆列表，参数:', queryParams)
+// 页面加载时获取车辆数据
+onMounted(() => {
+  fetchCars()
+})
 
-  // TODO: 对接后端时，发送 queryParams 给后端，由后端拼接 SQL 进行筛选
-  // 例如: SELECT * FROM car WHERE Price BETWEEN #{minPrice} AND #{maxPrice} ...
-  
-  setTimeout(() => {
-    // 仅为演示 Mock 数据重置，实际应使用后端返回数据
-    tableData.value = [ ...tableData.value ] 
+// 获取车辆列表
+const fetchCars = async () => {
+  loading.value = true
+  try {
+    const params = {
+      page: pagination.currentPage - 1, // 后端从0开始分页
+      size: pagination.pageSize,
+      // 可以添加其他查询参数
+    }
+    
+    // 添加搜索条件
+    if (searchForm.CarID) {
+      params.carId = searchForm.CarID
+    }
+    if (searchForm.TName) {
+      params.tName = searchForm.TName
+    }
+    if (searchForm.CarStatus) {
+      params.carStatus = searchForm.CarStatus
+    }
+    
+    const response = await getCars(params)
+    const { content, totalElements, totalPages } = response.data
+    
+    // 转换数据格式以适配前端显示
+    tableData.value = content.map(car => ({
+      CarID: car.carId,
+      TNo: car.tNo,
+      TName: car.tName,
+      RentRate: car.rentRate,
+      CarStatus: car.carStatus,
+      PurchaseDate: car.purchaseDate,
+      Price: car.price,
+      RUNKM: 0, // 这些数据需要额外获取或计算
+      RunHour: 0
+    }))
+    
+    pagination.total = totalElements
+  } catch (error) {
+    console.error('获取车辆列表失败:', error)
+    ElMessage.error('获取车辆列表失败')
+  } finally {
     loading.value = false
-    ElMessage.success('搜索请求已发送 (Mock)')
-  }, 500)
+  }
+}
+
+const handleSearch = () => {
+  pagination.currentPage = 1
+  fetchCars()
 }
 
 const resetSearch = () => {
@@ -501,7 +487,19 @@ const handleAdd = () => {
 }
 
 const handleEdit = (row) => {
-  currentEditData.value = { ...row }
+  // 将前端数据格式转换为后端DTO格式
+  const editData = {
+    CarID: row.CarID,
+    TNo: row.TNo,
+    TName: row.TName,
+    RentRate: row.RentRate,
+    Price: row.Price,
+    PurchaseDate: row.PurchaseDate,
+    CarStatus: row.CarStatus,
+    RUNKM: row.RUNKM,
+    RunHour: row.RunHour
+  }
+  currentEditData.value = editData
   dialogVisible.value = true
 }
 
@@ -606,14 +604,34 @@ const handleTypeSubmit = async () => {
   })
 }
 
-const handleDialogSubmit = (formData) => {
-  if (currentEditData.value) {
-    const index = tableData.value.findIndex(item => item.CarID === currentEditData.value.CarID)
-    if (index !== -1) {
-      tableData.value[index] = { ...tableData.value[index], ...formData }
+const handleDialogSubmit = async (formData) => {
+  try {
+    // 将前端表单数据转换为后端DTO格式
+    const carDTO = {
+      carId: formData.CarID,
+      tNo: formData.TNo,
+      tName: formData.TName,
+      price: formData.Price,
+      purchaseDate: formData.PurchaseDate,
+      carStatus: formData.CarStatus
     }
-  } else {
-    tableData.value.unshift({ ...formData })
+
+    if (currentEditData.value) {
+      // 更新车辆
+      await updateCar(formData.CarID, carDTO)
+      ElMessage.success('车辆信息更新成功')
+    } else {
+      // 创建车辆
+      await createCar(carDTO)
+      ElMessage.success('车辆创建成功')
+    }
+    
+    // 关闭对话框并刷新数据
+    dialogVisible.value = false
+    fetchCars()
+  } catch (error) {
+    console.error('操作失败:', error)
+    ElMessage.error(currentEditData.value ? '更新失败' : '创建失败')
   }
 }
 
@@ -623,24 +641,33 @@ const handleDelete = (row) => {
     cancelButtonText: '取消',
     type: 'warning',
     confirmButtonClass: 'el-button--danger'
-  }).then(() => {
-    tableData.value = tableData.value.filter(item => item.CarID !== row.CarID)
-    ElMessage.success('删除成功')
+  }).then(async () => {
+    try {
+      await deleteCar(row.CarID)
+      ElMessage.success('删除成功')
+      fetchCars()
+    } catch (error) {
+      console.error('删除失败:', error)
+      ElMessage.error('删除失败')
+    }
   }).catch(() => {})
 }
 
 const handleSizeChange = (val) => {
   pagination.pageSize = val
-  handleSearch()
+  fetchCars()
 }
+
 const handleCurrentChange = (val) => {
-  handleSearch()
+  pagination.currentPage = val
+  fetchCars()
 }
 
 const handleTypeSizeChange = (val) => {
   typePagination.pageSize = val
   handleTypeSearch()
 }
+
 const handleTypeCurrentChange = (val) => {
   handleTypeSearch()
 }
