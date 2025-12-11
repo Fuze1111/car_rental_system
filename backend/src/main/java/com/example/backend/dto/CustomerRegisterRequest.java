@@ -32,4 +32,9 @@ public class CustomerRegisterRequest {
      * 地址
      */
     private String address;
+    
+    /**
+     * 邮编
+     */
+    private String postCode;
 }

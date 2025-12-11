@@ -27,6 +27,14 @@ public interface CustomerLoginRepository extends JpaRepository<CustomerLogin, St
      * @param identifier 客户号或手机号
      * @return 客户登录信息
      */
-    @Query("SELECT cl FROM CustomerLogin cl LEFT JOIN cl.customer c WHERE cl.cNo = :identifier OR c.phone = :identifier")
+    @Query("SELECT cl FROM CustomerLogin cl WHERE cl.cNo = :identifier OR cl.phone = :identifier")
     Optional<CustomerLogin> findByIdentifier(@Param("identifier") String identifier);
+    
+    /**
+     * 根据手机号查找
+     * @param phone 手机号
+     * @return 客户登录信息
+     */
+    @Query("SELECT cl FROM CustomerLogin cl WHERE cl.phone = :phone")
+    Optional<CustomerLogin> findByPhone(@Param("phone") String phone);
 }

@@ -72,6 +72,9 @@
               <el-form-item prop="address">
                 <el-input v-model="customerForm.address" placeholder="联系地址 (选填)" prefix-icon="Location" />
               </el-form-item>
+              <el-form-item prop="postCode">
+                <el-input v-model="customerForm.postCode" placeholder="邮政编码 (选填)" prefix-icon="Postcard" maxlength="6" />
+              </el-form-item>
               
               <div class="form-actions">
                 <el-button type="primary" @click="handleRegister" :loading="loading" class="submit-btn" round>
@@ -92,6 +95,9 @@
             >
               <el-form-item prop="name">
                 <el-input v-model="driverForm.name" placeholder="请输入姓名" prefix-icon="User" />
+              </el-form-item>
+              <el-form-item prop="phone">
+                <el-input v-model="driverForm.phone" placeholder="请输入手机号" prefix-icon="Phone" />
               </el-form-item>
               <el-form-item prop="password">
                 <el-input v-model="driverForm.password" type="password" placeholder="设置密码" show-password prefix-icon="Lock" />
@@ -149,11 +155,13 @@ const customerForm = reactive({
   password: '',
   confirmPassword: '',
   company: '',
-  address: ''
+  address: '',
+  postCode: ''
 })
 
 const driverForm = reactive({
   name: '',
+  phone: '',
   password: '',
   confirmPassword: '',
   licenseType: ''
@@ -180,11 +188,18 @@ const customerRules = {
     { required: true, message: '请输入密码', trigger: 'blur' },
     { min: 6, message: '密码长度至少6位', trigger: 'blur' }
   ],
-  confirmPassword: [{ validator: validatePass2, trigger: 'blur' }]
+  confirmPassword: [{ validator: validatePass2, trigger: 'blur' }],
+  postCode: [
+    { pattern: /^\d{6}$/, message: '请输入正确的6位邮政编码', trigger: 'blur' }
+  ]
 }
 
 const driverRules = {
   name: [{ required: true, message: '请输入姓名', trigger: 'blur' }],
+  phone: [
+    { required: true, message: '请输入手机号', trigger: 'blur' },
+    { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号', trigger: 'blur' }
+  ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
     { min: 6, message: '密码长度至少6位', trigger: 'blur' }
@@ -213,12 +228,14 @@ const handleRegister = async () => {
             phone: customerForm.phone,
             password: customerForm.password,
             company: customerForm.company || null,
-            address: customerForm.address || null
+            address: customerForm.address || null,
+            postCode: customerForm.postCode || null
           })
         } else {
           // 司机注册
           response = await registerDriver({
             name: driverForm.name,
+            phone: driverForm.phone,
             password: driverForm.password,
             licenseType: driverForm.licenseType
           })
