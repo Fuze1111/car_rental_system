@@ -1,6 +1,8 @@
 package com.example.backend.repository;
 
 import com.example.backend.entity.Customer;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -111,4 +113,21 @@ public interface CustomerRepository extends JpaRepository<Customer, String> {
      */
     @Query("SELECT c.cNo FROM Customer c ORDER BY c.cNo DESC LIMIT 1")
     String findMaxCNo();
+    
+    /**
+     * 管理员专用：分页多条件搜索客户
+     * @param name 姓名关键字（可为null）
+     * @param phone 电话关键字（可为null）
+     * @param company 公司关键字（可为null）
+     * @param pageable 分页参数
+     * @return 分页结果
+     */
+    @Query("SELECT c FROM Customer c WHERE " +
+           "(:name = '' OR :name IS NULL OR c.cName LIKE CONCAT('%', :name, '%')) AND " +
+           "(:phone = '' OR :phone IS NULL OR c.phone LIKE CONCAT('%', :phone, '%')) AND " +
+           "(:company = '' OR :company IS NULL OR c.company LIKE CONCAT('%', :company, '%'))")
+    Page<Customer> searchCustomers(@Param("name") String name, 
+                                    @Param("phone") String phone, 
+                                    @Param("company") String company, 
+                                    Pageable pageable);
 }

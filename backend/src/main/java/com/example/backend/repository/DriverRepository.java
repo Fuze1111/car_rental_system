@@ -1,6 +1,8 @@
 package com.example.backend.repository;
 
 import com.example.backend.entity.Driver;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -100,4 +102,21 @@ public interface DriverRepository extends JpaRepository<Driver, String> {
      */
     @Query("SELECT d.dNo FROM Driver d ORDER BY d.dNo DESC LIMIT 1")
     String findMaxDNo();
+
+    /**
+     * 管理员专用：分页多条件搜索司机
+     * @param name 姓名关键字（可为null）
+     * @param status 状态（可为null）
+     * @param licenseType 准驾车型（可为null）
+     * @param pageable 分页参数
+     * @return 分页结果
+     */
+    @Query("SELECT d FROM Driver d WHERE " +
+           "(:name = '' OR :name IS NULL OR d.dName LIKE CONCAT('%', :name, '%')) AND " +
+           "(:status = '' OR :status IS NULL OR d.dStatus = :status) AND " +
+           "(:licenseType = '' OR :licenseType IS NULL OR d.licenseType = :licenseType)")
+    Page<Driver> searchDrivers(@Param("name") String name, 
+                               @Param("status") String status, 
+                               @Param("licenseType") String licenseType, 
+                               Pageable pageable);
 }

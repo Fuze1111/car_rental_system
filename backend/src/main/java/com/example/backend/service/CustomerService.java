@@ -288,6 +288,22 @@ public class CustomerService {
     }
 
     /**
+     * 管理员专用：分页多条件搜索客户
+     * @param name 姓名关键字
+     * @param phone 电话关键字
+     * @param company 公司关键字
+     * @param pageable 分页参数
+     * @return 分页结果
+     */
+    public Page<CustomerResponseDTO> searchCustomersWithPage(String name, String phone, String company, Pageable pageable) {
+        Page<Customer> customerPage = customerRepository.searchCustomers(name, phone, company, pageable);
+        List<CustomerResponseDTO> dtoList = customerPage.getContent().stream()
+                .map(this::convertToResponseDTO)
+                .collect(Collectors.toList());
+        return new PageImpl<>(dtoList, pageable, customerPage.getTotalElements());
+    }
+
+    /**
      * 将CustomerRequestDTO转换为Customer实体
      */
     private Customer convertToEntity(CustomerRequestDTO dto) {
