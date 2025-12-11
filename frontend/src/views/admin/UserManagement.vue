@@ -89,7 +89,11 @@
               <el-select v-model="driverSearchForm.licenseType" placeholder="全部" clearable style="width: 100px">
                 <el-option label="A1" value="A1" />
                 <el-option label="A2" value="A2" />
+                <el-option label="A3" value="A3" />
+                <el-option label="B1" value="B1" />
+                <el-option label="B2" value="B2" />
                 <el-option label="C1" value="C1" />
+                <el-option label="C2" value="C2" />
               </el-select>
             </el-form-item>
             <el-form-item>
@@ -229,7 +233,9 @@
           <el-select v-model="editDriverForm.licenseType" placeholder="请选择车型" style="width: 100%">
             <el-option label="A1" value="A1" />
             <el-option label="A2" value="A2" />
+            <el-option label="A3" value="A3" />
             <el-option label="B1" value="B1" />
+            <el-option label="B2" value="B2" />
             <el-option label="C1" value="C1" />
             <el-option label="C2" value="C2" />
           </el-select>
