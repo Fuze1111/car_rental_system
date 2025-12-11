@@ -33,16 +33,16 @@
 
         <!-- 客户表格 -->
         <el-table :data="customerData" v-loading="customerLoading" class="modern-table" style="width: 100%">
-          <el-table-column prop="CNo" label="客户号" width="120" />
-          <el-table-column prop="CName" label="姓名" width="120">
+          <el-table-column prop="cNo" label="客户号" width="120" />
+          <el-table-column prop="cName" label="姓名" width="120">
             <template #default="scope">
-              <div class="user-name">{{ scope.row.CName }}</div>
+              <div class="user-name">{{ scope.row.cName }}</div>
             </template>
           </el-table-column>
-          <el-table-column prop="Company" label="单位" min-width="180" show-overflow-tooltip />
-          <el-table-column prop="Phone" label="电话" width="140" />
-          <el-table-column prop="Address" label="地址" min-width="200" show-overflow-tooltip />
-          <el-table-column prop="PostCode" label="邮编" width="100" />
+          <el-table-column prop="company" label="单位" min-width="180" show-overflow-tooltip />
+          <el-table-column prop="phone" label="电话" width="140" />
+          <el-table-column prop="address" label="地址" min-width="200" show-overflow-tooltip />
+          <el-table-column prop="postCode" label="邮编" width="100" />
           <el-table-column label="操作" width="120" align="center" fixed="right">
             <template #default="scope">
               <el-button link type="primary" @click="handleView(scope.row, 'customer')">详情</el-button>
@@ -105,25 +105,25 @@
 
         <!-- 司机表格 -->
         <el-table :data="driverData" v-loading="driverLoading" class="modern-table" style="width: 100%">
-          <el-table-column prop="DNo" label="司机号" width="120" />
-          <el-table-column prop="DName" label="姓名" min-width="120">
+          <el-table-column prop="dNo" label="司机号" width="120" />
+          <el-table-column prop="dName" label="姓名" min-width="120">
             <template #default="scope">
-              <div class="user-name">{{ scope.row.DName }}</div>
+              <div class="user-name">{{ scope.row.dName }}</div>
             </template>
           </el-table-column>
-          <el-table-column prop="LicenseType" label="准驾车型" width="100" align="center">
+          <el-table-column prop="licenseType" label="准驾车型" width="100" align="center">
             <template #default="scope">
-              <el-tag size="small" type="warning">{{ scope.row.LicenseType }}</el-tag>
+              <el-tag size="small" type="warning">{{ scope.row.licenseType }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="StartWork" label="入职时间" width="140" />
-          <el-table-column prop="Salary" label="基本工资" width="120" align="right">
-            <template #default="scope">¥{{ scope.row.Salary }}</template>
+          <el-table-column prop="startWork" label="入职时间" width="140" />
+          <el-table-column prop="salary" label="基本工资" width="120" align="right">
+            <template #default="scope">¥{{ scope.row.salary }}</template>
           </el-table-column>
           <el-table-column label="状态" width="100" align="center">
             <template #default="scope">
-              <el-tag :type="getDriverStatusType(scope.row.DStatus)" size="small" round>
-                {{ scope.row.DStatus }}
+              <el-tag :type="getDriverStatusType(scope.row.dStatus)" size="small" round>
+                {{ scope.row.dStatus }}
               </el-tag>
             </template>
           </el-table-column>
@@ -148,6 +148,56 @@
       </el-card>
     </div>
 
+    <!-- 客户详情弹窗 -->
+    <el-dialog
+      v-model="customerDetailVisible"
+      title="客户详情"
+      width="600px"
+      class="custom-dialog detail-dialog"
+      destroy-on-close
+      append-to-body
+    >
+      <div class="detail-container" v-if="currentDetailCustomer">
+        <div class="detail-info">
+          <div class="info-block">
+            <h4 class="block-title">基本信息</h4>
+            <div class="info-grid">
+              <div class="info-item">
+                <span class="label">客户号</span>
+                <span class="value code">{{ currentDetailCustomer.cNo }}</span>
+              </div>
+              <div class="info-item">
+                <span class="label">姓名</span>
+                <span class="value main-text">{{ currentDetailCustomer.cName }}</span>
+              </div>
+              <div class="info-item">
+                <span class="label">电话</span>
+                <span class="value">{{ currentDetailCustomer.phone }}</span>
+              </div>
+              <div class="info-item">
+                <span class="label">邮编</span>
+                <span class="value">{{ currentDetailCustomer.postCode }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="info-block">
+            <h4 class="block-title">详细信息</h4>
+            <div class="info-grid single-col">
+              <div class="info-item">
+                <span class="label">单位</span>
+                <span class="value">{{ currentDetailCustomer.company || '-' }}</span>
+              </div>
+              <div class="info-item">
+                <span class="label">地址</span>
+                <span class="value">{{ currentDetailCustomer.address || '-' }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </el-dialog>
+
     <!-- 编辑司机弹窗 -->
     <el-dialog
       v-model="editDialogVisible"
@@ -159,14 +209,14 @@
     >
       <el-form :model="editDriverForm" label-width="100px" class="edit-form">
         <el-form-item label="工号">
-          <el-input v-model="editDriverForm.DNo" disabled />
+          <el-input v-model="editDriverForm.dNo" disabled />
         </el-form-item>
         <el-form-item label="姓名">
-          <el-input v-model="editDriverForm.DName" disabled />
+          <el-input v-model="editDriverForm.dName" disabled />
         </el-form-item>
         <el-form-item label="基本工资">
           <el-input-number 
-            v-model="editDriverForm.Salary" 
+            v-model="editDriverForm.salary" 
             :min="0" 
             :step="100" 
             style="width: 100%" 
@@ -176,7 +226,7 @@
           </el-input-number>
         </el-form-item>
         <el-form-item label="准驾车型">
-          <el-select v-model="editDriverForm.LicenseType" placeholder="请选择车型" style="width: 100%">
+          <el-select v-model="editDriverForm.licenseType" placeholder="请选择车型" style="width: 100%">
             <el-option label="A1" value="A1" />
             <el-option label="A2" value="A2" />
             <el-option label="B1" value="B1" />
@@ -185,7 +235,7 @@
           </el-select>
         </el-form-item>
         <el-form-item label="状态">
-          <el-radio-group v-model="editDriverForm.DStatus">
+          <el-radio-group v-model="editDriverForm.dStatus">
             <el-radio-button label="在岗" />
             <el-radio-button label="空闲" />
           </el-radio-group>
@@ -193,8 +243,8 @@
       </el-form>
       <template #footer>
         <span class="dialog-footer">
-          <el-button @click="editDialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="handleEditSubmit" :loading="submitting">保存</el-button>
+          <el-button @click="editDialogVisible = false" class="footer-btn">取消</el-button>
+          <el-button type="primary" @click="handleEditSubmit" :loading="submitting" class="footer-btn submit-btn">保存</el-button>
         </span>
       </template>
     </el-dialog>
@@ -206,6 +256,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { User, Van, Search, Refresh } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import { searchCustomers, searchDrivers, updateDriver } from '@/api/admin'
 
 // --- Customer Logic ---
 const customerLoading = ref(false)
@@ -223,97 +274,80 @@ const driverPagination = reactive({ currentPage: 1, pageSize: 10, total: 0 })
 const editDialogVisible = ref(false)
 const submitting = ref(false)
 const editDriverForm = reactive({
-  DNo: '',
-  DName: '',
-  Salary: 0,
-  LicenseType: '',
-  DStatus: ''
+  dNo: '',
+  dName: '',
+  salary: 0,
+  licenseType: '',
+  dStatus: ''
 })
-
-// Mock Generator
-const generateMockData = (type) => {
-  const data = []
-  const count = type === 'customer' ? 8 : 5
-  
-  if (type === 'customer') {
-    for (let i = 1; i <= count; i++) {
-      data.push({
-        CNo: `C000000${i}`,
-        CName: `张客户${i}`,
-        Company: `科技无限公司${i}分部`,
-        Phone: `1380013800${i}`,
-        Address: `北京市海淀区科技园路${i}号`,
-        PostCode: '100000'
-      })
-    }
-  } else {
-    for (let i = 1; i <= count; i++) {
-      data.push({
-        DNo: `D000000${i}`,
-        DName: `李司机${i}`,
-        StartWork: '2020-01-01',
-        Salary: 5000 + i * 100,
-        DStatus: i % 2 === 0 ? '在岗' : '空闲',
-        LicenseType: 'A1'
-      })
-    }
-  }
-  return data
-}
 
 const getDriverStatusType = (status) => {
   return status === '空闲' ? 'success' : 'warning'
 }
 
 // Fetch Functions
-const fetchCustomers = () => {
+const fetchCustomers = async () => {
   customerLoading.value = true
   
-  // 模拟构建后端查询参数
-  const queryParams = {
-    ...customerSearchForm,
-    page: customerPagination.currentPage,
-    size: customerPagination.pageSize
-  }
-  console.log('【后端查询】正在请求客户列表，参数:', queryParams)
-
-  // TODO: 对接后端时，使用 axios.post('/api/customers/search', queryParams)
-  // 后端 SQL: WHERE CName LIKE %name% AND Company LIKE %company% ...
-  
-  setTimeout(() => {
-    // 仅为演示 Mock 数据过滤，实际应移除此前端过滤逻辑
-    customerData.value = generateMockData('customer').filter(item => 
-      (!customerSearchForm.name || item.CName.includes(customerSearchForm.name)) &&
-      (!customerSearchForm.phone || item.Phone.includes(customerSearchForm.phone)) &&
-      (!customerSearchForm.company || item.Company.includes(customerSearchForm.company))
-    )
-    customerPagination.total = 85
+  try {
+    const queryParams = {
+      name: customerSearchForm.name || null,
+      phone: customerSearchForm.phone || null,
+      company: customerSearchForm.company || null,
+      page: customerPagination.currentPage - 1, // 后端从0开始
+      size: customerPagination.pageSize
+    }
+    
+    const response = await searchCustomers(queryParams)
+    
+    // 调试：查看返回的数据格式
+    console.log('客户数据返回:', response)
+    if (response.content && response.content.length > 0) {
+      console.log('第一条客户数据:', response.content[0])
+    }
+    
+    // Spring Data Page对象结构: { content, totalElements, totalPages, ... }
+    customerData.value = response.content
+    customerPagination.total = response.totalElements
+  } catch (error) {
+    console.error('获取客户列表失败:', error)
+    ElMessage.error('获取客户列表失败')
+    customerData.value = []
+  } finally {
     customerLoading.value = false
-  }, 300)
+  }
 }
 
-const fetchDrivers = () => {
+const fetchDrivers = async () => {
   driverLoading.value = true
   
-  const queryParams = {
-    ...driverSearchForm,
-    page: driverPagination.currentPage,
-    size: driverPagination.pageSize
-  }
-  console.log('【后端查询】正在请求司机列表，参数:', queryParams)
-
-  // TODO: 后端 SQL: WHERE DStatus = status AND LicenseType = licenseType ...
-
-  setTimeout(() => {
-    // Mock 演示逻辑
-    driverData.value = generateMockData('driver').filter(item => 
-      (!driverSearchForm.name || item.DName.includes(driverSearchForm.name)) &&
-      (!driverSearchForm.status || item.DStatus === driverSearchForm.status) &&
-      (!driverSearchForm.licenseType || item.LicenseType === driverSearchForm.licenseType)
-    )
-    driverPagination.total = 24
+  try {
+    const queryParams = {
+      name: driverSearchForm.name || null,
+      status: driverSearchForm.status || null,
+      licenseType: driverSearchForm.licenseType || null,
+      page: driverPagination.currentPage - 1, // 后端从0开始
+      size: driverPagination.pageSize
+    }
+    
+    const response = await searchDrivers(queryParams)
+    
+    // 调试：查看返回的数据格式
+    console.log('司机数据返回:', response)
+    if (response.content && response.content.length > 0) {
+      console.log('第一条司机数据:', response.content[0])
+    }
+    
+    // Spring Data Page对象结构: { content, totalElements, totalPages, ... }
+    driverData.value = response.content
+    driverPagination.total = response.totalElements
+  } catch (error) {
+    console.error('获取司机列表失败:', error)
+    ElMessage.error('获取司机列表失败')
+    driverData.value = []
+  } finally {
     driverLoading.value = false
-  }, 300)
+  }
 }
 
 // Handlers
@@ -343,9 +377,19 @@ const handleDriverSizeChange = (val) => {
   fetchDrivers()
 }
 
+// Detail Logic
+const customerDetailVisible = ref(false)
+const currentDetailCustomer = ref(null)
+
 const handleView = (row, type) => {
-  const name = type === 'customer' ? row.CName : row.DName
-  ElMessage.info(`查看详情: ${name}`)
+  if (type === 'customer') {
+    currentDetailCustomer.value = row
+    customerDetailVisible.value = true
+  } else {
+    // 司机详情逻辑暂未实现或不需要
+    const name = row.dName
+    ElMessage.info(`查看司机详情: ${name}`)
+  }
 }
 
 const handleEdit = (row) => {
@@ -353,15 +397,26 @@ const handleEdit = (row) => {
   editDialogVisible.value = true
 }
 
-const handleEditSubmit = () => {
+const handleEditSubmit = async () => {
   submitting.value = true
-  // TODO: Call backend API to update driver info
-  setTimeout(() => {
-    submitting.value = false
+  try {
+    await updateDriver(editDriverForm.dNo, {
+      dNo: editDriverForm.dNo,
+      dName: editDriverForm.dName,
+      salary: editDriverForm.salary,
+      licenseType: editDriverForm.licenseType,
+      dStatus: editDriverForm.dStatus
+    })
+    
     editDialogVisible.value = false
     ElMessage.success('司机信息修改成功')
-    fetchDrivers() // Refresh list
-  }, 500)
+    await fetchDrivers() // Refresh list
+  } catch (error) {
+    console.error('修改司机信息失败:', error)
+    ElMessage.error('修改司机信息失败')
+  } finally {
+    submitting.value = false
+  }
 }
 
 onMounted(() => {
@@ -369,6 +424,111 @@ onMounted(() => {
   fetchDrivers()
 })
 </script>
+
+<style lang="scss">
+/* Global Dialog Styles for UserManagement */
+.custom-dialog {
+  border-radius: 20px !important;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  
+  .el-dialog__header {
+    margin: 0;
+    padding: 24px;
+    background: #f8fafc;
+    border-bottom: 1px solid #f1f5f9;
+    margin-right: 0 !important;
+    
+    .el-dialog__title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #1e293b;
+    }
+  }
+  
+  .el-dialog__body {
+    padding: 32px !important;
+  }
+  
+  .el-dialog__footer {
+    padding: 24px;
+    background: #f8fafc;
+    border-top: 1px solid #f1f5f9;
+  }
+
+  /* 弹窗内容样式 - 需要放在全局样式中以生效 */
+  .detail-container {
+    display: flex;
+    gap: 24px;
+  }
+
+  .detail-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .info-block {
+    .block-title {
+      margin: 0 0 16px 0;
+      font-size: 14px;
+      color: #64748b;
+      font-weight: 700;
+      padding-left: 8px;
+      border-left: 3px solid #3b82f6;
+    }
+  }
+
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    
+    &.single-col {
+      grid-template-columns: 1fr;
+    }
+    
+    .info-item {
+      display: flex;
+      flex-direction: column;
+      
+      .label {
+        font-size: 12px;
+        color: #94a3b8;
+        margin-bottom: 4px;
+      }
+      
+      .value {
+        font-size: 14px;
+        color: #1e293b;
+        font-weight: 600;
+      }
+    }
+  }
+  
+  .code { font-family: monospace; color: #475569; }
+  .main-text { font-weight: 600; color: #1e293b; font-size: 16px; }
+
+  /* 统一弹窗按钮样式 */
+  .footer-btn {
+    border-radius: 8px;
+    padding: 10px 24px;
+    font-weight: 500;
+    
+    &.submit-btn {
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      border: none;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+      
+      &:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(37, 99, 235, 0.3);
+      }
+    }
+  }
+}
+</style>
 
 <style scoped lang="scss">
 .user-management {
@@ -521,6 +681,60 @@ onMounted(() => {
       }
     }
   }
+
+  /* Info Styles */
+  // .code { font-family: monospace; color: #475569; }
+  // .main-text { font-weight: 600; color: #1e293b; font-size: 16px; }
+
+  // .detail-container {
+  //   display: flex;
+  //   gap: 24px;
+  // }
+
+  // .detail-info {
+  //   flex: 1;
+  //   display: flex;
+  //   flex-direction: column;
+  //   gap: 24px;
+  // }
+
+  // .info-block {
+  //   .block-title {
+  //     margin: 0 0 16px 0;
+  //     font-size: 14px;
+  //     color: #64748b;
+  //     font-weight: 700;
+  //     padding-left: 8px;
+  //     border-left: 3px solid #3b82f6;
+  //   }
+  // }
+
+  // .info-grid {
+  //   display: grid;
+  //   grid-template-columns: repeat(2, 1fr);
+  //   gap: 16px;
+    
+  //   &.single-col {
+  //     grid-template-columns: 1fr;
+  //   }
+    
+  //   .info-item {
+  //     display: flex;
+  //     flex-direction: column;
+      
+  //     .label {
+  //       font-size: 12px;
+  //       color: #94a3b8;
+  //       margin-bottom: 4px;
+  //     }
+      
+  //     .value {
+  //       font-size: 14px;
+  //       color: #1e293b;
+  //       font-weight: 600;
+  //     }
+  //   }
+  // }
 
   .user-name {
     font-weight: 600;

@@ -1,5 +1,6 @@
 package com.example.backend.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -15,11 +16,13 @@ public class DriverResponseDTO {
     /**
      * 司机号
      */
+    @JsonProperty("dNo")
     private String dNo;
 
     /**
      * 姓名
      */
+    @JsonProperty("dName")
     private String dName;
 
     /**
@@ -35,6 +38,7 @@ public class DriverResponseDTO {
     /**
      * 司机状态
      */
+    @JsonProperty("dStatus")
     private String dStatus;
 
     /**

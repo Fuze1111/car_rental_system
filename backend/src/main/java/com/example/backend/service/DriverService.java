@@ -300,6 +300,22 @@ public class DriverService {
     }
 
     /**
+     * 管理员专用：分页多条件搜索司机
+     * @param name 姓名关键字
+     * @param status 状态
+     * @param licenseType 准驾车型
+     * @param pageable 分页参数
+     * @return 分页结果
+     */
+    public Page<DriverResponseDTO> searchDriversWithPage(String name, String status, String licenseType, Pageable pageable) {
+        Page<Driver> driverPage = driverRepository.searchDrivers(name, status, licenseType, pageable);
+        List<DriverResponseDTO> dtoList = driverPage.getContent().stream()
+                .map(this::convertToResponseDTO)
+                .collect(Collectors.toList());
+        return new PageImpl<>(dtoList, pageable, driverPage.getTotalElements());
+    }
+
+    /**
      * 将DriverRequestDTO转换为Driver实体
      */
     private Driver convertToEntity(DriverRequestDTO dto) {

@@ -1,5 +1,6 @@
 package com.example.backend.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
 /**
@@ -12,11 +13,13 @@ public class CustomerResponseDTO {
     /**
      * 客户号
      */
+    @JsonProperty("cNo")
     private String cNo;
 
     /**
      * 客户姓名
      */
+    @JsonProperty("cName")
     private String cName;
 
     /**

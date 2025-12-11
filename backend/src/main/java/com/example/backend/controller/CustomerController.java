@@ -242,4 +242,23 @@ public class CustomerController {
         Map<String, Object> statistics = customerService.getCustomerStatistics();
         return ResponseEntity.ok(statistics);
     }
+
+    /**
+     * 管理员专用：分页多条件搜索客户
+     * POST /api/customers/admin/search
+     * @param searchParams 搜索参数（name, phone, company, page, size）
+     * @return 分页客户列表
+     */
+    @PostMapping("/admin/search")
+    public ResponseEntity<Page<CustomerResponseDTO>> adminSearchCustomers(@RequestBody Map<String, Object> searchParams) {
+        String name = (String) searchParams.get("name");
+        String phone = (String) searchParams.get("phone");
+        String company = (String) searchParams.get("company");
+        int page = searchParams.get("page") != null ? (Integer) searchParams.get("page") : 0;
+        int size = searchParams.get("size") != null ? (Integer) searchParams.get("size") : 10;
+        
+        Pageable pageable = PageRequest.of(page, size, Sort.by("cNo").ascending());
+        Page<CustomerResponseDTO> customerPage = customerService.searchCustomersWithPage(name, phone, company, pageable);
+        return ResponseEntity.ok(customerPage);
+    }
 }

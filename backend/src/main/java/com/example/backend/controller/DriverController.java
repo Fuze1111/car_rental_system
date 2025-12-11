@@ -248,4 +248,23 @@ public class DriverController {
         Map<String, Object> statistics = driverService.getDriverStatistics();
         return ResponseEntity.ok(statistics);
     }
+
+    /**
+     * 管理员专用：分页多条件搜索司机
+     * POST /api/drivers/admin/search
+     * @param searchParams 搜索参数（name, status, licenseType, page, size）
+     * @return 分页司机列表
+     */
+    @PostMapping("/admin/search")
+    public ResponseEntity<Page<DriverResponseDTO>> adminSearchDrivers(@RequestBody Map<String, Object> searchParams) {
+        String name = (String) searchParams.get("name");
+        String status = (String) searchParams.get("status");
+        String licenseType = (String) searchParams.get("licenseType");
+        int page = searchParams.get("page") != null ? (Integer) searchParams.get("page") : 0;
+        int size = searchParams.get("size") != null ? (Integer) searchParams.get("size") : 10;
+        
+        Pageable pageable = PageRequest.of(page, size, Sort.by("dNo").ascending());
+        Page<DriverResponseDTO> driverPage = driverService.searchDriversWithPage(name, status, licenseType, pageable);
+        return ResponseEntity.ok(driverPage);
+    }
 }
