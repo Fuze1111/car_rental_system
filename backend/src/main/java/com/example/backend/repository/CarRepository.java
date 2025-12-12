@@ -1,11 +1,14 @@
 package com.example.backend.repository;
 
 import com.example.backend.entity.Car;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -62,6 +65,46 @@ public interface CarRepository extends JpaRepository<Car, String> {
      */
     @Query("SELECT c FROM Car c WHERE c.carId LIKE CONCAT('%', :carId, '%')")
     List<Car> findByCarIdContaining(@Param("carId") String carId);
+
+    /**
+     * 根据车牌号模糊查询车辆（分页且不区分大小写）
+     */
+    Page<Car> findByCarIdContainingIgnoreCase(String carId, Pageable pageable);
+
+    /**
+     * 根据多条件（包含车型和租金率范围）查询车辆（分页）
+     */
+    @Query("SELECT c FROM Car c LEFT JOIN c.carType ct WHERE " +
+           "(:carStatus IS NULL OR c.carStatus = :carStatus) AND " +
+           "(:tNo IS NULL OR c.tNo = :tNo) AND " +
+           "(:tName IS NULL OR c.tName = :tName) AND " +
+           "(:minRent IS NULL OR ct.rentRate >= :minRent) AND " +
+           "(:maxRent IS NULL OR ct.rentRate <= :maxRent)")
+    Page<Car> findByFilters(
+            @Param("carStatus") String carStatus,
+            @Param("tNo") String tNo,
+            @Param("tName") String tName,
+            @Param("minRent") BigDecimal minRent,
+            @Param("maxRent") BigDecimal maxRent,
+            Pageable pageable
+    );
+
+    /**
+     * 非分页版本的多条件查询（兼容旧接口）
+     */
+    @Query("SELECT c FROM Car c LEFT JOIN c.carType ct WHERE " +
+           "(:carStatus IS NULL OR c.carStatus = :carStatus) AND " +
+           "(:tNo IS NULL OR c.tNo = :tNo) AND " +
+           "(:tName IS NULL OR c.tName = :tName) AND " +
+           "(:minRent IS NULL OR ct.rentRate >= :minRent) AND " +
+           "(:maxRent IS NULL OR ct.rentRate <= :maxRent)")
+    List<Car> findByFilters(
+            @Param("carStatus") String carStatus,
+            @Param("tNo") String tNo,
+            @Param("tName") String tName,
+            @Param("minRent") BigDecimal minRent,
+            @Param("maxRent") BigDecimal maxRent
+    );
 
     /**
      * 统计各状态车辆数量

@@ -12,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
@@ -36,9 +37,22 @@ public class CarController {
     public ResponseEntity<?> getAllCars(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "carId") String[] sortBy) {
+            @RequestParam(defaultValue = "carId") String[] sortBy,
+            @RequestParam(required = false) String carId,
+            @RequestParam(required = false) String tName,
+            @RequestParam(required = false) String tNo,
+            @RequestParam(required = false) String carStatus,
+            @RequestParam(required = false) BigDecimal minRent,
+            @RequestParam(required = false) BigDecimal maxRent) {
         if (page < 0 || size <= 0) {
-            List<CarResponseDTO> cars = carService.getAllCars();
+            List<CarResponseDTO> cars;
+            if (carId != null && !carId.isBlank()) {
+                cars = carService.searchCarsByCarId(carId, null).getContent();
+            } else if ((tName != null && !tName.isBlank()) || minRent != null || maxRent != null || (tNo != null && !tNo.isBlank()) || (carStatus != null && !carStatus.isBlank())) {
+                cars = carService.getCarsByFilters(carStatus, tNo, tName, minRent, maxRent, null).getContent();
+            } else {
+                cars = carService.getAllCars();
+            }
             return ResponseEntity.ok(cars);
         } else {
             // 解析排序参数，支持多字段排序和方向控制
@@ -52,10 +66,19 @@ public class CarController {
                 }
                 sort = sort.and(Sort.by(direction, field));
             }
-            
+
             Pageable pageable = PageRequest.of(page, size, sort);
-            Page<CarResponseDTO> carPage = carService.getAllCars(pageable);
-            return ResponseEntity.ok(carPage);
+
+            if (carId != null && !carId.isBlank()) {
+                Page<CarResponseDTO> carPage = carService.searchCarsByCarId(carId, pageable);
+                return ResponseEntity.ok(carPage);
+            } else if ((tName != null && !tName.isBlank()) || minRent != null || maxRent != null || (tNo != null && !tNo.isBlank()) || (carStatus != null && !carStatus.isBlank())) {
+                Page<CarResponseDTO> carPage = carService.getCarsByFilters(carStatus, tNo, tName, minRent, maxRent, pageable);
+                return ResponseEntity.ok(carPage);
+            } else {
+                Page<CarResponseDTO> carPage = carService.getAllCars(pageable);
+                return ResponseEntity.ok(carPage);
+            }
         }
     }
 
@@ -162,10 +185,17 @@ public class CarController {
      * @return 车辆列表
      */
     @GetMapping("/search/carId")
-    public ResponseEntity<List<CarResponseDTO>> searchCarsByCarId(
-            @RequestParam String carId) {
-        List<CarResponseDTO> cars = carService.searchCarsByCarId(carId);
-        return ResponseEntity.ok(cars);
+    public ResponseEntity<?> searchCarsByCarId(
+            @RequestParam String carId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        if (page < 0 || size <= 0) {
+            List<CarResponseDTO> cars = carService.searchCarsByCarId(carId);
+            return ResponseEntity.ok(cars);
+        }
+        Pageable pageable = PageRequest.of(page, size);
+        Page<CarResponseDTO> carPage = carService.searchCarsByCarId(carId, pageable);
+        return ResponseEntity.ok(carPage);
     }
 
     /**

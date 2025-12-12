@@ -465,12 +465,20 @@ const fetchCars = async () => {
       params.carId = searchForm.CarID
     }
     if (searchForm.TName) {
+      // 前端选择的是车型名称（tName），后端 controller 支持 tName 和 tNo
       params.tName = searchForm.TName
     }
     if (searchForm.CarStatus) {
       params.carStatus = searchForm.CarStatus
     }
-    
+    // 将前端的价格范围（minPrice/maxPrice）映射为后端的租金率过滤参数（minRent/maxRent）
+    if (searchForm.minPrice !== undefined && searchForm.minPrice !== null && searchForm.minPrice !== '') {
+      params.minRent = Number(searchForm.minPrice)
+    }
+    if (searchForm.maxPrice !== undefined && searchForm.maxPrice !== null && searchForm.maxPrice !== '') {
+      params.maxRent = Number(searchForm.maxPrice)
+    }
+
     const response = await getCars(params)
     const { content, totalElements, totalPages } = response
     

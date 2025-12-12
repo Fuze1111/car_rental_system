@@ -14,6 +14,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -210,6 +211,25 @@ public class CarService {
     }
 
     /**
+     * 根据车牌号模糊查询车辆（分页，大小写不敏感）
+     * @param carId 车牌号关键字
+     * @param pageable 分页参数
+     * @return 分页车辆信息
+     */
+    public Page<CarResponseDTO> searchCarsByCarId(String carId, Pageable pageable) {
+        if (pageable == null) {
+            List<Car> cars = carRepository.findByCarIdContaining(carId);
+            List<CarResponseDTO> dtos = cars.stream().map(this::convertToResponseDTO).collect(Collectors.toList());
+            return new PageImpl<>(dtos);
+        }
+        Page<Car> carPage = carRepository.findByCarIdContainingIgnoreCase(carId, pageable);
+        List<CarResponseDTO> carDTOs = carPage.getContent().stream()
+                .map(this::convertToResponseDTO)
+                .collect(Collectors.toList());
+        return new PageImpl<>(carDTOs, pageable, carPage.getTotalElements());
+    }
+
+    /**
      * 更新车辆状态
      * @param carId 车牌号
      * @param carStatus 新状态
@@ -240,6 +260,20 @@ public class CarService {
             "rented", rentedCount,
             "repair", repairCount
         );
+    }
+
+    /**
+     * 根据多条件查询车辆（支持按车型 tNo/tName 和租金率范围 minRent/maxRent），分页
+     */
+    public Page<CarResponseDTO> getCarsByFilters(String carStatus, String tNo, String tName, BigDecimal minRent, BigDecimal maxRent, Pageable pageable) {
+        if (pageable == null) {
+            List<Car> cars = carRepository.findByFilters(carStatus, tNo, tName, minRent, maxRent);
+            List<CarResponseDTO> dtos = cars.stream().map(this::convertToResponseDTO).collect(Collectors.toList());
+            return new PageImpl<>(dtos);
+        }
+        Page<Car> carPage = carRepository.findByFilters(carStatus, tNo, tName, minRent, maxRent, pageable);
+        List<CarResponseDTO> carDTOs = carPage.getContent().stream().map(this::convertToResponseDTO).collect(Collectors.toList());
+        return new PageImpl<>(carDTOs, pageable, carPage.getTotalElements());
     }
 
     /**

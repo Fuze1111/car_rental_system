@@ -185,3 +185,23 @@ export function deleteCarType(tNo, tName) {
     method: 'delete'
   })
 }
+
+// 搜索车辆（通过 carId，支持分页，返回结构可能是 Page 或 List）
+export function searchCarsByCarId(params) {
+  return request({
+    url: '/cars/search/carId',
+    method: 'get',
+    params
+  }).then(resp => {
+    // 后端在分页时返回 Page 对象（含 content, totalElements, totalPages），否则返回 List
+    if (resp && resp.content !== undefined) {
+      return resp
+    }
+    // 如果是非分页列表，封装成统一结构
+    return {
+      content: resp || [],
+      totalElements: (resp && resp.length) || 0,
+      totalPages: 1
+    }
+  })
+}
