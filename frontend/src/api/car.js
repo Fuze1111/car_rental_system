@@ -94,11 +94,12 @@ export function getCarStatistics() {
   })
 }
 
-// 获取维修记录列表
-export function getRepairs() {
+// 获取维修记录列表 (支持 params)
+export function getRepairs(params) {
   return request({
     url: '/repairs',
-    method: 'get'
+    method: 'get',
+    params
   })
 }
 

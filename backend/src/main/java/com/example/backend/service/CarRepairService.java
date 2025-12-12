@@ -152,6 +152,20 @@ public class CarRepairService {
     }
 
     /**
+     * 根据过滤条件分页查询维修记录（支持按车牌号和时间范围）
+     */
+    public Page<CarRepairResponseDTO> getRepairsByFilters(String carId, java.time.LocalDateTime start, java.time.LocalDateTime end, Pageable pageable) {
+        if (pageable == null) {
+            List<CarRepair> repairs = carRepairRepository.findByFilters(carId, start, end);
+            List<CarRepairResponseDTO> dtos = repairs.stream().map(this::convertToResponseDTO).collect(Collectors.toList());
+            return new PageImpl<>(dtos);
+        }
+        Page<CarRepair> repairPage = carRepairRepository.findByFilters(carId, start, end, pageable);
+        List<CarRepairResponseDTO> repairDTOs = repairPage.getContent().stream().map(this::convertToResponseDTO).collect(Collectors.toList());
+        return new PageImpl<>(repairDTOs, pageable, repairPage.getTotalElements());
+    }
+
+    /**
      * 将CarRepair实体转换为CarRepairResponseDTO
      */
     private CarRepairResponseDTO convertToResponseDTO(CarRepair repair) {

@@ -28,9 +28,38 @@ public class CarRepairController {
      * @return 维修记录列表
      */
     @GetMapping
-    public ResponseEntity<List<CarRepairResponseDTO>> getAllRepairs() {
-        List<CarRepairResponseDTO> repairs = carRepairService.getAllRepairs();
-        return ResponseEntity.ok(repairs);
+    public ResponseEntity<?> getAllRepairs(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String carId,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate) {
+        // 解析时间字符串为 LocalDateTime（支持 YYYY-MM-DD 或 YYYY-MM-DDTHH:mm:ss）
+        java.time.LocalDateTime start = null;
+        java.time.LocalDateTime end = null;
+        try {
+            if (startDate != null && !startDate.isBlank()) {
+                // 尝试解析为 LocalDate then start of day
+                start = java.time.LocalDate.parse(startDate).atStartOfDay();
+            }
+            if (endDate != null && !endDate.isBlank()) {
+                // 尝试解析 as LocalDate then end of day
+                end = java.time.LocalDate.parse(endDate).atTime(23,59,59);
+            }
+        } catch (Exception ex) {
+            // ignore parsing errors - treat as null
+        }
+
+        if (page < 0 || size <= 0) {
+            // non-paged list
+            java.util.List<com.example.backend.dto.CarRepairResponseDTO> repairs =
+                    carRepairService.getRepairsByFilters(carId, start, end, null).getContent();
+            return ResponseEntity.ok(repairs);
+        } else {
+            org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size, org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "rDate"));
+            org.springframework.data.domain.Page<com.example.backend.dto.CarRepairResponseDTO> repairPage = carRepairService.getRepairsByFilters(carId, start, end, pageable);
+            return ResponseEntity.ok(repairPage);
+        }
     }
 
     /**
@@ -109,4 +138,3 @@ public class CarRepairController {
         return ResponseEntity.ok(count);
     }
 }
-

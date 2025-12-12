@@ -1,11 +1,14 @@
 package com.example.backend.repository;
 
 import com.example.backend.entity.CarRepair;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -38,5 +41,36 @@ public interface CarRepairRepository extends JpaRepository<CarRepair, String> {
      * @return 维修次数
      */
     long countByCarId(String carId);
-}
 
+    /**
+     * 根据过滤条件查询维修记录（分页）
+     * @param carId 车辆号
+     * @param start 开始时间
+     * @param end 结束时间
+     * @param pageable 分页信息
+     * @return 维修记录分页列表
+     */
+    @Query("SELECT cr FROM CarRepair cr WHERE (:carId IS NULL OR LOWER(cr.carId) LIKE CONCAT('%', LOWER(:carId), '%')) AND " +
+           "(:start IS NULL OR cr.rDate >= :start) AND (:end IS NULL OR cr.rDate <= :end) ORDER BY cr.rDate DESC")
+    Page<CarRepair> findByFilters(
+            @Param("carId") String carId,
+            @Param("start") java.time.LocalDateTime start,
+            @Param("end") java.time.LocalDateTime end,
+            Pageable pageable
+    );
+
+    /**
+     * 根据过滤条件查询维修记录（不分页）
+     * @param carId 车辆号
+     * @param start 开始时间
+     * @param end 结束时间
+     * @return 维修记录列表
+     */
+    @Query("SELECT cr FROM CarRepair cr WHERE (:carId IS NULL OR LOWER(cr.carId) LIKE CONCAT('%', LOWER(:carId), '%')) AND " +
+           "(:start IS NULL OR cr.rDate >= :start) AND (:end IS NULL OR cr.rDate <= :end) ORDER BY cr.rDate DESC")
+    List<CarRepair> findByFilters(
+            @Param("carId") String carId,
+            @Param("start") java.time.LocalDateTime start,
+            @Param("end") java.time.LocalDateTime end
+    );
+}

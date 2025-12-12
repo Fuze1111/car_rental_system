@@ -294,28 +294,29 @@ const fetchRepairs = async () => {
       page: pagination.currentPage - 1,
       size: pagination.pageSize
     }
-    
+
     // 添加搜索条件
     if (searchForm.carId) {
       params.carId = searchForm.carId
     }
-    
+
     if (searchForm.startDate) {
+      // 后端接受 YYYY-MM-DD (解析到 start of day)
       params.startDate = searchForm.startDate
     }
-    
+
     if (searchForm.endDate) {
+      // 后端接受 YYYY-MM-DD (解析到 end of day)
       params.endDate = searchForm.endDate
     }
-    
-    const response = await getRepairs()
-    // 检查响应结构
-    const data = response.data || response
-    
-    // 如果是数组直接使用，否则使用content字段
+
+    const response = await getRepairs(params)
+    // 响应可能是 Page 对象或 List
+    const data = response && (response.data || response) || {}
+
     let repairs = []
     let total = 0
-    
+
     if (Array.isArray(data)) {
       repairs = data
       total = data.length
@@ -326,17 +327,17 @@ const fetchRepairs = async () => {
       repairs = []
       total = 0
     }
-    
+
     // 转换数据格式以适配前端显示
     tableData.value = repairs.map(repair => ({
-      rNo: repair.rno,
+      rNo: repair.rNo || repair.rno,
       carId: repair.carId,
       carModel: repair.carModel,
-      rDate: repair.rdate,
+      rDate: repair.rDate || repair.rdate,
       runKm: repair.runKm,
       runHour: repair.runHour
     }))
-    
+
     pagination.total = total
   } catch (error) {
     console.error('获取维修记录失败:', error)
