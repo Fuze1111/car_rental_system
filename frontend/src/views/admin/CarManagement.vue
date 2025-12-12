@@ -444,6 +444,29 @@ const formatDateTime = (dateString) => {
          String(date.getMinutes()).padStart(2, '0')
 }
 
+// 根据车型名称获取对应图片的辅助函数（放在 fetchCarTypes 之前，避免未定义）
+const getImageForCarType = (typeName) => {
+  if (!typeName) return 'https://images.unsplash.com/photo-1621007947382-bb3c3968e3bb?auto=format&fit=crop&q=80&w=400'
+  // 清理可能存在的乱码字符，只保留中文、英文字母和数字
+  const cleanTypeName = typeName.toString().replace(/[^ -\u007F\u4e00-\u9fa5a-zA-Z0-9]/g, '').trim();
+  // 简单映射：可按需扩展
+  const imageMap = {
+    '丰田凯美瑞': 'https://images.unsplash.com/photo-1542362567-b07e54358753?auto=format&fit=crop&q=80&w=400',
+    '本田雅阁': 'https://images.unsplash.com/photo-1549399542-7e3f8b79578f?auto=format&fit=crop&q=80&w=400',
+    '奔驰E级': 'https://images.unsplash.com/photo-1617358038732-7a3d5de4b20f?auto=format&fit=crop&q=80&w=400',
+    '宝马5系': 'https://images.unsplash.com/photo-1617395310245-0a558b39c01f?auto=format&fit=crop&q=80&w=400',
+    '奥迪A6L': 'https://images.unsplash.com/photo-1584345604476-8ec5e12e42dd?auto=format&fit=crop&q=80&w=400',
+    '大众帕萨特': 'https://images.unsplash.com/photo-1622340767794-5412803c7344?auto=format&fit=crop&q=80&w=400'
+  }
+  return imageMap[cleanTypeName] || 'https://images.unsplash.com/photo-1621007947382-bb3c3968e3bb?auto=format&fit=crop&q=80&w=400'
+}
+
+// 搜索按钮触发的函数（确保在模板渲染时已定义）
+const handleSearch = () => {
+  pagination.currentPage = 1
+  fetchCars()
+}
+
 // 页面加载时获取车辆数据
 onMounted(() => {
   fetchCars()
@@ -507,58 +530,62 @@ const fetchCars = async () => {
 
 // 获取所有车型选项
 const fetchCarTypes = async () => {
+  typeLoading.value = true
   try {
     const response = await getCarTypes()
-    console.log('车型数据:', response); // 调试信息
-    
-    // 确保数据有正确的属性名（注意后端返回的是小写字段名）
-    carTypeOptions.value = response.map(type => ({
-      tNo: type.tno,       // 注意这里使用的是tno而不是tNo
-      tName: type.tname,   // 注意这里使用的是tname而不是tName
+    // 全量车型列表（后端返回小写字段名 tno/tname）
+    const allTypes = (response || []).map(type => ({
+      tno: type.tno,
+      tname: type.tname,
       rentRate: type.rentRate
     }))
-    
-    // 更新车型表格数据
-    typeTableData.value = response.map(type => ({
-      TNo: type.tno,       // 注意这里使用的是tno而不是tNo
-      TName: type.tname,   // 注意这里使用的是tname而不是tName
-      rentRate: type.rentRate,
-      Image: getImageForCarType(type.tname || type.TName)  // 根据车型名称获取对应图片
+
+    // 用于车辆搜索下拉的完整选项（保持原样）
+    carTypeOptions.value = allTypes.map(type => ({
+      tNo: type.tno,
+      tName: type.tname,
+      rentRate: type.rentRate
     }))
-    
-    typePagination.total = response.length
+
+    // 过滤（按关键字匹配 tno 或 tname，忽略大小写）
+    const kw = (typeSearchForm.keyword || '').toString().trim().toLowerCase()
+    let filtered = allTypes
+    if (kw) {
+      filtered = allTypes.filter(t => {
+        const name = (t.tname || '').toString().toLowerCase()
+        const no = (t.tno || '').toString().toLowerCase()
+        return name.includes(kw) || no.includes(kw)
+      })
+    }
+
+    // 更新分页总数
+    typePagination.total = filtered.length
+
+    // 确保当前页在范围内
+    const page = Math.max(1, typePagination.currentPage || 1)
+    const size = Math.max(1, typePagination.pageSize || 10)
+    const start = (page - 1) * size
+    const pageSlice = filtered.slice(start, start + size)
+
+    // 更新表格数据（保持字段名兼容）
+    typeTableData.value = pageSlice.map(type => ({
+      TNo: type.tno,
+      TName: type.tname,
+      rentRate: type.rentRate,
+      Image: getImageForCarType(type.tname)
+    }))
   } catch (error) {
     console.error('获取车型列表失败:', error)
     ElMessage.error('获取车型列表失败: ' + (error.message || '网络错误'))
+  } finally {
+    typeLoading.value = false
   }
 }
 
-// 根据车型名称获取对应图片的辅助函数
-const getImageForCarType = (typeName) => {
-  // 清理可能存在的乱码字符，只保留中文、英文字母和数字
-  const cleanTypeName = typeName.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '');
-  
-  console.log('原始车型名称:', typeName, '清理后:', cleanTypeName); // 调试信息
-  
-  // 图片URL映射
-  const imageMap = {
-    '丰田凯美瑞': 'https://images.unsplash.com/photo-1542362567-b07e54358753?auto=format&fit=crop&q=80&w=400',
-    '本田雅阁': 'https://images.unsplash.com/photo-1549399542-7e3f8b79578f?auto=format&fit=crop&q=80&w=400',
-    '奔驰E级': 'https://images.unsplash.com/photo-1617358038732-7a3d5de4b20f?auto=format&fit=crop&q=80&w=400',
-    '宝马5系': 'https://images.unsplash.com/photo-1617395310245-0a558b39c01f?auto=format&fit=crop&q=80&w=400',
-    '奥迪A6L': 'https://images.unsplash.com/photo-1584345604476-8ec5e12e42dd?auto=format&fit=crop&q=80&w=400',
-    '大众帕萨特': 'https://images.unsplash.com/photo-1622340767794-5412803c7344?auto=format&fit=crop&q=80&w=400'
-  };
-  
-  // 返回对应图片URL，如果没有找到则使用默认图片
-  const imageUrl = imageMap[cleanTypeName] || 'https://images.unsplash.com/photo-1621007947382-bb3c3968e3bb?auto=format&fit=crop&q=80&w=400';
-  console.log('匹配图片URL:', imageUrl);
-  return imageUrl;
-};
-
-const handleSearch = () => {
-  pagination.currentPage = 1
-  fetchCars()
+const handleTypeSearch = async () => {
+  // 当触发搜索时回到第一页，然后重新加载（fetchCarTypes 内部会使用 typePagination）
+  typePagination.currentPage = 1
+  await fetchCarTypes()
 }
 
 const resetSearch = () => {
@@ -626,16 +653,6 @@ const handleMaintenanceSubmit = async (formData) => {
 // --- Type Management Methods ---
 const typeFormRef = ref(null)
 
-const handleTypeSearch = () => {
-  typeLoading.value = true
-  
-  // 实际实现搜索逻辑
-  fetchCarTypes()
-  
-  setTimeout(() => {
-    typeLoading.value = false
-  }, 300)
-}
 
 const resetTypeSearch = () => {
   typeSearchForm.keyword = ''
