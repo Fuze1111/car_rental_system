@@ -7,7 +7,7 @@
         <div class="section-header">
           <div class="header-left">
             <h3>进行中订单</h3>
-            <el-tag type="success" effect="light" round class="count-tag">{{ activeOrders.length }} 进行中</el-tag>
+            <el-tag type="success" effect="light" round class="count-tag">{{ activePagination.total }} 进行中</el-tag>
           </div>
         </div>
 
@@ -20,6 +20,8 @@
                 prefix-icon="Search" 
                 clearable 
                 class="search-input"
+                @keyup.enter="handleActiveSearch"
+                @clear="handleActiveSearch"
               />
             </el-form-item>
             <el-form-item>
@@ -46,7 +48,7 @@
             <template #default="scope">
               <div class="info-group">
                 <span class="plate">{{ scope.row.CarID }}</span>
-                <span class="sub-text">{{ getCarName(scope.row.CarID) }}</span>
+                <span class="sub-text">{{ displayCar(scope.row) }}</span>
               </div>
             </template>
           </el-table-column>
@@ -54,13 +56,13 @@
           <el-table-column label="客户" min-width="120">
             <template #default="scope">
               <div class="info-group">
-                <span class="main-text">{{ getCustomerName(scope.row.CNo) }}</span>
+                <span class="main-text">{{ displayCustomer(scope.row) }}</span>
                 <span class="sub-text">{{ scope.row.CNo }}</span>
               </div>
             </template>
           </el-table-column>
 
-          <el-table-column label="借还时间" width="320">
+          <el-table-column label="预计借还时间" width="320">
             <template #default="scope">
               <div class="date-range">
                 <span class="date">{{ scope.row.LoanDate }}</span>
@@ -70,7 +72,7 @@
             </template>
           </el-table-column>
 
-          <el-table-column label="借还地点" min-width="200" show-overflow-tooltip>
+          <el-table-column label="预计借还地点" min-width="200" show-overflow-tooltip>
              <template #default="scope">
                <div class="place-info">
                  <div class="place-row"><el-icon><Location /></el-icon> 借: {{ scope.row.LoanPlace }}</div>
@@ -94,7 +96,7 @@
             layout="total, sizes, prev, pager, next"
             :total="activePagination.total"
             @size-change="handleActiveSizeChange"
-            @current-change="fetchActive"
+            @current-change="handleActivePageChange"
           />
         </div>
       </el-card>
@@ -150,12 +152,15 @@
           </el-table-column>
 
           <el-table-column label="客户" min-width="120">
-            <template #default="scope">{{ getCustomerName(scope.row.CNo) }}</template>
+            <template #default="scope">{{ displayCustomer(scope.row) }}</template>
           </el-table-column>
           
           <el-table-column label="司机" min-width="120">
             <template #default="scope">
-              <el-tag v-if="scope.row.DNo" size="small" type="info">{{ getDriverName(scope.row.DNo) }}</el-tag>
+              <!-- Use displayDriver helper which prefers DriverName then mapped DNo; always render a sensible label -->
+              <template v-if="(scope.row.DriverName && scope.row.DriverName !== '') || (scope.row.DNo && scope.row.DNo !== '')">
+                <el-tag size="small" type="info">{{ displayDriver(scope.row) }}</el-tag>
+              </template>
               <span v-else class="sub-text">自驾</span>
             </template>
           </el-table-column>
@@ -203,7 +208,7 @@
             :total="pagination.total"
             layout="total, sizes, prev, pager, next, jumper"
             @size-change="handleSizeChange"
-            @current-change="fetchHistory"
+            @current-change="handlePageChange"
           />
         </div>
       </el-card>
@@ -272,11 +277,11 @@
               </div>
               <div class="info-item">
                 <span class="label">客户</span>
-                <span class="value">{{ getCustomerName(currentDetailOrder.CNo) }}</span>
+                <span class="value">{{ displayCustomer(currentDetailOrder) }}</span>
               </div>
               <div class="info-item">
                 <span class="label">司机</span>
-                <span class="value">{{ currentDetailOrder.DNo ? getDriverName(currentDetailOrder.DNo) : '自驾' }}</span>
+                <span class="value">{{ displayDriver(currentDetailOrder) }}</span>
               </div>
             </div>
           </div>
@@ -341,6 +346,14 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { Search, Right, Location, LocationFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import {
+  getRentals,
+  getRentalById,
+  createRental,
+  updateRental,
+  deleteRental,
+  searchRentals
+} from '@/api/rental'
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -464,6 +477,7 @@ const initMap = () => {
 
 // Mock Data Generation
 const generateData = () => {
+  // keep mock generator as fallback for dev
   // Active Orders (Unfinished: No Amount, Distance, Time)
   const active = []
   for (let i = 1; i <= 3; i++) {
@@ -514,39 +528,205 @@ const generateData = () => {
   pagination.total = 10
 }
 
-const handleActiveSearch = () => {
+// 日期时间格式化（兼容后端 LocalDateTime 字符串）
+const formatDateTime = (value) => {
+  if (!value) return ''
+  // If already formatted string in template-like format, return as-is
+  try {
+    const d = new Date(value)
+    if (isNaN(d.getTime())) return String(value)
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') + ':' + String(d.getSeconds()).padStart(2, '0')
+  } catch (e) {
+    return String(value)
+  }
+}
+
+// Helper to normalize a rental DTO from backend into the template's expected shape
+const normalizeRental = (r) => {
+  // r may have camelCase fields like invoiceNo, loanDate, returnDate, carId, cNo, dNo, roundTripDistance, driveTime, amount, customerName, driverName
+  return {
+    InvoiceNo: r.invoiceNo || r.InvoiceNo || '',
+    LoanDate: formatDateTime(r.loanDate || r.LoanDate || r.loanDateStr || ''),
+    ReturnDate: formatDateTime(r.returnDate || r.ReturnDate || r.returnDateStr || ''),
+    LoanPlace: r.loanPlace || r.LoanPlace || '',
+    ReturnPlace: r.returnPlace || r.ReturnPlace || '',
+    CarID: r.carId || r.CarID || '',
+    CNo: r.cNo || r.CNo || '',
+    DNo: r.dNo || r.DNo || null,
+    RoundTripDistance: (r.roundTripDistance !== undefined ? r.roundTripDistance : (r.RoundTripDistance !== undefined ? r.RoundTripDistance : null)),
+    DriveTime: (r.driveTime !== undefined ? r.driveTime : (r.DriveTime !== undefined ? r.DriveTime : null)),
+    Amount: (r.amount !== undefined ? r.amount : (r.Amount !== undefined ? r.Amount : null)),
+    // Additional friendly fields if backend provided
+    CustomerName: r.customerName || r.CustomerName || getCustomerName(r.cNo || r.CNo || ''),
+    DriverName: r.driverName || r.DriverName || getDriverName(r.dNo || r.DNo || ''),
+    CarType: r.carType || r.CarType || getCarName(r.carId || r.CarID || '')
+  }
+}
+
+// Helper: check if a rental is active (not yet settled)
+const isActiveRental = (r) => {
+  // Per requirement: use only the `Amount` field being null/undefined as the single source of truth
+  // for whether an order is "进行中". Do NOT rely on ReturnDate.
+  return (r.Amount === null || r.Amount === undefined)
+}
+
+// Helper: apply keyword/date/amount filters to a list
+const applyHistoryFilters = (list) => {
+  return list.filter(item => {
+    // keyword
+    if (historySearchForm.keyword) {
+      const kw = historySearchForm.keyword.toString().trim().toLowerCase()
+      if (kw) {
+        const found = (item.InvoiceNo || '').toString().toLowerCase().includes(kw) ||
+                      (item.CarID || '').toString().toLowerCase().includes(kw) ||
+                      (item.CNo || '').toString().toLowerCase().includes(kw) ||
+                      (item.CustomerName || '').toString().toLowerCase().includes(kw) ||
+                      (item.DriverName || '').toString().toLowerCase().includes(kw) ||
+                      (item.CarType || '').toString().toLowerCase().includes(kw)
+        if (!found) return false
+      }
+    }
+    // date range
+    if (historySearchForm.dateRange && historySearchForm.dateRange.length === 2) {
+      const start = new Date(historySearchForm.dateRange[0]).getTime()
+      const end = new Date(historySearchForm.dateRange[1]).getTime()
+      const loan = item.LoanDate ? new Date(item.LoanDate).getTime() : null
+      if (loan && (loan < start || loan > end)) return false
+    }
+    // amount range
+    if (historySearchForm.minAmount !== undefined && historySearchForm.minAmount !== null) {
+      if (item.Amount === null || item.Amount === undefined || Number(item.Amount) < Number(historySearchForm.minAmount)) return false
+    }
+    if (historySearchForm.maxAmount !== undefined && historySearchForm.maxAmount !== null) {
+      if (item.Amount === null || item.Amount === undefined || Number(item.Amount) > Number(historySearchForm.maxAmount)) return false
+    }
+
+    return true
+  })
+}
+
+const applyActiveFilters = (list) => {
+  return list.filter(item => {
+    if (activeSearchForm.keyword) {
+      const kw = activeSearchForm.keyword.toString().trim().toLowerCase()
+      if (kw) {
+        const found = (item.InvoiceNo || '').toString().toLowerCase().includes(kw) ||
+                      (item.CarID || '').toString().toLowerCase().includes(kw) ||
+                      (item.CNo || '').toString().toLowerCase().includes(kw) ||
+                      (item.CustomerName || '').toString().toLowerCase().includes(kw) ||
+                      (item.DriverName || '').toString().toLowerCase().includes(kw) ||
+                      (item.CarType || '').toString().toLowerCase().includes(kw)
+        if (!found) return false
+      }
+    }
+    if (activeSearchForm.dateRange && activeSearchForm.dateRange.length === 2) {
+      const start = new Date(activeSearchForm.dateRange[0]).getTime()
+      const end = new Date(activeSearchForm.dateRange[1]).getTime()
+      const loan = item.LoanDate ? new Date(item.LoanDate).getTime() : null
+      if (loan && (loan < start || loan > end)) return false
+    }
+    return true
+  })
+}
+
+// Client-side paginate helper
+const paginate = (list, page, size) => {
+  const start = (page - 1) * size
+  return list.slice(start, start + size)
+}
+
+// Fetch active (ongoing) orders from backend — now fetch full list and split
+const fetchActive = async () => {
   loading.value = true
-  // 模拟向后端发送查询请求
-  const queryParams = { ...activeSearchForm }
-  console.log('【后端查询】正在请求进行中订单，参数:', queryParams)
-  
-  // TODO: 对接后端时，使用 axios.post('/api/orders/active/search', queryParams)
-  setTimeout(() => { loading.value = false; ElMessage.success('查询完成 (Mock)') }, 300)
+  try {
+    // request non-paged list
+    const resp = await getRentals({ page: -1, size: 0 })
+    const data = resp && (resp.data || resp) || []
+    const list = Array.isArray(data) ? data : (data.content || [])
+
+    // Normalize first
+    const normalized = list.map(normalizeRental)
+
+    // Filter active rentals (no amount or no return date)
+    let activeList = normalized.filter(isActiveRental)
+
+    // Apply active search filters
+    activeList = applyActiveFilters(activeList)
+
+    // set total and slice for current page
+    activePagination.total = activeList.length
+    activeOrders.value = paginate(activeList, activePagination.currentPage, activePagination.pageSize)
+  } catch (err) {
+    console.error('获取进行中订单失败, 使用mock数据', err)
+    generateData()
+  } finally {
+    loading.value = false
+  }
+}
+
+// Fetch history orders (finished) from backend — fetch full list and split
+const fetchHistory = async () => {
+  loading.value = true
+  try {
+    const resp = await getRentals({ page: -1, size: 0 })
+    const data = resp && (resp.data || resp) || []
+    const list = Array.isArray(data) ? data : (data.content || [])
+
+    const normalized = list.map(normalizeRental)
+
+    // History = those with Amount (settled) and/or returnDate
+    let historyList = normalized.filter(item => !isActiveRental(item))
+
+    // Apply history filters (keyword/date/amount)
+    historyList = applyHistoryFilters(historyList)
+
+    // set total and slice
+    pagination.total = historyList.length
+    historyOrders.value = paginate(historyList, pagination.currentPage, pagination.pageSize)
+  } catch (err) {
+    console.error('获取历史订单失败, 使用mock数据', err)
+    generateData()
+  } finally {
+    loading.value = false
+  }
+}
+
+// Update search handlers to reset page and call the fetch that will paginate client-side
+const handleActiveSearch = () => {
+  activePagination.currentPage = 1
+  fetchActive()
 }
 
 const handleHistorySearch = () => {
-  loading.value = true
-  // 模拟向后端发送查询请求
-  const queryParams = { 
-    ...historySearchForm,
-    // 如果日期范围存在，拆分为 startDate 和 endDate 发给后端 SQL 使用
-    startDate: historySearchForm.dateRange?.[0],
-    endDate: historySearchForm.dateRange?.[1]
-  }
-  console.log('【后端查询】正在请求历史订单，参数:', queryParams)
-
-  // TODO: 对接后端时，使用 axios.post('/api/orders/history/search', queryParams)
-  // 后端 SQL 示例: WHERE LoanDate BETWEEN #{startDate} AND #{endDate} AND Amount >= #{minAmount}...
-  setTimeout(() => { loading.value = false; ElMessage.success('查询完成 (Mock)') }, 300)
+  pagination.currentPage = 1
+  fetchHistory()
 }
 
+// Reset history search form and reload history list
 const handleHistoryReset = () => {
   historySearchForm.keyword = ''
-  historySearchForm.dateRange = []
-  historySearchForm.minAmount = undefined
-  historySearchForm.maxAmount = undefined
-  handleHistorySearch()
+  // use null for dateRange to ensure date-picker clears correctly
+  historySearchForm.dateRange = null
+  historySearchForm.minAmount = null
+  historySearchForm.maxAmount = null
+  pagination.currentPage = 1
+  pagination.pageSize = 10
+  fetchHistory()
 }
+
+// When page changes we need to re-run fetch to paginate client-side
+const handleActivePageChange = (val) => {
+  activePagination.currentPage = val
+  fetchActive()
+}
+
+const handlePageChange = (val) => {
+  pagination.currentPage = val
+  fetchHistory()
+}
+
+// Replace earlier @current-change handlers in template to use these names (no template edit needed because we used fetchActive/fetchHistory earlier),
+// but ensure page-change handlers are in sync with pagination events.
 
 // Dialog Logic
 const openCompleteDialog = (row) => {
@@ -561,45 +741,59 @@ const calculateAmount = computed(() => {
   return 200 + (completeForm.RoundTripDistance * 2) + (completeForm.DriveTime * 50)
 })
 
-const handleCompleteSubmit = () => {
+const handleCompleteSubmit = async () => {
+  if (!currentOrder.value) return
   submitting.value = true
-  setTimeout(() => {
-    // Mock Move to History
+  try {
+    // Ensure numeric values
+    const roundTrip = Number(completeForm.RoundTripDistance) || 0
+    const drive = Number(completeForm.DriveTime) || 0
+
+    // If the order has no return date, set returnDate to now so backend can compute amount
+    const now = new Date()
+    const pad = (n) => String(n).padStart(2, '0')
+    const localIso = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
+
     const finishedOrder = {
       ...currentOrder.value,
-      RoundTripDistance: completeForm.RoundTripDistance,
-      DriveTime: completeForm.DriveTime,
-      Amount: calculateAmount.value
+      RoundTripDistance: roundTrip,
+      DriveTime: drive,
+      ReturnDate: currentOrder.value.ReturnDate || localIso
     }
-    
-    // Remove from active
-    activeOrders.value = activeOrders.value.filter(o => o.InvoiceNo !== finishedOrder.InvoiceNo)
-    // Add to history (top)
-    historyOrders.value.unshift(finishedOrder)
-    
-    submitting.value = false
-    dialogVisible.value = false
+
+    // Call updateRental on backend with the invoiceNo; backend will recalculate amount server-side
+    await updateRental(finishedOrder.InvoiceNo || finishedOrder.invoiceNo, {
+      returnDate: finishedOrder.ReturnDate,
+      roundTripDistance: roundTrip,
+      driveTime: drive
+      // do not rely on client-side amount; backend will compute according to the formula
+    })
+
+    // Refresh lists
+    await fetchActive()
+    await fetchHistory()
+
     ElMessage.success('订单已结算归档')
-  }, 600)
+    dialogVisible.value = false
+  } catch (error) {
+    console.error('完成订单失败:', error)
+    ElMessage.error('完成订单失败')
+  } finally {
+    submitting.value = false
+  }
 }
 
-const handleView = (row) => {
-  currentDetailOrder.value = row
-  detailDialogVisible.value = true
-  hasMapKey.value = false // Reset, let initMap check again
-}
-
-const fetchHistory = () => {
-  // Mock page change
-}
-
-const handleSizeChange = (val) => {
-  pagination.pageSize = val
-  fetchHistory()
-}
-
-const fetchActive = () => {
-  // Mock page change
+// 删除历史/订单
+const handleDelete = async (row) => {
+  try {
+    await deleteRental(row.InvoiceNo || row.invoiceNo)
+    ElMessage.success('删除成功')
+    fetchHistory()
+    fetchActive()
+  } catch (error) {
+    console.error('删除失败', error)
+    ElMessage.error('删除失败')
+  }
 }
 
 const handleActiveSizeChange = (val) => {
@@ -607,9 +801,35 @@ const handleActiveSizeChange = (val) => {
   fetchActive()
 }
 
-onMounted(() => {
-  generateData()
+const handleSizeChange = (val) => {
+  pagination.pageSize = val
+  fetchHistory()
+}
+
+onMounted(async () => {
+  // Try to load real data; fallback to mock if backend not available
+  await fetchActive()
+  await fetchHistory()
 })
+
+// Display helpers
+const displayCustomer = (row) => {
+  return row.CustomerName || getCustomerName(row.CNo) || row.CNo || ''
+}
+const displayDriver = (row) => {
+  return row.DriverName || (row.DNo ? getDriverName(row.DNo) : '自驾')
+}
+const displayCar = (row) => {
+  return row.CarType || getCarName(row.CarID) || row.CarID || ''
+}
+
+// 打开详情视图
+const handleView = (row) => {
+  // row expected to be normalized already
+  currentDetailOrder.value = row
+  detailDialogVisible.value = true
+  // initMap will run on dialog opened hook
+}
 </script>
 
 <style scoped lang="scss">
