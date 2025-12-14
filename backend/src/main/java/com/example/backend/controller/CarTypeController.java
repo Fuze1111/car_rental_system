@@ -23,27 +23,15 @@ public class CarTypeController {
     private CarTypeService carTypeService;
 
     /**
-     * 获取所有车型信息
+     * 获取所有车型信息（包含图片路径从数据库读取）
      * GET /api/car-types
      *
      * @return 车型列表
      */
     @GetMapping
     public ResponseEntity<List<CarTypeDTO>> getAllCarTypes() {
-        List<CarType> carTypes = carTypeService.getAllCarTypes();
-
-        List<CarTypeDTO> dtos = carTypes.stream().map(ct -> {
-            // construct image filename to match files under resources/static/images
-            String fileName = resolveImageFileName(ct.getTName(), ct.getTNo());
-            String imageUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
-                    .path("/images/")
-                    .path(fileName)
-                    .toUriString();
-
-            return new CarTypeDTO(ct.getTNo(), ct.getTName(), ct.getRentRate(), imageUrl);
-        }).toList();
-
-        return ResponseEntity.ok(dtos);
+        List<CarTypeDTO> carTypes = carTypeService.getAllCarTypes();
+        return ResponseEntity.ok(carTypes);
     }
 
     /**

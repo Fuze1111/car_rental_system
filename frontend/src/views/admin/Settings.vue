@@ -6,30 +6,6 @@
       </el-button>
 
       <el-tabs v-model="activeTab" class="glass-tabs">
-        <!-- 基本设置 -->
-        <el-tab-pane label="基本设置" name="general">
-          <template #label>
-            <div class="custom-tab-label">
-              <el-icon><Operation /></el-icon>
-              <span>基本设置</span>
-            </div>
-          </template>
-          
-          <div class="tab-content">
-            <el-form :model="generalForm" label-position="top" class="custom-form">
-              <el-form-item label="系统维护模式">
-                <div class="switch-item">
-                  <div class="switch-info">
-                    <span class="switch-label">开启维护模式</span>
-                    <span class="switch-desc">开启后，除管理员外所有用户将无法访问系统</span>
-                  </div>
-                  <el-switch v-model="generalForm.maintenanceMode" />
-                </div>
-              </el-form-item>
-            </el-form>
-          </div>
-        </el-tab-pane>
-
         <!-- 个人账户 -->
         <el-tab-pane label="账户设置" name="account">
           <template #label>
@@ -43,9 +19,8 @@
             <div class="profile-header">
               <el-avatar :size="100" src="https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png" class="profile-avatar" />
               <div class="profile-info">
-                <h3>Admin User</h3>
+                <h3>{{ accountForm.username || '管理员' }}</h3>
                 <p>Super Administrator</p>
-                <el-button link type="primary">更换头像</el-button>
               </div>
             </div>
 
@@ -56,11 +31,6 @@
                 <el-col :span="12">
                   <el-form-item label="用户名">
                     <el-input v-model="accountForm.username" />
-                  </el-form-item>
-                </el-col>
-                <el-col :span="12">
-                  <el-form-item label="电子邮箱">
-                    <el-input v-model="accountForm.email" />
                   </el-form-item>
                 </el-col>
               </el-row>
@@ -178,22 +148,21 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { Operation, User, Bell, InfoFilled, Check, Van } from '@element-plus/icons-vue'
+import { User, Bell, InfoFilled, Check, Van } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
+import { changeAdminPassword } from '@/api/admin'
+import { getUserInfo, clearAuth } from '@/utils/auth'
 
 const route = useRoute()
 const router = useRouter()
-const activeTab = ref('general')
+const activeTab = ref('account')
 const saving = ref(false)
-
-const generalForm = reactive({
-  maintenanceMode: false
-})
+const passwordChanging = ref(false)
 
 const accountForm = reactive({
-  username: 'admin',
-  email: 'admin@carrental.com',
+  username: '',
+  adminId: '',
   currentPassword: '',
   newPassword: ''
 })
@@ -204,12 +173,73 @@ const notifyForm = reactive({
   dailyReport: false
 })
 
-const handleSaveAll = () => {
+// 加载管理员信息
+const loadAdminInfo = () => {
+  const userInfo = getUserInfo()
+  if (userInfo) {
+    accountForm.username = userInfo.userName || 'admin'
+    accountForm.adminId = userInfo.userId || ''
+  }
+}
+
+const handleSaveAll = async () => {
+  // 验证密码修改
+  if (accountForm.currentPassword && accountForm.newPassword) {
+    await handlePasswordChange()
+  } else if (accountForm.currentPassword || accountForm.newPassword) {
+    ElMessage.warning('请同时填写当前密码和新密码')
+    return
+  }
+  
+  // 保存通知设置到localStorage
   saving.value = true
-  setTimeout(() => {
+  try {
+    localStorage.setItem('notificationSettings', JSON.stringify(notifyForm))
+    setTimeout(() => {
+      saving.value = false
+      ElMessage.success('系统设置已成功保存')
+    }, 500)
+  } catch (error) {
     saving.value = false
-    ElMessage.success('系统设置已成功保存')
-  }, 1000)
+    ElMessage.error('保存设置失败')
+  }
+}
+
+const handlePasswordChange = async () => {
+  if (!accountForm.currentPassword) {
+    ElMessage.warning('请输入当前密码')
+    return
+  }
+  
+  if (!accountForm.newPassword) {
+    ElMessage.warning('请输入新密码')
+    return
+  }
+  
+  if (accountForm.newPassword.length < 6) {
+    ElMessage.warning('新密码长度至少6位')
+    return
+  }
+  
+  passwordChanging.value = true
+  try {
+    await changeAdminPassword({
+      userId: accountForm.adminId,
+      currentPassword: accountForm.currentPassword,
+      newPassword: accountForm.newPassword
+    })
+    
+    ElMessage.success('密码修改成功')
+    
+    // 清空密码输入框
+    accountForm.currentPassword = ''
+    accountForm.newPassword = ''
+  } catch (error) {
+    console.error('修改密码失败:', error)
+    ElMessage.error(error.response?.data?.message || '修改密码失败')
+  } finally {
+    passwordChanging.value = false
+  }
 }
 
 const handleLogout = () => {
@@ -218,6 +248,8 @@ const handleLogout = () => {
     cancelButtonText: '取消',
     type: 'warning',
   }).then(() => {
+    // 清除认证信息
+    clearAuth()
     ElMessage.success('已退出登录')
     router.push('/login')
   }).catch(() => {})
@@ -226,6 +258,18 @@ const handleLogout = () => {
 onMounted(() => {
   if (route.query.tab) {
     activeTab.value = route.query.tab
+  }
+  loadAdminInfo()
+  
+  // 加载通知偏好设置
+  try {
+    const savedSettings = localStorage.getItem('notificationSettings')
+    if (savedSettings) {
+      const settings = JSON.parse(savedSettings)
+      Object.assign(notifyForm, settings)
+    }
+  } catch (error) {
+    console.error('加载通知设置失败:', error)
   }
 })
 </script>
@@ -503,6 +547,187 @@ onMounted(() => {
   .actions {
     display: flex;
     gap: 16px;
+  }
+}
+</style>
+
+<style lang="scss">
+/* 全局弹窗样式优化 - 需要非scoped样式 */
+.el-message-box {
+  border-radius: 20px !important;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+  border: none !important;
+  
+  .el-message-box__header {
+    padding: 24px 24px 16px !important;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border-bottom: 1px solid #e2e8f0;
+    
+    .el-message-box__title {
+      font-size: 18px !important;
+      font-weight: 700 !important;
+      color: #1e293b !important;
+    }
+    
+    .el-message-box__headerbtn {
+      top: 20px !important;
+      right: 20px !important;
+      
+      .el-message-box__close {
+        color: #64748b !important;
+        font-size: 18px !important;
+        
+        &:hover {
+          color: #1e293b !important;
+        }
+      }
+    }
+  }
+  
+  .el-message-box__content {
+    padding: 24px !important;
+    
+    .el-message-box__message {
+      font-size: 15px !important;
+      color: #475569 !important;
+      line-height: 1.6 !important;
+      
+      p {
+        margin: 0;
+        line-height: 1.6;
+      }
+    }
+    
+    .el-message-box__status {
+      font-size: 28px !important;
+      
+      &.el-message-box-icon--warning {
+        color: #f59e0b !important;
+      }
+      
+      &.el-message-box-icon--info {
+        color: #3b82f6 !important;
+      }
+      
+      &.el-message-box-icon--success {
+        color: #10b981 !important;
+      }
+      
+      &.el-message-box-icon--error {
+        color: #ef4444 !important;
+      }
+    }
+  }
+  
+  .el-message-box__btns {
+    padding: 16px 24px 24px !important;
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    
+    .el-button {
+      border-radius: 12px !important;
+      padding: 10px 24px !important;
+      font-weight: 600 !important;
+      font-size: 14px !important;
+      transition: all 0.3s ease !important;
+      border: none !important;
+      
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15) !important;
+      }
+    }
+    
+    .el-button--default {
+      background: white !important;
+      color: #64748b !important;
+      border: 1px solid #e2e8f0 !important;
+      
+      &:hover {
+        background: #f8fafc !important;
+        color: #1e293b !important;
+        border-color: #cbd5e1 !important;
+      }
+    }
+    
+    .el-button--primary {
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+      color: white !important;
+      box-shadow: 0 4px 16px rgba(59, 130, 246, 0.4) !important;
+      
+      &:hover {
+        box-shadow: 0 6px 24px rgba(59, 130, 246, 0.5) !important;
+      }
+    }
+  }
+}
+
+/* Message 提示框样式优化 */
+.el-message {
+  border-radius: 12px !important;
+  padding: 16px 20px !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1) !important;
+  border: none !important;
+  
+  .el-message__icon {
+    font-size: 20px !important;
+  }
+  
+  .el-message__content {
+    font-size: 14px !important;
+    font-weight: 500 !important;
+  }
+  
+  &.el-message--success {
+    background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%) !important;
+    
+    .el-message__icon {
+      color: #10b981 !important;
+    }
+    
+    .el-message__content {
+      color: #047857 !important;
+    }
+  }
+  
+  &.el-message--warning {
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%) !important;
+    
+    .el-message__icon {
+      color: #f59e0b !important;
+    }
+    
+    .el-message__content {
+      color: #b45309 !important;
+    }
+  }
+  
+  &.el-message--error {
+    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%) !important;
+    
+    .el-message__icon {
+      color: #ef4444 !important;
+    }
+    
+    .el-message__content {
+      color: #b91c1c !important;
+    }
+  }
+  
+  &.el-message--info {
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%) !important;
+    
+    .el-message__icon {
+      color: #3b82f6 !important;
+    }
+    
+    .el-message__content {
+      color: #1e40af !important;
+    }
   }
 }
 </style>

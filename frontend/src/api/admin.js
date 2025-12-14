@@ -92,3 +92,16 @@ export const adminAddDriver = (data) => {
     data
   })
 }
+
+/**
+ * 管理员修改密码
+ * @param {Object} data - 修改密码数据 { userId, currentPassword, newPassword }
+ * @returns {Promise}
+ */
+export const changeAdminPassword = (data) => {
+  return request({
+    url: '/auth/change-password/admin',
+    method: 'post',
+    data
+  })
+}

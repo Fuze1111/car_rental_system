@@ -251,4 +251,36 @@ public class AuthService {
         return "密码修改成功";
     }
 
+    /**
+     * 管理员修改密码
+     * @param request 修改密码请求
+     * @return 成功消息
+     */
+    @Transactional
+    public String changeAdminPassword(ChangePasswordRequest request) {
+        // 查找管理员登录信息
+        Optional<AdminLogin> adminLoginOpt = adminLoginRepository.findById(request.getUserId());
+        if (!adminLoginOpt.isPresent()) {
+            throw new IllegalArgumentException("管理员不存在");
+        }
+        
+        AdminLogin adminLogin = adminLoginOpt.get();
+        
+        // 验证当前密码
+        if (!PasswordUtil.matches(request.getCurrentPassword(), adminLogin.getPassword())) {
+            throw new IllegalArgumentException("当前密码不正确");
+        }
+        
+        // 验证新密码不能与当前密码相同
+        if (request.getCurrentPassword().equals(request.getNewPassword())) {
+            throw new IllegalArgumentException("新密码不能与当前密码相同");
+        }
+        
+        // 更新密码
+        adminLogin.setPassword(PasswordUtil.encode(request.getNewPassword()));
+        adminLoginRepository.save(adminLogin);
+        
+        return "密码修改成功";
+    }
+
 }

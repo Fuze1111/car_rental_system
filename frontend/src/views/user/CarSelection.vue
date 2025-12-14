@@ -319,7 +319,9 @@
 import { ref, reactive, computed, nextTick, onMounted } from 'vue'
 import { Search, InfoFilled, Cpu, Van, Right, LocationFilled, User, ArrowUp, ArrowDown } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { getAllCars } from '@/api/car'
+import { getCarTypes, getCarsByStatus } from '@/api/car'
+import { createRental } from '@/api/rental'
+import { getUserInfo } from '@/utils/auth'
 
 const loading = ref(false)
 const searchKeyword = ref('')
@@ -361,6 +363,40 @@ const returnStores = computed(() => {
 // Car Data from API
 const cars = ref([])
 
+// 根据车型名称获取对应图片的辅助函数（从后端静态资源读取）
+const getImageForCarType = (typeName) => {
+  if (!typeName) {
+    return '/images/default.jpg'
+  }
+
+  const cleanTypeName = typeName.toString().replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').trim()
+  const name = cleanTypeName
+
+  // 根据车型名称返回后端静态资源路径
+  if (name.includes('丰田') || name.includes('凯美瑞') || /camry/i.test(name)) {
+    return '/images/toyota_camry.jpg'
+  }
+  if (name.includes('本田') || name.includes('雅阁') || /accord/i.test(name)) {
+    return '/images/honda_accord.jpg'
+  }
+  if (name.includes('奔驰') || name.includes('E级') || /benz|mercedes/i.test(name)) {
+    return '/images/benz_e_class.jpg'
+  }
+  if (name.includes('宝马') || name.includes('5系') || /bmw.*5/i.test(name)) {
+    return '/images/bmw_5_series.jpg'
+  }
+  if (name.includes('奥迪') || /audi/i.test(name)) {
+    return '/images/audi_a6l.jpg'
+  }
+  if (name.includes('大众') || name.includes('帕萨特') || /passat/i.test(name)) {
+    return '/images/vw_passat.jpg'
+  }
+
+  // 尝试通过清理后的名称构造文件名
+  const fallbackBase = cleanTypeName.toLowerCase().replace(/\s+/g, '_')
+  return `/images/${fallbackBase}.jpg`
+}
+
 // 根据车型名称推断车辆信息
 const getCarInfoFromTName = (tName) => {
   const info = {
@@ -372,15 +408,32 @@ const getCarInfoFromTName = (tName) => {
   }
   
   if (tName) {
-    // 从车型名称中提取品牌信息
-    if (tName.includes('丰田')) info.brand = '丰田'
-    else if (tName.includes('本田')) info.brand = '本田'
-    else if (tName.includes('奔驰')) info.brand = '奔驰'
-    else if (tName.includes('宝马')) info.brand = '宝马'
-    else if (tName.includes('奥迪')) info.brand = '奥迪'
-    else if (tName.includes('大众')) info.brand = '大众'
-    else if (tName.includes('特斯拉')) info.brand = '特斯拉'
-    else if (tName.includes('福特')) info.brand = '福特'
+    // 从车型名称中提取品牌信息，并从型号中移除品牌名称
+    if (tName.includes('丰田')) {
+      info.brand = '丰田'
+      info.model = tName.replace('丰田', '').trim()
+    } else if (tName.includes('本田')) {
+      info.brand = '本田'
+      info.model = tName.replace('本田', '').trim()
+    } else if (tName.includes('奔驰')) {
+      info.brand = '奔驰'
+      info.model = tName.replace('奔驰', '').trim()
+    } else if (tName.includes('宝马')) {
+      info.brand = '宝马'
+      info.model = tName.replace('宝马', '').trim()
+    } else if (tName.includes('奥迪')) {
+      info.brand = '奥迪'
+      info.model = tName.replace('奥迪', '').trim()
+    } else if (tName.includes('大众')) {
+      info.brand = '大众'
+      info.model = tName.replace('大众', '').trim()
+    } else if (tName.includes('特斯拉')) {
+      info.brand = '特斯拉'
+      info.model = tName.replace('特斯拉', '').trim()
+    } else if (tName.includes('福特')) {
+      info.brand = '福特'
+      info.model = tName.replace('福特', '').trim()
+    }
     
     // 根据车型推断座位数
     if (tName.includes('MPV') || tName.includes('商务车')) info.seats = 7
@@ -394,24 +447,36 @@ const getCarInfoFromTName = (tName) => {
   return info
 }
 
-// Load cars data from API
+// Load car types data from API (显示车型而不是所有车辆)
 const loadCars = async () => {
   loading.value = true
   try {
-    const response = await getAllCars()
-    // 转换API返回的数据格式，确保与前端兼容
-    cars.value = response.map(car => {
-      const carInfo = getCarInfoFromTName(car.tName)
+    const carTypes = await getCarTypes()
+    
+    // 后端基地址
+    const backendBaseUrl = 'http://localhost:8080'
+    
+    // 转换车型数据为前端格式
+    cars.value = carTypes.map(carType => {
+      const typeName = carType.tname || carType.tName
+      const carInfo = getCarInfoFromTName(typeName)
+      
+      // 将相对路径转换为完整URL
+      const imageUrl = carType.imageUrl || '/images/default.jpg'
+      const fullImageUrl = imageUrl.startsWith('http') ? imageUrl : `${backendBaseUrl}${imageUrl}`
+      
       return {
-        id: car.carId,
+        id: carType.tno || carType.tNo, // 使用车型编号作为ID
+        tNo: carType.tno || carType.tNo,
+        tName: typeName,
         brand: carInfo.brand,
         model: carInfo.model,
-        type: car.tName || '轿车',
-        price: car.rentRate ? Number(car.rentRate) * 8 : 200, // 租金率转换为日租金（假设8小时/天）
+        type: typeName || '轿车',
+        price: carType.rentRate ? Number(carType.rentRate) * 8 : 200, // 租金率转换为日租金
         seats: carInfo.seats,
         transmission: carInfo.transmission,
         fuel: carInfo.fuel,
-        image: `https://images.unsplash.com/photo-1621007947382-bb3c3968e3bb?auto=format&fit=crop&q=80&w=400&text=${encodeURIComponent(car.tName || '汽车')}`
+        image: fullImageUrl // 使用完整的后端URL
       }
     })
   } catch (error) {
@@ -419,12 +484,12 @@ const loadCars = async () => {
     ElMessage.error('加载车辆数据失败，请稍后重试')
     // 如果API调用失败，使用备用mock数据
     cars.value = [
-      { id: '京A12345', brand: '丰田', model: '凯美瑞', type: '轿车', price: 240, seats: 5, transmission: '自动', fuel: '汽油', image: 'https://images.unsplash.com/photo-1621007947382-bb3c3968e3bb?auto=format&fit=crop&q=80&w=400' },
-      { id: '京B67890', brand: '本田', model: '雅阁', type: '轿车', price: 280, seats: 5, transmission: '自动', fuel: '汽油', image: 'https://images.unsplash.com/photo-1560958089-b8a1929cea89?auto=format&fit=crop&q=80&w=400' },
-      { id: '京C11111', brand: '奔驰', model: 'E级', type: '轿车', price: 480, seats: 5, transmission: '自动', fuel: '汽油', image: 'https://images.unsplash.com/photo-1617788138017-80ad40651399?auto=format&fit=crop&q=80&w=400' },
-      { id: '京D22222', brand: '宝马', model: '5系', type: '轿车', price: 560, seats: 5, transmission: '自动', fuel: '汽油', image: 'https://images.unsplash.com/photo-1555215695-3004980adade?auto=format&fit=crop&q=80&w=400' },
-      { id: '京E33333', brand: '奥迪', model: 'A6L', type: '轿车', price: 440, seats: 5, transmission: '自动', fuel: '汽油', image: 'https://images.unsplash.com/photo-1584345604476-8ec5e12e42dd?auto=format&fit=crop&q=80&w=400' },
-      { id: '京F44444', brand: '大众', model: '帕萨特', type: '轿车', price: 200, seats: 5, transmission: '自动', fuel: '汽油', image: 'https://images.unsplash.com/photo-1622340767794-5412803c7344?auto=format&fit=crop&q=80&w=400' }
+      { id: '京A12345', brand: '丰田', model: '凯美瑞', type: '丰田凯美瑞', price: 240, seats: 5, transmission: '自动', fuel: '汽油', image: getImageForCarType('丰田凯美瑞') },
+      { id: '京B67890', brand: '本田', model: '雅阁', type: '本田雅阁', price: 280, seats: 5, transmission: '自动', fuel: '汽油', image: getImageForCarType('本田雅阁') },
+      { id: '京C11111', brand: '奔驰', model: 'E级', type: '奔驰E级', price: 480, seats: 5, transmission: '自动', fuel: '汽油', image: getImageForCarType('奔驰E级') },
+      { id: '京D22222', brand: '宝马', model: '5系', type: '宝马5系', price: 560, seats: 5, transmission: '自动', fuel: '汽油', image: getImageForCarType('宝马5系') },
+      { id: '京E33333', brand: '奥迪', model: 'A6L', type: '奥迪A6L', price: 440, seats: 5, transmission: '自动', fuel: '汽油', image: getImageForCarType('奥迪A6L') },
+      { id: '京F44444', brand: '大众', model: '帕萨特', type: '大众帕萨特', price: 200, seats: 5, transmission: '自动', fuel: '汽油', image: getImageForCarType('大众帕萨特') }
     ]
   } finally {
     loading.value = false
@@ -605,15 +670,75 @@ const initMap = () => {
   })
 }
 
-const submitOrder = () => {
+const submitOrder = async () => {
   if (!isFormValid.value) return
 
   submitting.value = true
-  setTimeout(() => {
+  try {
+    const userInfo = getUserInfo()
+    console.log('当前用户信息:', userInfo)
+    console.log('用户ID:', userInfo?.userId)
+    
+    if (!userInfo || !userInfo.userId) {
+      ElMessage.error('用户信息无效，请重新登录')
+      submitting.value = false
+      return
+    }
+
+    // 查找该车型的可用车辆（状态为0-可租）
+    const availableCars = await getCarsByStatus('0')
+    
+    // 筛选出匹配选中车型的可用车辆
+    const matchingCars = availableCars.filter(car => {
+      const carTypeName = car.tname || car.tName
+      return carTypeName === selectedCar.value.tName
+    })
+    
+    if (matchingCars.length === 0) {
+      ElMessage.warning('抱歉，该车型暂无可租车辆')
+      submitting.value = false
+      return
+    }
+    
+    // 选择第一辆可用车辆
+    const selectedVehicle = matchingCars[0]
+
+    // 将日期格式转换为ISO 8601格式（yyyy-MM-ddTHH:mm:ss）
+    const formatDateToISO = (dateStr) => {
+      if (!dateStr) return null
+      // 将 "2025-12-23 00:00:00" 转换为 "2025-12-23T00:00:00"
+      return dateStr.replace(' ', 'T')
+    }
+
+    // 构建租赁请求数据（不包含invoiceNo，由后端自动生成）
+    // 注意：roundTripDistance、driveTime、amount 都不传递，由管理员还车时填写和计算
+    console.log('构建订单前 - userInfo:', userInfo)
+    console.log('构建订单前 - userInfo.userId:', userInfo.userId)
+    
+    const rentalData = {
+      loanDate: formatDateToISO(rentForm.dateRange[0]),
+      returnDate: formatDateToISO(rentForm.dateRange[1]),
+      loanPlace: rentForm.loanPlace,
+      returnPlace: rentForm.returnPlace,
+      carId: selectedVehicle.carId, // 使用找到的可用车辆ID
+      cNo: userInfo.userId // 客户号
+      // dNo、roundTripDistance、driveTime、amount 都不传递，保持为 null
+    }
+
+    console.log('提交的订单数据:', rentalData)
+    console.log('rentalData.cNo:', rentalData.cNo)
+    const result = await createRental(rentalData)
+    
     submitting.value = false
     dialogVisible.value = false
-    ElMessage.success('订单提交成功！请前往个人中心查看')
-  }, 1000)
+    ElMessage.success(`订单提交成功！订单号：${result.invoiceNo}，车牌号：${selectedVehicle.carId}`)
+  } catch (error) {
+    console.error('提交订单失败:', error)
+    console.error('错误响应数据:', error.response?.data)
+    console.error('错误状态码:', error.response?.status)
+    ElMessage.error(error.response?.data?.message || '提交订单失败，请稍后重试')
+    submitting.value = false
+  }
 }
 </script>
 

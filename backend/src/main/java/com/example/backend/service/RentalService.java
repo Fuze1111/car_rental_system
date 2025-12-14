@@ -83,21 +83,26 @@ public class RentalService {
      * @return 创建的租赁记录
      */
     public RentalResponseDTO createRental(RentalRequestDTO rentalRequestDTO) {
-        // 打印调试信息
+        // 打印详细调试信息
+        System.out.println("========== 接收到租赁请求 ==========");
         System.out.println("Received rentalRequestDTO: " + rentalRequestDTO);
         System.out.println("InvoiceNo: " + rentalRequestDTO.getInvoiceNo());
         System.out.println("CarId: " + rentalRequestDTO.getCarId());
-        System.out.println("DNo: " + rentalRequestDTO.getDNo());
         System.out.println("CNo: " + rentalRequestDTO.getCNo());
+        System.out.println("DNo: " + rentalRequestDTO.getDNo());
+        System.out.println("LoanDate: " + rentalRequestDTO.getLoanDate());
+        System.out.println("ReturnDate: " + rentalRequestDTO.getReturnDate());
+        System.out.println("LoanPlace: " + rentalRequestDTO.getLoanPlace());
+        System.out.println("ReturnPlace: " + rentalRequestDTO.getReturnPlace());
+        System.out.println("RoundTripDistance: " + rentalRequestDTO.getRoundTripDistance());
+        System.out.println("DriveTime: " + rentalRequestDTO.getDriveTime());
+        System.out.println("Amount: " + rentalRequestDTO.getAmount());
+        System.out.println("=====================================");
         
-        // 检查发票号是否已存在
-        if (rentalRequestDTO.getInvoiceNo() == null || rentalRequestDTO.getInvoiceNo().isEmpty()) {
-            throw new RuntimeException("发票号不能为空");
-        }
-        
-        if (rentalRepository.existsById(rentalRequestDTO.getInvoiceNo())) {
-            throw new RuntimeException("发票号已存在: " + rentalRequestDTO.getInvoiceNo());
-        }
+        // 自动生成发票号（基于数据库最大值+1）
+        String invoiceNo = generateInvoiceNo();
+        rentalRequestDTO.setInvoiceNo(invoiceNo);
+        System.out.println("Generated InvoiceNo: " + invoiceNo);
 
         // 验证客户是否存在
         if (rentalRequestDTO.getCNo() != null && !rentalRequestDTO.getCNo().isEmpty()) {
@@ -118,23 +123,18 @@ public class RentalService {
             throw new RuntimeException("车辆状态不是可租状态: " + car.getCarStatus());
         }
         
-        // 验证司机是否存在
-        if (rentalRequestDTO.getDNo() == null) {
-            throw new RuntimeException("司机ID不能为null");
-        }
-        
-        // 添加trim()检查空字符串和空白字符
-        String trimmedDNo = rentalRequestDTO.getDNo().trim();
-        if (trimmedDNo.isEmpty()) {
-            throw new RuntimeException("司机ID不能为空字符串");
-        }
-        
-        Driver driver = driverRepository.findById(trimmedDNo)
-                .orElseThrow(() -> new RuntimeException("司机不存在: " + trimmedDNo));
+        // 验证司机（如果提供了司机ID）
+        // dNo为null或空字符串表示自驾，无需司机
+        Driver driver = null;
+        if (rentalRequestDTO.getDNo() != null && !rentalRequestDTO.getDNo().trim().isEmpty()) {
+            String trimmedDNo = rentalRequestDTO.getDNo().trim();
+            driver = driverRepository.findById(trimmedDNo)
+                    .orElseThrow(() -> new RuntimeException("司机不存在: " + trimmedDNo));
 
-        // 检查司机状态是否为空闲
-        if (!"空闲".equals(driver.getDStatus())) {
-            throw new RuntimeException("司机状态不是空闲状态: " + driver.getDStatus());
+            // 检查司机状态是否为空闲
+            if (!"空闲".equals(driver.getDStatus())) {
+                throw new RuntimeException("司机状态不是空闲状态: " + driver.getDStatus());
+            }
         }
 
         Rental rental = convertToEntity(rentalRequestDTO);
@@ -143,8 +143,10 @@ public class RentalService {
             throw new RuntimeException("租赁记录ID不能为空");
         }
         
-        // 自动计算金额
-        rental.setAmount(calculateRentalAmount(rental));
+        // 订单创建时，强制设置以下字段为null（还车时由管理员填写）
+        rental.setRoundTripDistance(null);
+        rental.setDriveTime(null);
+        rental.setAmount(null);
         
         Rental savedRental = rentalRepository.save(rental);
         
@@ -152,9 +154,11 @@ public class RentalService {
         car.setCarStatus("1");
         carRepository.save(car);
         
-        // 更新司机状态为在岗
-        driver.setDStatus("在岗");
-        driverRepository.save(driver);
+        // 更新司机状态为在岗（仅当有司机时）
+        if (driver != null) {
+            driver.setDStatus("在岗");
+            driverRepository.save(driver);
+        }
         
         return convertToResponseDTO(savedRental);
     }
@@ -409,6 +413,33 @@ public class RentalService {
      */
     public BigDecimal calculateRevenue(LocalDate startDate, LocalDate endDate) {
         return rentalRepository.calculateRevenueByDateRange(startDate, endDate);
+    }
+    
+    /**
+     * 自动生成发票号（基于数据库最大值+1）
+     * 格式：INV + 7位数字（0000001-9999999）
+     * @return 新的发票号
+     */
+    private String generateInvoiceNo() {
+        String maxInvoiceNo = rentalRepository.findMaxInvoiceNo();
+        
+        if (maxInvoiceNo == null || maxInvoiceNo.isEmpty()) {
+            // 如果数据库为空，从INV0000001开始
+            return "INV0000001";
+        }
+        
+        try {
+            // 提取数字部分（格式为INVxxxxxxx，3个字符后是7位数字）
+            String numberPart = maxInvoiceNo.substring(3);
+            int nextNumber = Integer.parseInt(numberPart) + 1;
+            
+            // 格式化为7位数字，不足补0
+            return String.format("INV%07d", nextNumber);
+        } catch (Exception e) {
+            // 如果解析失败，返回默认值
+            System.err.println("Failed to parse invoice number: " + maxInvoiceNo);
+            return "INV0000001";
+        }
     }
 
     /**

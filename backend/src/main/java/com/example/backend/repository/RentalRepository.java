@@ -139,4 +139,11 @@ public interface RentalRepository extends JpaRepository<Rental, String> {
      */
     @Query("SELECT COALESCE(SUM(r.amount), 0) FROM Rental r WHERE r.loanDate BETWEEN :startDate AND :endDate")
     BigDecimal calculateRevenueByDateRange(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+
+    /**
+     * 查询最大的发票号（用于自动生成新发票号）
+     * @return 最大的发票号
+     */
+    @Query("SELECT MAX(r.invoiceNo) FROM Rental r")
+    String findMaxInvoiceNo();
 }
