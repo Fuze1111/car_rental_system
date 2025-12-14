@@ -62,21 +62,18 @@
             </template>
           </el-table-column>
 
-          <el-table-column label="预计借还时间" width="320">
+          <el-table-column label="借车时间" width="240">
             <template #default="scope">
               <div class="date-range">
                 <span class="date">{{ scope.row.LoanDate }}</span>
-                <el-icon class="arrow"><Right /></el-icon>
-                <span class="date">{{ scope.row.ReturnDate }}</span>
               </div>
             </template>
           </el-table-column>
 
-          <el-table-column label="预计借还地点" min-width="200" show-overflow-tooltip>
+          <el-table-column label="借车地点" min-width="200" show-overflow-tooltip>
              <template #default="scope">
                <div class="place-info">
                  <div class="place-row"><el-icon><Location /></el-icon> 借: {{ scope.row.LoanPlace }}</div>
-                 <div class="place-row"><el-icon><LocationFilled /></el-icon> 还: {{ scope.row.ReturnPlace }}</div>
                </div>
              </template>
           </el-table-column>
@@ -344,15 +341,12 @@
 
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
-import { Search, Right, Location, LocationFilled } from '@element-plus/icons-vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { Right, Location, LocationFilled } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import {
   getRentals,
-  getRentalById,
-  createRental,
   updateRental,
-  deleteRental,
-  searchRentals
+  deleteRental
 } from '@/api/rental'
 
 const loading = ref(false)
