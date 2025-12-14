@@ -1,6 +1,8 @@
 package com.example.backend.controller;
 
 import com.example.backend.entity.CarType;
+import com.example.backend.dto.CarTypeDTO;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import com.example.backend.service.CarTypeService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -27,9 +29,21 @@ public class CarTypeController {
      * @return 车型列表
      */
     @GetMapping
-    public ResponseEntity<List<CarType>> getAllCarTypes() {
+    public ResponseEntity<List<CarTypeDTO>> getAllCarTypes() {
         List<CarType> carTypes = carTypeService.getAllCarTypes();
-        return ResponseEntity.ok(carTypes);
+
+        List<CarTypeDTO> dtos = carTypes.stream().map(ct -> {
+            // construct image filename to match files under resources/static/images
+            String fileName = resolveImageFileName(ct.getTName(), ct.getTNo());
+            String imageUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
+                    .path("/images/")
+                    .path(fileName)
+                    .toUriString();
+
+            return new CarTypeDTO(ct.getTNo(), ct.getTName(), ct.getRentRate(), imageUrl);
+        }).toList();
+
+        return ResponseEntity.ok(dtos);
     }
 
     /**
@@ -94,5 +108,36 @@ public class CarTypeController {
             @PathVariable String tName) {
         carTypeService.deleteCarType(tNo, tName);
         return ResponseEntity.noContent().build();
+    }
+
+    // Resolve an image filename based on type name or tNo.
+    // This maps common Chinese/English model names to the english filenames stored in /static/images.
+    private String resolveImageFileName(String tName, String tNo) {
+        String name = (tName != null ? tName : "").toLowerCase();
+        try {
+            if (name.contains("丰田") || name.contains("凯美瑞") || name.contains("camry")) return "toyota_camry.jpg";
+            if (name.contains("本田") || name.contains("雅阁") || name.contains("accord")) return "honda_accord.jpg";
+            if (name.contains("奔驰") || name.contains("e级") || name.contains("benz") || name.contains("mercedes")) return "benz_e_class.jpg";
+            if (name.contains("宝马") || name.contains("5系") || name.contains("bmw")) return "bmw_5_series.jpg";
+            if (name.contains("奥迪") || name.contains("a6l") || name.contains("audi")) return "audi_a6l.jpg";
+            if (name.contains("大众") || name.contains("帕萨特") || name.contains("passat")) return "vw_passat.jpg";
+        } catch (Exception ex) {
+            // ignore and fallback
+        }
+
+        // Fallback heuristics: if tNo maps to a known pattern (e.g., T001 -> toyota), you can extend here.
+        if (tNo != null) {
+            String tn = tNo.toLowerCase();
+            // example mapping by tNo prefix
+            if (tn.startsWith("t001")) return "toyota_camry.jpg";
+            if (tn.startsWith("t002")) return "honda_accord.jpg";
+            if (tn.startsWith("t003")) return "benz_e_class.jpg";
+            if (tn.startsWith("t004")) return "bmw_5_series.jpg";
+            if (tn.startsWith("t005")) return "audi_a6l.jpg";
+            if (tn.startsWith("t006")) return "vw_passat.jpg";
+        }
+
+        // final fallback
+        return "default.jpg";
     }
 }

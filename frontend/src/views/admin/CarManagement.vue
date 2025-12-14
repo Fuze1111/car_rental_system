@@ -219,6 +219,7 @@
                   fit="cover" 
                   class="type-thumb"
                   preview-teleported
+                 @error="() => onTypeImageError(scope.row)"
                 />
               </template>
             </el-table-column>
@@ -352,6 +353,7 @@ import {
   updateCarType,
   deleteCarType
 } from '@/api/car'
+import request from '@/api/request'
 
 // 异步加载组件
 const CarEditDialog = defineAsyncComponent(() => 
@@ -493,6 +495,45 @@ const getImageForCarType = (typeName) => {
   }
 }
 
+// Normalize image URLs returned by backend. If backend sends relative paths like "/api/files/xxx" or "uploads/xxx",
+// prefix them with the backend origin derived from the axios instance baseURL.
+const getBackendOrigin = () => {
+  try {
+    const base = (request && request.defaults && request.defaults.baseURL) ? request.defaults.baseURL : ''
+    if (!base) return ''
+    // if base ends with '/api', drop that to get origin
+    if (base.endsWith('/api')) return base.slice(0, -4)
+    return base.replace(/\/$/, '')
+  } catch (e) {
+    return ''
+  }
+}
+
+const normalizeImageUrl = (url) => {
+  if (!url) return ''
+  url = url.toString().trim()
+  // already a data URL or absolute http(s)
+  if (/^data:|^https?:\/\//i.test(url)) return url
+  // protocol-relative URL like //example.com/path
+  if (/^\/\//.test(url)) return window.location.protocol + url
+
+  const origin = getBackendOrigin()
+  if (!origin) return url
+
+  // ensure leading slash
+  if (!url.startsWith('/')) url = '/' + url
+
+  return origin + url
+}
+
+// 当 el-image 加载失败时使用本地图像作为回退
+const onTypeImageError = (row) => {
+  if (!row) return
+  if (row._imageFallback) return
+  row._imageFallback = true
+  row.Image = getImageForCarType(row.TName || row.tname)
+}
+
 // 搜索按钮触发的函数（确保在模板渲染时已定义）
 const handleSearch = () => {
   pagination.currentPage = 1
@@ -565,11 +606,13 @@ const fetchCarTypes = async () => {
   typeLoading.value = true
   try {
     const response = await getCarTypes()
-    // 全量车型列表（后端返回小写字段名 tno/tname）
+    // backend now returns CarTypeDTO { tNo, tName, rentRate, imageUrl }
     const allTypes = (response || []).map(type => ({
-      tno: type.tno,
-      tname: type.tname,
-      rentRate: type.rentRate
+      tno: type.tNo || type.tno,
+      tname: type.tName || type.tname,
+      rentRate: type.rentRate,
+      // normalize any relative backend path to absolute URL so <img> can load it from the backend
+      imageUrl: normalizeImageUrl(type.imageUrl || type.Image || type.imageUrl)
     }))
 
     // 用于车辆搜索下拉的完整选项（保持原样）
@@ -604,7 +647,8 @@ const fetchCarTypes = async () => {
       TNo: type.tno,
       TName: type.tname,
       rentRate: type.rentRate,
-      Image: getImageForCarType(type.tname)
+      // prefer backend-provided (and normalized) image URL; fallback to local asset helper
+      Image: type.imageUrl || type.Image || getImageForCarType(type.tname)
     }))
   } catch (error) {
     console.error('获取车型列表失败:', error)
@@ -705,7 +749,8 @@ const handleTypeEdit = (row) => {
     TNo: row.TNo || row.tno,
     TName: row.TName || row.tname,
     RentRate: row.rentRate || row.RentRate || 0,
-    Image: row.Image || ''
+    // prefer backend-provided imageUrl when opening edit dialog
+    Image: row.imageUrl || row.Image || ''
   })
   typeDialogVisible.value = true
 }
