@@ -478,6 +478,7 @@ public class RentalService {
         // 设置关联信息
         if (rental.getCustomer() != null) {
             dto.setCustomerName(rental.getCustomer().getCName());
+            dto.setCustomerPhone(rental.getCustomer().getPhone());
         }
         if (rental.getDriver() != null) {
             dto.setDriverName(rental.getDriver().getDName());
@@ -488,6 +489,7 @@ public class RentalService {
             carRepository.findById(rental.getCarId()).ifPresent(car -> {
                 if (car.getTName() != null) {
                     dto.setCarType(car.getTName());
+                    dto.setCarBrand(car.getTName()); // Car实体中用tName表示车型/品牌
                 }
             });
         }

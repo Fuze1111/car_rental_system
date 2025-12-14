@@ -64,3 +64,17 @@ export const getDriverTasks = (dNo) => {
     method: 'get'
   })
 }
+
+/**
+ * 完成任务（更新rental记录的还车日期）
+ * @param {string} invoiceNo - 发票号
+ * @param {Object} data - 更新数据（包含returnDate等）
+ * @returns {Promise}
+ */
+export const completeRental = (invoiceNo, data) => {
+  return request({
+    url: `/rentals/${invoiceNo}`,
+    method: 'put',
+    data
+  })
+}

@@ -244,10 +244,13 @@
           </el-select>
         </el-form-item>
         <el-form-item label="状态">
-          <el-radio-group v-model="editDriverForm.dStatus">
+          <el-radio-group v-model="editDriverForm.dStatus" disabled>
             <el-radio-button label="在岗" />
             <el-radio-button label="空闲" />
           </el-radio-group>
+          <div style="color: #909399; font-size: 12px; margin-top: 4px;">
+            司机状态由系统自动管理，不可手动修改
+          </div>
         </el-form-item>
       </el-form>
       <template #footer>

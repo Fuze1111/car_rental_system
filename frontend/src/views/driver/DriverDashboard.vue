@@ -247,7 +247,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { User, Phone, Van, Lock } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getDriverInfo, updateDriverInfo, changeDriverPassword, updateDriverStatus, getDriverTasks } from '@/api/driver'
+import { getDriverInfo, updateDriverInfo, changeDriverPassword, updateDriverStatus, getDriverTasks, completeRental } from '@/api/driver'
 import { getUserInfo } from '@/utils/auth'
 
 const activeTab = ref('tasks')
@@ -331,14 +331,19 @@ const completeTask = async (task) => {
       return
     }
     
-    // 更新任务状态为已完成
-    task.status = 'completed'
+    // 调用后端API更新rental记录，设置还车日期为当前时间
+    await completeRental(task.taskNo, {
+      invoiceNo: task.taskNo,
+      returnDate: new Date().toISOString(),
+      returnPlace: task.endPlace || '未知地点'
+    })
     
     // 调用后端API更新司机状态为空闲
     await updateDriverStatus(userInfo.userId, '空闲')
     
-    // 重新加载司机信息以显示最新状态
+    // 重新加载司机信息和任务列表
     await loadDriverInfo()
+    await loadDriverTasks()
     
     ElMessage.success('任务已完成，您的状态已更新为"空闲"')
   } catch (error) {
@@ -473,9 +478,9 @@ const loadDriverTasks = async () => {
         id: rental.invoiceNo,
         taskNo: rental.invoiceNo,
         status: isPending ? 'pending' : 'completed',
-        customerName: rental.customer?.cName || '未知客户',
-        customerPhone: rental.customer?.phone || '无',
-        carName: rental.car?.carBrand ? `${rental.car.carBrand} ${rental.car.carType || ''}` : '未知车辆',
+        customerName: rental.customerName || '未知客户',
+        customerPhone: rental.customerPhone || '无',
+        carName: rental.carBrand && rental.carType ? `${rental.carBrand} ${rental.carType}` : (rental.carBrand || rental.carType || '未知车辆'),
         carPlate: rental.carId || '未知车牌',
         startTime: rental.loanDate ? new Date(rental.loanDate).toLocaleString('zh-CN') : '未知',
         startPlace: rental.loanPlace || '未知地点',

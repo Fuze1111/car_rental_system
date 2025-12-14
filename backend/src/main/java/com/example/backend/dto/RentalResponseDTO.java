@@ -73,6 +73,11 @@ public class RentalResponseDTO {
     private String customerName;
 
     /**
+     * 客户电话（关联信息）
+     */
+    private String customerPhone;
+
+    /**
      * 司机姓名（关联信息）
      */
     private String driverName;
@@ -81,4 +86,9 @@ public class RentalResponseDTO {
      * 车辆车型（关联信息）
      */
     private String carType;
+
+    /**
+     * 车辆品牌（关联信息）
+     */
+    private String carBrand;
 }
