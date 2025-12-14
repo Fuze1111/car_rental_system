@@ -3,13 +3,12 @@ package com.example.backend.service;
 import com.example.backend.dto.RentalRequestDTO;
 import com.example.backend.dto.RentalResponseDTO;
 import com.example.backend.entity.Car;
-import com.example.backend.entity.Customer;
 import com.example.backend.entity.Driver;
 import com.example.backend.entity.Rental;
 import com.example.backend.repository.CarRepository;
-import com.example.backend.repository.CustomerRepository;
 import com.example.backend.repository.DriverRepository;
 import com.example.backend.repository.RentalRepository;
+import com.example.backend.repository.CustomerRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -19,6 +18,8 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -335,7 +336,10 @@ public class RentalService {
      * @return 租赁记录列表
      */
     public List<RentalResponseDTO> getRentalsByDateRange(LocalDate startDate, LocalDate endDate) {
-        List<Rental> rentals = rentalRepository.findByDateBetween(startDate, endDate);
+        // convert LocalDate to LocalDateTime covering the full day to match entity fields
+        java.time.LocalDateTime startDateTime = startDate.atStartOfDay();
+        java.time.LocalDateTime endDateTime = endDate.atTime(java.time.LocalTime.MAX);
+        List<Rental> rentals = rentalRepository.findByDateBetween(startDateTime, endDateTime);
         return rentals.stream()
                 .map(this::convertToResponseDTO)
                 .collect(Collectors.toList());
@@ -364,8 +368,13 @@ public class RentalService {
      * @return 租赁记录列表
      */
     public List<RentalResponseDTO> searchRentals(String cNo, String dNo, String carId,
-                                                   LocalDate startDate, LocalDate endDate) {
-        List<Rental> rentals = rentalRepository.findByMultipleConditions(cNo, dNo, carId, startDate, endDate);
+                                                    LocalDate startDate, LocalDate endDate) {
+        // convert optional LocalDate to LocalDateTime range (startOfDay / endOfDay) for repository
+        LocalDateTime startDateTime = null;
+        LocalDateTime endDateTime = null;
+        if (startDate != null) startDateTime = startDate.atStartOfDay();
+        if (endDate != null) endDateTime = endDate.atTime(LocalTime.MAX);
+        List<Rental> rentals = rentalRepository.findByMultipleConditions(cNo, dNo, carId, startDateTime, endDateTime);
         return rentals.stream()
                 .map(this::convertToResponseDTO)
                 .collect(Collectors.toList());
@@ -408,7 +417,9 @@ public class RentalService {
      * @return 收入金额
      */
     public BigDecimal calculateRevenue(LocalDate startDate, LocalDate endDate) {
-        return rentalRepository.calculateRevenueByDateRange(startDate, endDate);
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
+        return rentalRepository.calculateRevenueByDateRange(startDateTime, endDateTime);
     }
 
     /**
@@ -514,3 +525,4 @@ public class RentalService {
         return rental;
     }
 }
+

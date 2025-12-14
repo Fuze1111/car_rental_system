@@ -488,7 +488,6 @@ const fetchMetrics = async () => {
         const allRentals = Array.isArray(allRentalsResp) ? allRentalsResp : (allRentalsResp && allRentalsResp.content ? allRentalsResp.content : [])
         metrics.value.pendingOrders = Array.isArray(allRentals) ? allRentals.filter(r => !r.returnDate).length : 0
       } catch (e) {
-        console.error('compute pendingOrders failed', e)
         metrics.value.pendingOrders = 0
       }
     }
@@ -513,22 +512,21 @@ const fetchMetrics = async () => {
     const start = toDateString(today)
     const end = toDateString(today)
 
-    // get rentals for today
-    const rentalsToday = await getRentalsByDateRange(start, end).catch(e => { console.error(e); return [] })
+    // get rentals for today (silent fallback on error)
+    const rentalsToday = await getRentalsByDateRange(start, end).catch(() => [])
     metrics.value.todayOrders = Array.isArray(rentalsToday) ? rentalsToday.length : (rentalsToday.content ? rentalsToday.content.length : 0)
 
     // calculate revenue for today
-    const revenueResp = await calculateRevenue(start, end).catch(e => { console.error(e); return { revenue: 0 } })
+    const revenueResp = await calculateRevenue(start, end).catch(() => ({ revenue: 0 }))
     metrics.value.todayRevenue = revenueResp && revenueResp.revenue ? Number(revenueResp.revenue) : 0
 
     // get today's repairs count using API helper (CarRepairController expects startDate/endDate)
     try {
-      const repairsResp = await apiGetRepairs({ startDate: start, endDate: end })
+      const repairsResp = await apiGetRepairs({ startDate: start, endDate: end }).catch(() => [])
       metrics.value.todayRepairs = Array.isArray(repairsResp) ? repairsResp.length : (repairsResp && repairsResp.content ? repairsResp.content.length : 0)
     } catch (e) {
-      console.error('repairs fetch failed', e)
-      metrics.value.todayRepairs = 0
-    }
+       metrics.value.todayRepairs = 0
+     }
 
     // where earlier fetch('/api/rentals') was used, replace with getRentals (no params) or getRentals({ page: -1, size: -1 })
 // for computing avg durations and pending if needed:
@@ -585,9 +583,9 @@ const fetchChartData = async () => {
       const start = toDateString(d)
       const end = toDateString(d)
       try {
-        const rentals = await getRentalsByDateRange(start, end)
+        const rentals = await getRentalsByDateRange(start, end).catch(() => [])
         const orders = Array.isArray(rentals) ? rentals.length : (rentals.content ? rentals.content.length : 0)
-        const revResp = await calculateRevenue(start, end)
+        const revResp = await calculateRevenue(start, end).catch(() => ({ revenue: 0 }))
         const revenue = revResp && revResp.revenue ? Number(revResp.revenue) : 0
         arr.push({ label, orders, revenue: Math.round(revenue/1000*10)/10 })
       } catch (e) {

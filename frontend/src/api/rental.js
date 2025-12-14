@@ -72,10 +72,12 @@ export function searchRentalsByPlace(loanPlace) {
 
 // 根据日期范围查询
 export function getRentalsByDateRange(start, end) {
+  // controller provides /search which accepts startDate and endDate (ISO.DATE)
   return request({
-    url: '/rentals/date-range',
+    url: '/rentals/search',
     method: 'get',
-    params: { start, end }
+    params: { startDate: start, endDate: end },
+    quiet: true
   })
 }
 
@@ -92,6 +94,7 @@ export function calculateRevenue(start, end) {
   return request({
     url: '/rentals/revenue',
     method: 'get',
-    params: { start, end }
+    params: { start, end },
+    quiet: true
   })
 }
