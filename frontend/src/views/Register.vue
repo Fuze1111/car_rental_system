@@ -21,33 +21,9 @@
           <p>欢迎加入我们的租车服务平台</p>
         </div>
         
-        <div class="role-switch-container">
-          <el-tabs v-model="activeRole" class="role-tabs custom-tabs" @tab-click="handleRoleChange" stretch>
-            <el-tab-pane label="客户注册" name="customer">
-              <template #label>
-                <div class="tab-label">
-                  <el-icon><User /></el-icon>
-                  <span>客户注册</span>
-                </div>
-              </template>
-            </el-tab-pane>
-            <el-tab-pane label="司机注册" name="driver">
-              <template #label>
-                <div class="tab-label">
-                  <el-icon><Van /></el-icon>
-                  <span>司机注册</span>
-                </div>
-              </template>
-            </el-tab-pane>
-          </el-tabs>
-        </div>
-
         <div class="scrollable-form">
-          <transition name="fade-slide" mode="out-in">
             <!-- 客户注册表单 -->
             <el-form 
-              v-if="activeRole === 'customer'"
-              :key="'customer'" 
               :model="customerForm" 
               :rules="customerRules" 
               ref="customerFormRef" 
@@ -82,49 +58,6 @@
                 </el-button>
               </div>
             </el-form>
-
-            <!-- 司机注册表单 -->
-            <el-form 
-              v-else
-              :key="'driver'" 
-              :model="driverForm" 
-              :rules="driverRules" 
-              ref="driverFormRef" 
-              size="large" 
-              class="login-form"
-            >
-              <el-form-item prop="name">
-                <el-input v-model="driverForm.name" placeholder="请输入姓名" prefix-icon="User" />
-              </el-form-item>
-              <el-form-item prop="phone">
-                <el-input v-model="driverForm.phone" placeholder="请输入手机号" prefix-icon="Phone" />
-              </el-form-item>
-              <el-form-item prop="password">
-                <el-input v-model="driverForm.password" type="password" placeholder="设置密码" show-password prefix-icon="Lock" />
-              </el-form-item>
-              <el-form-item prop="confirmPassword">
-                <el-input v-model="driverForm.confirmPassword" type="password" placeholder="确认密码" show-password prefix-icon="Lock" />
-              </el-form-item>
-              <el-form-item prop="licenseType">
-                <el-select v-model="driverForm.licenseType" placeholder="请选择准驾车型" style="width: 100%">
-                  <template #prefix>
-                    <el-icon class="el-input__icon"><CreditCard /></el-icon>
-                  </template>
-                  <el-option label="C1 (小型汽车)" value="C1" />
-                  <el-option label="C2 (小型自动挡汽车)" value="C2" />
-                  <el-option label="A1 (大型客车)" value="A1" />
-                  <el-option label="A2 (牵引车)" value="A2" />
-                  <el-option label="B1 (中型客车)" value="B1" />
-                </el-select>
-              </el-form-item>
-              
-              <div class="form-actions">
-                <el-button type="primary" @click="handleRegister" :loading="loading" class="submit-btn" round>
-                  提交申请
-                </el-button>
-              </div>
-            </el-form>
-          </transition>
         </div>
 
         <div class="extra-links">
@@ -138,16 +71,14 @@
 
 <script setup>
 import { ref, reactive } from 'vue'
-import { User, Van, Lock, Phone, OfficeBuilding, Location, CreditCard } from '@element-plus/icons-vue'
+import { User, Van, Lock, Phone, OfficeBuilding, Location } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
-import { registerCustomer, registerDriver } from '@/api/auth'
+import { registerCustomer } from '@/api/auth'
 
 const router = useRouter()
-const activeRole = ref('customer')
 const loading = ref(false)
 const customerFormRef = ref(null)
-const driverFormRef = ref(null)
 
 const customerForm = reactive({
   name: '',
@@ -159,19 +90,10 @@ const customerForm = reactive({
   postCode: ''
 })
 
-const driverForm = reactive({
-  name: '',
-  phone: '',
-  password: '',
-  confirmPassword: '',
-  licenseType: ''
-})
-
 const validatePass2 = (rule, value, callback) => {
-  const form = activeRole.value === 'customer' ? customerForm : driverForm
   if (value === '') {
     callback(new Error('请再次输入密码'))
-  } else if (value !== form.password) {
+  } else if (value !== customerForm.password) {
     callback(new Error('两次输入密码不一致!'))
   } else {
     callback()
@@ -194,52 +116,21 @@ const customerRules = {
   ]
 }
 
-const driverRules = {
-  name: [{ required: true, message: '请输入姓名', trigger: 'blur' }],
-  phone: [
-    { required: true, message: '请输入手机号', trigger: 'blur' },
-    { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号', trigger: 'blur' }
-  ],
-  password: [
-    { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, message: '密码长度至少6位', trigger: 'blur' }
-  ],
-  confirmPassword: [{ validator: validatePass2, trigger: 'blur' }],
-  licenseType: [{ required: true, message: '请选择准驾车型', trigger: 'change' }]
-}
-
-const handleRoleChange = () => {
-  // Clear forms if needed
-}
-
 const handleRegister = async () => {
-  const formRef = activeRole.value === 'customer' ? customerFormRef.value : driverFormRef.value
-  if (!formRef) return
+  if (!customerFormRef.value) return
   
-  await formRef.validate(async (valid) => {
+  await customerFormRef.value.validate(async (valid) => {
     if (valid) {
       loading.value = true
       try {
-        let response
-        if (activeRole.value === 'customer') {
-          // 客户注册
-          response = await registerCustomer({
-            name: customerForm.name,
-            phone: customerForm.phone,
-            password: customerForm.password,
-            company: customerForm.company || null,
-            address: customerForm.address || null,
-            postCode: customerForm.postCode || null
-          })
-        } else {
-          // 司机注册
-          response = await registerDriver({
-            name: driverForm.name,
-            phone: driverForm.phone,
-            password: driverForm.password,
-            licenseType: driverForm.licenseType
-          })
-        }
+        const response = await registerCustomer({
+          name: customerForm.name,
+          phone: customerForm.phone,
+          password: customerForm.password,
+          company: customerForm.company || null,
+          address: customerForm.address || null,
+          postCode: customerForm.postCode || null
+        })
         
         ElMessage.success(response.message || '注册成功！请登录')
         
@@ -452,43 +343,6 @@ const handleLogin = () => {
     margin: 0;
     letter-spacing: 1px;
   }
-}
-
-.role-switch-container {
-  margin-bottom: 20px;
-  background: #f5f7fa;
-  border-radius: 8px;
-  padding: 4px;
-}
-
-.custom-tabs {
-  :deep(.el-tabs__header) { margin: 0; border: none; }
-  :deep(.el-tabs__nav-wrap::after) { display: none; }
-  :deep(.el-tabs__active-bar) { display: none; }
-  :deep(.el-tabs__item) {
-    padding: 0;
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 6px;
-    color: #606266;
-    transition: all 0.3s;
-    
-    &.is-active {
-      background: white;
-      color: #409eff;
-      font-weight: 600;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    }
-  }
-}
-
-.tab-label {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
 }
 
 /* Scrollable Form Area for Register Page */

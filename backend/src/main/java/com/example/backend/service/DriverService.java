@@ -1,10 +1,14 @@
 package com.example.backend.service;
 
+import com.example.backend.dto.AdminAddDriverRequest;
 import com.example.backend.dto.DriverRequestDTO;
 import com.example.backend.dto.DriverResponseDTO;
 import com.example.backend.entity.Driver;
+import com.example.backend.entity.DriverLogin;
+import com.example.backend.repository.DriverLoginRepository;
 import com.example.backend.repository.DriverRepository;
 import com.example.backend.repository.RentalRepository;
+import com.example.backend.util.PasswordUtil;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -20,11 +24,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
-
-/**
- * 司机信息管理服务类
- * 提供司机信息的业务逻辑处理
- */
 @Service
 @Transactional
 public class DriverService {
@@ -34,6 +33,9 @@ public class DriverService {
 
     @Autowired
     private RentalRepository rentalRepository;
+
+    @Autowired
+    private DriverLoginRepository driverLoginRepository;
 
     /**
      * 获取所有司机信息
@@ -324,8 +326,64 @@ public class DriverService {
         driver.setDName(dto.getDName());
         driver.setStartWork(dto.getStartWork());
         driver.setSalary(dto.getSalary());
-        driver.setDStatus(dto.getDStatus() != null ? dto.getDStatus() : "空闲"); // 默认空闲
+        driver.setDStatus(dto.getDStatus() != null ? dto.getDStatus() : "空闲");
         driver.setLicenseType(dto.getLicenseType());
         return driver;
+    }
+
+    /**
+     * 管理员添加司机（自动生成司机号和登录账号）
+     * @param request 管理员添加司机请求
+     * @return 创建的司机信息
+     */
+    @Transactional
+    public DriverResponseDTO adminAddDriver(AdminAddDriverRequest request) {
+        // 验证手机号是否已存在
+        Optional<DriverLogin> existingDriver = driverLoginRepository.findByPhone(request.getPhone());
+        if (existingDriver.isPresent()) {
+            throw new IllegalArgumentException("该手机号已被注册");
+        }
+
+        // 自动生成司机号
+        String dNo = generateDriverNo();
+
+        // 创建司机信息
+        Driver driver = new Driver();
+        driver.setDNo(dNo);
+        driver.setDName(request.getDName());
+        driver.setLicenseType(request.getLicenseType());
+        driver.setDStatus(request.getDStatus() != null ? request.getDStatus() : "空闲");
+        driver.setSalary(request.getSalary());
+        driver.setStartWork(request.getStartWork() != null ? request.getStartWork() : LocalDate.now());
+        driverRepository.save(driver);
+
+        // 创建登录凭证（密码默认为123456，加密存储）
+        DriverLogin driverLogin = new DriverLogin();
+        driverLogin.setDNo(dNo);
+        driverLogin.setPhone(request.getPhone());
+        driverLogin.setPassword(PasswordUtil.encode("123456"));
+        driverLoginRepository.save(driverLogin);
+
+        return convertToResponseDTO(driver);
+    }
+
+    /**
+     * 生成司机号（D + 7位数字）
+     * 依次递增生成
+     */
+    private String generateDriverNo() {
+        String maxDNo = driverRepository.findMaxDNo();
+        int nextNum = 1;
+
+        if (maxDNo != null && maxDNo.startsWith("D")) {
+            try {
+                int currentMax = Integer.parseInt(maxDNo.substring(1));
+                nextNum = currentMax + 1;
+            } catch (NumberFormatException e) {
+                nextNum = 1;
+            }
+        }
+
+        return String.format("D%07d", nextNum);
     }
 }

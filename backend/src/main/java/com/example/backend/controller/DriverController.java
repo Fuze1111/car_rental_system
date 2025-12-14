@@ -1,5 +1,6 @@
 package com.example.backend.controller;
 
+import com.example.backend.dto.AdminAddDriverRequest;
 import com.example.backend.dto.DriverRequestDTO;
 import com.example.backend.dto.DriverResponseDTO;
 import com.example.backend.service.DriverService;
@@ -266,5 +267,36 @@ public class DriverController {
         Pageable pageable = PageRequest.of(page, size, Sort.by("dNo").ascending());
         Page<DriverResponseDTO> driverPage = driverService.searchDriversWithPage(name, status, licenseType, pageable);
         return ResponseEntity.ok(driverPage);
+    }
+
+    /**
+     * 管理员专用：添加司机（自动生成司机号和登录账号）
+     * POST /api/drivers/admin/add
+     * @param request 管理员添加司机请求
+     * @return 创建的司机信息
+     */
+    @PostMapping("/admin/add")
+    public ResponseEntity<?> adminAddDriver(@RequestBody AdminAddDriverRequest request) {
+        try {
+            System.out.println("=== 收到添加司机请求 ===");
+            System.out.println("请求对象: " + request);
+            System.out.println("姓名(dName): " + request.getDName());
+            System.out.println("手机号(phone): " + request.getPhone());
+            System.out.println("准驾车型(licenseType): " + request.getLicenseType());
+            System.out.println("工资(salary): " + request.getSalary());
+            System.out.println("状态(dStatus): " + request.getDStatus());
+            System.out.println("入职时间(startWork): " + request.getStartWork());
+            
+            DriverResponseDTO createdDriver = driverService.adminAddDriver(request);
+            return ResponseEntity.status(HttpStatus.CREATED).body(createdDriver);
+        } catch (IllegalArgumentException e) {
+            e.printStackTrace();
+            Map<String, String> error = Map.of("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+        } catch (Exception e) {
+            e.printStackTrace();
+            Map<String, String> error = Map.of("message", "添加司机失败: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+        }
     }
 }

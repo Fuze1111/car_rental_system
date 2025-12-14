@@ -41,4 +41,19 @@ public class LoginResponse {
      * 登录消息
      */
     private String message;
+    
+    /**
+     * 是否需要修改密码（使用默认密码时为true）
+     */
+    private Boolean needChangePassword;
+    
+    public LoginResponse(String userId, String userName, String role, String phone, String extra, String message) {
+        this.userId = userId;
+        this.userName = userName;
+        this.role = role;
+        this.phone = phone;
+        this.extra = extra;
+        this.message = message;
+        this.needChangePassword = false;
+    }
 }
