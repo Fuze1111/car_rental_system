@@ -306,7 +306,7 @@
             :auto-upload="false"
             :on-change="handleFileChange"
           >
-            <img v-if="typeFormData.Image" :src="typeFormData.Image" class="avatar" />
+            <img v-if="typeFormData.Image" :src="typeFormData.Image" alt="车型图片预览" class="avatar" />
             <el-icon v-else class="avatar-uploader-icon"><Plus /></el-icon>
           </el-upload>
           <div class="form-tip">支持 jpg/png，建议尺寸 800x600</div>
@@ -338,15 +338,14 @@
 
 <script setup>
 import { ref, reactive, defineAsyncComponent, onMounted } from 'vue'
-import { Search, Refresh, Plus, Edit, Delete, Van, Tools, Picture } from '@element-plus/icons-vue'
+import { Search, Refresh, Plus, Edit, Delete, Tools } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { 
   getCars, 
   createCar, 
   updateCar, 
   deleteCar, 
-  getCarById, 
-  createRepair, 
+  createRepair,
   updateCarStatus,
   getCarTypes,
   createCarType,
@@ -446,19 +445,52 @@ const formatDateTime = (dateString) => {
 
 // 根据车型名称获取对应图片的辅助函数（放在 fetchCarTypes 之前，避免未定义）
 const getImageForCarType = (typeName) => {
-  if (!typeName) return 'https://images.unsplash.com/photo-1621007947382-bb3c3968e3bb?auto=format&fit=crop&q=80&w=400'
-  // 清理可能存在的乱码字符，只保留中文、英文字母和数字
-  const cleanTypeName = typeName.toString().replace(/[^ -\u007F\u4e00-\u9fa5a-zA-Z0-9]/g, '').trim();
-  // 简单映射：可按需扩展
-  const imageMap = {
-    '丰田凯美瑞': 'https://images.unsplash.com/photo-1542362567-b07e54358753?auto=format&fit=crop&q=80&w=400',
-    '本田雅阁': 'https://images.unsplash.com/photo-1549399542-7e3f8b79578f?auto=format&fit=crop&q=80&w=400',
-    '奔驰E级': 'https://images.unsplash.com/photo-1617358038732-7a3d5de4b20f?auto=format&fit=crop&q=80&w=400',
-    '宝马5系': 'https://images.unsplash.com/photo-1617395310245-0a558b39c01f?auto=format&fit=crop&q=80&w=400',
-    '奥迪A6L': 'https://images.unsplash.com/photo-1584345604476-8ec5e12e42dd?auto=format&fit=crop&q=80&w=400',
-    '大众帕萨特': 'https://images.unsplash.com/photo-1622340767794-5412803c7344?auto=format&fit=crop&q=80&w=400'
+  // 优先使用本地 JPG 资源（位于 src/assets/images），文件名为小写英文标识
+  try {
+    if (!typeName) {
+      // prefer default.jpg if available
+      try { return new URL('../../assets/images/default.jpg', import.meta.url).href } catch (e) { return new URL('../../assets/images/default.svg', import.meta.url).href }
+    }
+
+    // 仅保留中文/英文字母/数字用于匹配
+    const cleanTypeName = typeName.toString().replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').trim()
+
+    // 使用包含匹配以决定具体图片（优先 jpg）
+    const name = cleanTypeName
+    if (name.includes('丰田') || name.includes('凯美瑞') || /camry/i.test(name)) {
+      return new URL(`../../assets/images/toyota_camry.jpg`, import.meta.url).href
+    }
+    if (name.includes('本田') || name.includes('雅阁') || /accord/i.test(name)) {
+      return new URL(`../../assets/images/honda_accord.jpg`, import.meta.url).href
+    }
+    if (name.includes('奔驰') || name.includes('E级') || /benz|mercedes/i.test(name)) {
+      return new URL(`../../assets/images/benz_e_class.jpg`, import.meta.url).href
+    }
+    if (name.includes('宝马') || name.includes('5系') || /bmw.*5/i.test(name)) {
+      return new URL(`../../assets/images/bmw_5_series.jpg`, import.meta.url).href
+    }
+    if (name.includes('奥迪') || /audi/i.test(name)) {
+      return new URL(`../../assets/images/audi_a6l.jpg`, import.meta.url).href
+    }
+    if (name.includes('大众') || name.includes('帕萨特') || /passat/i.test(name)) {
+      return new URL(`../../assets/images/vw_passat.jpg`, import.meta.url).href
+    }
+
+    // 如果本地没有匹配项，尝试按英文关键字构造文件名（先 jpg，再 svg）
+    const fallbackBase = cleanTypeName.toLowerCase().replace(/\s+/g, '_')
+    try {
+      return new URL(`../../assets/images/${fallbackBase}.jpg`, import.meta.url).href
+    } catch (e) {
+      try { return new URL(`../../assets/images/${fallbackBase}.svg`, import.meta.url).href } catch (e2) { /* fallback below */ }
+    }
+
+    // 最后降级到项目自带默认图（优先 jpg）
+    try { return new URL('../../assets/images/default.jpg', import.meta.url).href } catch (e) { return new URL('../../assets/images/default.svg', import.meta.url).href }
+  } catch (err) {
+    // 如果构建时路径解析出错，返回远程占位图作为兜底
+    console.error('getImageForCarType error:', err)
+    return 'https://images.unsplash.com/photo-1621007947382-bb3c3968e3bb?auto=format&fit=crop&q=80&w=400'
   }
-  return imageMap[cleanTypeName] || 'https://images.unsplash.com/photo-1621007947382-bb3c3968e3bb?auto=format&fit=crop&q=80&w=400'
 }
 
 // 搜索按钮触发的函数（确保在模板渲染时已定义）
@@ -503,8 +535,8 @@ const fetchCars = async () => {
     }
 
     const response = await getCars(params)
-    const { content, totalElements, totalPages } = response
-    
+    const { content, totalElements } = response
+
     // 转换数据格式以适配前端显示（注意后端返回的是小写字段名）
     tableData.value = content.map(car => ({
       CarID: car.carId,
@@ -603,8 +635,8 @@ const handleAdd = () => {
 }
 
 const handleEdit = (row) => {
-  // 将前端数据格式转换为后端DTO格式
-  const editData = {
+  // 直接设置编辑数据（无需额外中间变量）
+  currentEditData.value = {
     CarID: row.CarID,
     TNo: row.TNo,
     TName: row.TName,
@@ -615,7 +647,6 @@ const handleEdit = (row) => {
     RUNKM: row.RUNKM,
     RunHour: row.RunHour
   }
-  currentEditData.value = editData
   dialogVisible.value = true
 }
 
