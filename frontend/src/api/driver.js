@@ -64,3 +64,14 @@ export const getDriverTasks = (dNo) => {
     method: 'get'
   })
 }
+
+/**
+ * 获取司机统计信息（管理端仪表盘使用）
+ * @returns {Promise}
+ */
+export const getDriverStatistics = () => {
+  return request({
+    url: '/drivers/statistics',
+    method: 'get'
+  })
+}

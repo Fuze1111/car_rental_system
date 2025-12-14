@@ -79,3 +79,19 @@ export function getRentalsByDateRange(start, end) {
   })
 }
 
+// 获取租赁统计信息
+export function getRentalStatistics() {
+  return request({
+    url: '/rentals/statistics',
+    method: 'get'
+  })
+}
+
+// 计算指定日期范围内的收入
+export function calculateRevenue(start, end) {
+  return request({
+    url: '/rentals/revenue',
+    method: 'get',
+    params: { start, end }
+  })
+}

@@ -256,7 +256,7 @@ public class CustomerController {
         String company = (String) searchParams.get("company");
         int page = searchParams.get("page") != null ? (Integer) searchParams.get("page") : 0;
         int size = searchParams.get("size") != null ? (Integer) searchParams.get("size") : 10;
-        
+
         Pageable pageable = PageRequest.of(page, size, Sort.by("cNo").ascending());
         Page<CustomerResponseDTO> customerPage = customerService.searchCustomersWithPage(name, phone, company, pageable);
         return ResponseEntity.ok(customerPage);

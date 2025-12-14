@@ -92,3 +92,13 @@ export const adminAddDriver = (data) => {
     data
   })
 }
+
+/**
+ * 获取客户统计信息（管理端仪表盘）
+ */
+export const getCustomerStatistics = () => {
+  return request({
+    url: '/customers/statistics',
+    method: 'get'
+  })
+}
