@@ -89,6 +89,16 @@ export function getRentalStatistics() {
   })
 }
 
+// 获取租赁趋势（按日/周/月/年）
+export function getRentalTrend(start, end, period = 'day') {
+  return request({
+    url: '/rentals/trend',
+    method: 'get',
+    params: { start, end, period },
+    quiet: true
+  })
+}
+
 // 计算指定日期范围内的收入
 export function calculateRevenue(start, end) {
   return request({

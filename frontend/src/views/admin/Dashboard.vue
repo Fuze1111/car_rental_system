@@ -343,7 +343,7 @@ import { Van, User, List, Money, Top, Bottom, Plus, Document, Warning, Setting, 
 
 // new imports for API
 import { getCarStatistics as apiGetCarStatistics, getRepairs as apiGetRepairs } from '@/api/car'
-import { getRentalStatistics, calculateRevenue, getRentalsByDateRange, getRentals } from '@/api/rental'
+import { getRentalStatistics, calculateRevenue, getRentalsByDateRange, getRentals, getRentalTrend } from '@/api/rental'
 import { getCustomerStatistics } from '@/api/admin'
 import { getDriverStatistics as apiGetDriverStatistics } from '@/api/driver'
 
@@ -571,45 +571,74 @@ try {
 
 // fetch chart data for the selected time range (week/month/year)
 const fetchChartData = async () => {
-  // for week: fetch last 7 days counts and revenue
-  if (activeTimeRange.value === 'week') {
-    const days = 7
-    const today = new Date()
+  try {
+    const now = new Date()
+    let startDate, endDate, periodParam
+
+    if (activeTimeRange.value === 'week') {
+      periodParam = 'day'
+      endDate = new Date(now)
+      startDate = new Date(now)
+      startDate.setDate(now.getDate() - 6) // last 7 days
+    } else if (activeTimeRange.value === 'month') {
+      periodParam = 'month'
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1)
+      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+    } else { // year
+      periodParam = 'year'
+      startDate = new Date(now.getFullYear(), 0, 1)
+      endDate = new Date(now.getFullYear(), 11, 31)
+    }
+
+    const start = toDateString(startDate)
+    const end = toDateString(endDate)
+
+    const trend = await getRentalTrend(start, end, periodParam).catch(() => [])
+    // trend is array of { label, orders, revenue }
     const arr = []
-    for (let i = days-1; i >= 0; i--) {
-      const d = new Date()
-      d.setDate(today.getDate() - i)
-      const label = d.toLocaleDateString('zh-CN', { weekday: 'short' })
-      const start = toDateString(d)
-      const end = toDateString(d)
-      try {
-        const rentals = await getRentalsByDateRange(start, end).catch(() => [])
-        const orders = Array.isArray(rentals) ? rentals.length : (rentals.content ? rentals.content.length : 0)
-        const revResp = await calculateRevenue(start, end).catch(() => ({ revenue: 0 }))
-        const revenue = revResp && revResp.revenue ? Number(revResp.revenue) : 0
+    if (Array.isArray(trend) && trend.length) {
+      for (const item of trend) {
+        const orders = Number(item.orders) || 0
+        const revenue = Number(item.revenue) || 0
+        let label = String(item.label || '')
+        if (periodParam === 'day') {
+          // label is ISO date string; show localized weekday
+          try { label = new Date(label).toLocaleDateString('zh-CN', { weekday: 'short' }) } catch(e) { /* keep original */ }
+        }
         arr.push({ label, orders, revenue: Math.round(revenue/1000*10)/10 })
-      } catch (e) {
-        arr.push({ label, orders: 0, revenue: 0 })
+      }
+    } else {
+      // empty or error -> build fallback buckets with zeros
+      if (periodParam === 'day') {
+        const d = new Date(startDate)
+        while (d <= endDate) {
+          const lab = d.toLocaleDateString('zh-CN', { weekday: 'short' })
+          arr.push({ label: lab, orders: 0, revenue: 0 })
+          d.setDate(d.getDate() + 1)
+        }
+      } else if (periodParam === 'month') {
+        arr.push({ label: 'W1', orders: 0, revenue: 0 })
+        arr.push({ label: 'W2', orders: 0, revenue: 0 })
+        arr.push({ label: 'W3', orders: 0, revenue: 0 })
+        arr.push({ label: 'W4', orders: 0, revenue: 0 })
+      } else {
+        arr.push({ label: 'Q1', orders: 0, revenue: 0 })
+        arr.push({ label: 'Q2', orders: 0, revenue: 0 })
+        arr.push({ label: 'Q3', orders: 0, revenue: 0 })
+        arr.push({ label: 'Q4', orders: 0, revenue: 0 })
       }
     }
+
     chartData.value = arr
-  } else {
-    // month/year: fallback to existing mock groups for now
-    // keep previous mock data mapped to chartData
+  } catch (e) {
+    // on unexpected error, fallback to zeros
+    console.error('fetchChartData error', e)
     if (activeTimeRange.value === 'month') {
-      chartData.value = [
-        { label: 'W1', orders: 120, revenue: 45.2 },
-        { label: 'W2', orders: 150, revenue: 58.6 },
-        { label: 'W3', orders: 180, revenue: 62.4 },
-        { label: 'W4', orders: 140, revenue: 51.0 }
-      ]
+      chartData.value = [ { label: 'W1', orders: 0, revenue: 0 }, { label: 'W2', orders: 0, revenue: 0 }, { label: 'W3', orders: 0, revenue: 0 }, { label: 'W4', orders: 0, revenue: 0 } ]
+    } else if (activeTimeRange.value === 'year') {
+      chartData.value = [ { label: 'Q1', orders: 0, revenue: 0 }, { label: 'Q2', orders: 0, revenue: 0 }, { label: 'Q3', orders: 0, revenue: 0 }, { label: 'Q4', orders: 0, revenue: 0 } ]
     } else {
-      chartData.value = [
-        { label: 'Q1', orders: 450, revenue: 150.5 },
-        { label: 'Q2', orders: 520, revenue: 180.2 },
-        { label: 'Q3', orders: 480, revenue: 165.8 },
-        { label: 'Q4', orders: 600, revenue: 210.5 }
-      ]
+      chartData.value = Array.from({ length: 7 }).map((_, i) => ({ label: '-', orders: 0, revenue: 0 }))
     }
   }
 }

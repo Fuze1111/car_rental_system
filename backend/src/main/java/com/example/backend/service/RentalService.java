@@ -423,6 +423,111 @@ public class RentalService {
     }
 
     /**
+     * 获取租赁趋势数据（按 period 分组）
+     * period: day | week | month | year
+     * 返回列表，每项为 map 包含: label (String), orders (int), revenue (BigDecimal)
+     */
+    public List<java.util.Map<String, Object>> getRentalTrend(LocalDate startDate, LocalDate endDate, String period) {
+        // normalize
+        if (startDate == null || endDate == null) return java.util.Collections.emptyList();
+        if (startDate.isAfter(endDate)) {
+            LocalDate tmp = startDate; startDate = endDate; endDate = tmp;
+        }
+
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
+
+        List<Rental> rentals = rentalRepository.findByDateBetween(startDateTime, endDateTime);
+
+        List<java.util.Map<String, Object>> buckets = new java.util.ArrayList<>();
+
+        String p = period == null ? "day" : period.toLowerCase();
+
+        switch (p) {
+            case "month": {
+                // 4 weekly buckets: W1..W4
+                for (int i = 1; i <= 4; i++) {
+                    java.util.Map<String, Object> m = new java.util.HashMap<>();
+                    m.put("label", "W" + i);
+                    m.put("orders", 0);
+                    m.put("revenue", BigDecimal.ZERO);
+                    buckets.add(m);
+                }
+                // assign by day-of-month to buckets
+                for (Rental r : rentals) {
+                    if (r.getLoanDate() == null) continue;
+                    LocalDate d = r.getLoanDate().toLocalDate();
+                    if (d.isBefore(startDate) || d.isAfter(endDate)) continue;
+                    int day = d.getDayOfMonth();
+                    int idx = Math.min(3, (day - 1) / 7); // 0..3
+                    java.util.Map<String, Object> m = buckets.get(idx);
+                    int cnt = (int) m.get("orders") + 1;
+                    BigDecimal rev = (BigDecimal) m.get("revenue");
+                    rev = rev.add(r.getAmount() == null ? BigDecimal.ZERO : r.getAmount());
+                    m.put("orders", cnt);
+                    m.put("revenue", rev);
+                }
+                break;
+            }
+            case "year": {
+                // quarters Q1..Q4
+                for (int i = 1; i <= 4; i++) {
+                    java.util.Map<String, Object> m = new java.util.HashMap<>();
+                    m.put("label", "Q" + i);
+                    m.put("orders", 0);
+                    m.put("revenue", BigDecimal.ZERO);
+                    buckets.add(m);
+                }
+                for (Rental r : rentals) {
+                    if (r.getLoanDate() == null) continue;
+                    LocalDate d = r.getLoanDate().toLocalDate();
+                    if (d.isBefore(startDate) || d.isAfter(endDate)) continue;
+                    int month = d.getMonthValue();
+                    int idx = (month - 1) / 3; // 0..3
+                    java.util.Map<String, Object> m = buckets.get(idx);
+                    int cnt = (int) m.get("orders") + 1;
+                    BigDecimal rev = (BigDecimal) m.get("revenue");
+                    rev = rev.add(r.getAmount() == null ? BigDecimal.ZERO : r.getAmount());
+                    m.put("orders", cnt);
+                    m.put("revenue", rev);
+                }
+                break;
+            }
+            default: {
+                // day/week -> per day buckets
+                java.time.LocalDate d = startDate;
+                java.util.Map<String, java.util.Map<String, Object>> map = new java.util.LinkedHashMap<>();
+                while (!d.isAfter(endDate)) {
+                    java.util.Map<String, Object> m = new java.util.HashMap<>();
+                    m.put("label", d.toString());
+                    m.put("orders", 0);
+                    m.put("revenue", BigDecimal.ZERO);
+                    map.put(d.toString(), m);
+                    d = d.plusDays(1);
+                }
+                // assign rentals
+                for (Rental r : rentals) {
+                    if (r.getLoanDate() == null) continue;
+                    LocalDate ld = r.getLoanDate().toLocalDate();
+                    if (ld.isBefore(startDate) || ld.isAfter(endDate)) continue;
+                    String key = ld.toString();
+                    java.util.Map<String, Object> m = map.get(key);
+                    if (m == null) continue;
+                    int cnt = (int) m.get("orders") + 1;
+                    BigDecimal rev = (BigDecimal) m.get("revenue");
+                    rev = rev.add(r.getAmount() == null ? BigDecimal.ZERO : r.getAmount());
+                    m.put("orders", cnt);
+                    m.put("revenue", rev);
+                }
+                buckets.addAll(map.values());
+                break;
+            }
+        }
+
+        return buckets;
+    }
+
+    /**
      * 根据租赁信息自动计算金额
      * 计算公式：amount = 每小时费用 × 时间差 + (每小时费用 ÷ 50) × 公里数
      * @param rental 租赁实体
