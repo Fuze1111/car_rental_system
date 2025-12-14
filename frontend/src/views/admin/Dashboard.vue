@@ -479,8 +479,18 @@ const fetchMetrics = async () => {
     }
 
     // rentals overall stats
-    if (rentalStats) {
-      metrics.value.pendingOrders = rentalStats.pending !== undefined && rentalStats.pending !== null ? Number(rentalStats.pending) : null
+    if (rentalStats && rentalStats.pending !== undefined && rentalStats.pending !== null) {
+      metrics.value.pendingOrders = Number(rentalStats.pending)
+    } else {
+      // no server-side pending value: compute from rentals list (filter by missing returnDate)
+      try {
+        const allRentalsResp = await getRentals({ page: -1, size: -1 }).catch(() => null)
+        const allRentals = Array.isArray(allRentalsResp) ? allRentalsResp : (allRentalsResp && allRentalsResp.content ? allRentalsResp.content : [])
+        metrics.value.pendingOrders = Array.isArray(allRentals) ? allRentals.filter(r => !r.returnDate).length : 0
+      } catch (e) {
+        console.error('compute pendingOrders failed', e)
+        metrics.value.pendingOrders = 0
+      }
     }
 
     // driver stats used for free drivers metric
@@ -536,15 +546,6 @@ try {
     }
   }
 } catch (err) { console.error(err) }
-
-// pending orders fallback compute
-if (metrics.value.pendingOrders === 0) {
-  try {
-    const allRentalsResp2 = await getRentals({ page: -1, size: -1 }).catch(() => null)
-    const allRentals2 = Array.isArray(allRentalsResp2) ? allRentalsResp2 : (allRentalsResp2 && allRentalsResp2.content ? allRentalsResp2.content : [])
-    metrics.value.pendingOrders = Array.isArray(allRentals2) ? allRentals2.filter(r => !r.returnDate).length : 0
-  } catch (e) { console.error(e) }
-}
 
 // for topType calculation replace fetch('/api/rentals') similarly
 try {
