@@ -71,6 +71,9 @@
       <el-card shadow="never" class="main-card">
         <div class="section-header">
           <h3>司机列表</h3>
+          <el-button type="primary" @click="handleAddDriver">
+            <el-icon><Plus /></el-icon>添加司机
+          </el-button>
         </div>
 
         <!-- 司机搜索栏 -->
@@ -255,14 +258,79 @@
       </template>
     </el-dialog>
 
+    <!-- 添加司机弹窗 -->
+    <el-dialog
+      v-model="addDriverDialogVisible"
+      title="添加司机"
+      width="500px"
+      class="custom-dialog"
+      destroy-on-close
+      append-to-body
+    >
+      <el-form :model="addDriverForm" :rules="addDriverRules" ref="addDriverFormRef" label-width="100px" class="edit-form">
+        <el-form-item label="姓名" prop="dName">
+          <el-input v-model="addDriverForm.dName" placeholder="请输入司机姓名" />
+        </el-form-item>
+        <el-form-item label="手机号" prop="phone">
+          <el-input v-model="addDriverForm.phone" placeholder="用于登录，默认密码123456" maxlength="11" />
+        </el-form-item>
+        <el-form-item label="准驾车型" prop="licenseType">
+          <el-select v-model="addDriverForm.licenseType" placeholder="请选择车型" style="width: 100%">
+            <el-option label="A1 (大型客车)" value="A1" />
+            <el-option label="A2 (牵引车)" value="A2" />
+            <el-option label="B1 (中型客车)" value="B1" />
+            <el-option label="C1 (小型汽车)" value="C1" />
+            <el-option label="C2 (小型自动挡汽车)" value="C2" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="基本工资" prop="salary">
+          <el-input-number 
+            v-model="addDriverForm.salary" 
+            :min="0" 
+            :step="100" 
+            style="width: 100%" 
+            controls-position="right"
+            placeholder="请输入基本工资"
+          />
+        </el-form-item>
+        <el-form-item label="入职时间" prop="startWork">
+          <el-date-picker
+            v-model="addDriverForm.startWork"
+            type="date"
+            placeholder="选择入职时间"
+            style="width: 100%"
+            value-format="YYYY-MM-DD"
+          />
+        </el-form-item>
+        <el-form-item label="状态" prop="dStatus">
+          <el-radio-group v-model="addDriverForm.dStatus">
+            <el-radio-button label="空闲" />
+            <el-radio-button label="在岗" />
+          </el-radio-group>
+        </el-form-item>
+        <el-alert
+          title="提示：系统将自动生成司机号，登录密码默认为123456，请提醒司机首次登录后修改密码"
+          type="info"
+          :closable="false"
+          show-icon
+        />
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="addDriverDialogVisible = false" class="footer-btn">取消</el-button>
+          <el-button type="primary" @click="handleAddDriverSubmit" :loading="submitting" class="footer-btn submit-btn">添加</el-button>
+        </span>
+      </template>
+    </el-dialog>
+
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { User, Van, Search, Refresh } from '@element-plus/icons-vue'
+import { User, Van, Search, Refresh, Plus } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { searchCustomers, searchDrivers, updateDriver } from '@/api/admin'
+import { searchCustomers, searchDrivers, updateDriver, adminAddDriver } from '@/api/admin'
 
 // --- Customer Logic ---
 const customerLoading = ref(false)
@@ -286,6 +354,29 @@ const editDriverForm = reactive({
   licenseType: '',
   dStatus: ''
 })
+
+// Add Driver Logic
+const addDriverDialogVisible = ref(false)
+const addDriverFormRef = ref(null)
+const addDriverForm = reactive({
+  dName: '',
+  phone: '',
+  licenseType: '',
+  salary: null,
+  startWork: null,
+  dStatus: '空闲'
+})
+
+const addDriverRules = {
+  dName: [{ required: true, message: '请输入司机姓名', trigger: 'blur' }],
+  phone: [
+    { required: true, message: '请输入手机号', trigger: 'blur' },
+    { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号', trigger: 'blur' }
+  ],
+  licenseType: [{ required: true, message: '请选择准驾车型', trigger: 'change' }],
+  salary: [{ required: true, message: '请输入基本工资', trigger: 'blur' }],
+  dStatus: [{ required: true, message: '请选择状态', trigger: 'change' }]
+}
 
 const getDriverStatusType = (status) => {
   return status === '空闲' ? 'success' : 'warning'
@@ -423,6 +514,61 @@ const handleEditSubmit = async () => {
   } finally {
     submitting.value = false
   }
+}
+
+const handleAddDriver = () => {
+  // 重置表单
+  Object.assign(addDriverForm, {
+    dName: '',
+    phone: '',
+    licenseType: '',
+    salary: null,
+    startWork: null,
+    dStatus: '空闲'
+  })
+  addDriverDialogVisible.value = true
+}
+
+const handleAddDriverSubmit = async () => {
+  if (!addDriverFormRef.value) return
+  
+  await addDriverFormRef.value.validate(async (valid) => {
+    if (valid) {
+      submitting.value = true
+      try {
+        // 调试：检查表单数据
+        console.log('=== 前端发送数据 ===')
+        console.log('addDriverForm:', addDriverForm)
+        console.log('dName:', addDriverForm.dName)
+        console.log('phone:', addDriverForm.phone)
+        console.log('licenseType:', addDriverForm.licenseType)
+        console.log('salary:', addDriverForm.salary)
+        console.log('startWork:', addDriverForm.startWork)
+        console.log('dStatus:', addDriverForm.dStatus)
+        
+        const requestData = {
+          dName: addDriverForm.dName,
+          phone: addDriverForm.phone,
+          licenseType: addDriverForm.licenseType,
+          salary: addDriverForm.salary,
+          startWork: addDriverForm.startWork,
+          dStatus: addDriverForm.dStatus
+        }
+        console.log('发送的请求数据:', requestData)
+        
+        const response = await adminAddDriver(requestData)
+        
+        addDriverDialogVisible.value = false
+        ElMessage.success(`添加成功！司机号：${response.dNo}，默认密码：123456`)
+        await fetchDrivers() // Refresh list
+      } catch (error) {
+        console.error('添加司机失败:', error)
+        ElMessage.error('添加司机失败')
+      } finally {
+        submitting.value = false
+      }
+    }
+  })
 }
 
 onMounted(() => {
@@ -563,6 +709,10 @@ onMounted(() => {
 
   .section-header {
     margin-bottom: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    
     h3 {
       margin: 0;
       font-size: 18px;
@@ -570,6 +720,18 @@ onMounted(() => {
       color: #334155;
       padding-left: 12px;
       border-left: 4px solid #409eff;
+    }
+    
+    .el-button {
+      border-radius: 50px;
+      padding: 8px 20px;
+      font-weight: 500;
+      box-shadow: 0 4px 12px rgba(64, 158, 255, 0.3);
+      
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(64, 158, 255, 0.4);
+      }
     }
   }
 

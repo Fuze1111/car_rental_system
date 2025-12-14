@@ -138,14 +138,20 @@ public class AuthService {
             driver = driverRepository.findById(driverLogin.getDNo()).orElse(null);
         }
 
-        return new LoginResponse(
+        // 检测是否使用默认密码123456
+        boolean isDefaultPassword = PasswordUtil.matches("123456", driverLogin.getPassword());
+        
+        LoginResponse response = new LoginResponse(
             driverLogin.getDNo(),
             driver != null ? driver.getDName() : "司机",
             "driver",
             null,
             driver != null ? driver.getLicenseType() : null,
-            "司机登录成功"
+            isDefaultPassword ? "登录成功，您正在使用默认密码，请尽快修改密码" : "司机登录成功"
         );
+        response.setNeedChangePassword(isDefaultPassword);
+        
+        return response;
     }
 
     /**
@@ -192,49 +198,6 @@ public class AuthService {
     }
 
     /**
-     * 司机注册
-     * @param request 注册请求
-     * @return 登录响应
-     */
-    @Transactional
-    public LoginResponse registerDriver(DriverRegisterRequest request) {
-        // 验证手机号是否已存在
-        Optional<DriverLogin> existingDriver = driverLoginRepository.findByPhone(request.getPhone());
-        if (existingDriver.isPresent()) {
-            throw new IllegalArgumentException("该手机号已被注册");
-        }
-        
-        // 生成司机号
-        String dNo = generateDriverNo();
-
-        // 创建司机信息
-        Driver driver = new Driver();
-        driver.setDNo(dNo);
-        driver.setDName(request.getName());
-        driver.setLicenseType(request.getLicenseType());
-        driver.setDStatus("在职"); // 默认在职
-        driver.setSalary(null); // 需要管理员设置
-        driver.setStartWork(LocalDate.now()); // 当前日期
-        driverRepository.save(driver);
-
-        // 创建登录凭证（密码加密）
-        DriverLogin driverLogin = new DriverLogin();
-        driverLogin.setDNo(dNo);
-        driverLogin.setPhone(request.getPhone());
-        driverLogin.setPassword(PasswordUtil.encode(request.getPassword()));
-        driverLoginRepository.save(driverLogin);
-
-        return new LoginResponse(
-            dNo,
-            driver.getDName(),
-            "driver",
-            null,
-            driver.getLicenseType(),
-            "注册成功，请等待管理员审核"
-        );
-    }
-
-    /**
      * 生成客户号（C + 7位数字）
      * 依次递增生成
      */
@@ -257,24 +220,35 @@ public class AuthService {
     }
 
     /**
-     * 生成司机号（D + 7位数字）
-     * 依次递增生成
+     * 司机修改密码
+     * @param request 修改密码请求
+     * @return 成功消息
      */
-    private String generateDriverNo() {
-        String maxDNo = driverRepository.findMaxDNo();
-        int nextNum = 1; // 默认从1开始
-        
-        if (maxDNo != null && maxDNo.startsWith("D")) {
-            // 提取现有最大编号的数字部分并加1
-            try {
-                int currentMax = Integer.parseInt(maxDNo.substring(1));
-                nextNum = currentMax + 1;
-            } catch (NumberFormatException e) {
-                // 如果解析失败，使用默认值1
-                nextNum = 1;
-            }
+    @Transactional
+    public String changeDriverPassword(ChangePasswordRequest request) {
+        // 查找司机登录信息
+        Optional<DriverLogin> driverLoginOpt = driverLoginRepository.findById(request.getUserId());
+        if (!driverLoginOpt.isPresent()) {
+            throw new IllegalArgumentException("司机不存在");
         }
         
-        return String.format("D%07d", nextNum);
+        DriverLogin driverLogin = driverLoginOpt.get();
+        
+        // 验证当前密码
+        if (!PasswordUtil.matches(request.getCurrentPassword(), driverLogin.getPassword())) {
+            throw new IllegalArgumentException("当前密码不正确");
+        }
+        
+        // 验证新密码不能与当前密码相同
+        if (request.getCurrentPassword().equals(request.getNewPassword())) {
+            throw new IllegalArgumentException("新密码不能与当前密码相同");
+        }
+        
+        // 更新密码
+        driverLogin.setPassword(PasswordUtil.encode(request.getNewPassword()));
+        driverLoginRepository.save(driverLogin);
+        
+        return "密码修改成功";
     }
+
 }

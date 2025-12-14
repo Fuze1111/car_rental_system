@@ -1,7 +1,7 @@
 package com.example.backend.controller;
 
+import com.example.backend.dto.ChangePasswordRequest;
 import com.example.backend.dto.CustomerRegisterRequest;
-import com.example.backend.dto.DriverRegisterRequest;
 import com.example.backend.dto.LoginRequest;
 import com.example.backend.dto.LoginResponse;
 import com.example.backend.service.AuthService;
@@ -70,23 +70,25 @@ public class AuthController {
     }
 
     /**
-     * 司机注册接口
-     * POST /api/auth/register/driver
-     * @param request 司机注册请求
-     * @return 注册响应
+     * 司机修改密码
+     * POST /api/auth/change-password/driver
+     * @param request 修改密码请求
+     * @return 成功消息
      */
-    @PostMapping("/register/driver")
-    public ResponseEntity<?> registerDriver(@RequestBody DriverRegisterRequest request) {
+    @PostMapping("/change-password/driver")
+    public ResponseEntity<?> changeDriverPassword(@RequestBody ChangePasswordRequest request) {
         try {
-            LoginResponse response = authService.registerDriver(request);
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+            String message = authService.changeDriverPassword(request);
+            Map<String, String> response = new HashMap<>();
+            response.put("message", message);
+            return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             Map<String, String> error = new HashMap<>();
             error.put("message", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
         } catch (Exception e) {
             Map<String, String> error = new HashMap<>();
-            error.put("message", "注册失败: " + e.getMessage());
+            error.put("message", "修改密码失败: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
         }
     }

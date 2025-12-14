@@ -79,3 +79,16 @@ export const getDriverById = (dNo) => {
     method: 'get'
   })
 }
+
+/**
+ * 管理员添加司机（自动生成司机号，默认密码123456）
+ * @param {Object} data - 司机信息 { dName, phone, licenseType, salary, dStatus, startWork }
+ * @returns {Promise}
+ */
+export const adminAddDriver = (data) => {
+  return request({
+    url: '/drivers/admin/add',
+    method: 'post',
+    data
+  })
+}

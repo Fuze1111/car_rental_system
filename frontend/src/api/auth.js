@@ -35,22 +35,6 @@ export function registerCustomer(data) {
 }
 
 /**
- * 司机注册接口
- * @param {Object} data - 注册数据
- * @param {string} data.name - 姓名
- * @param {string} data.password - 密码
- * @param {string} data.licenseType - 准驾车型
- * @returns {Promise}
- */
-export function registerDriver(data) {
-  return request({
-    url: '/auth/register/driver',
-    method: 'post',
-    data
-  })
-}
-
-/**
  * 测试API连接
  * @returns {Promise}
  */

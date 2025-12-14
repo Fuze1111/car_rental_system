@@ -73,7 +73,7 @@
               <el-button type="primary" @click="handleLogin" :loading="loading" class="submit-btn" round>
                 登 录
               </el-button>
-              <div class="extra-links" v-if="activeRole !== 'admin'">
+              <div class="extra-links" v-if="activeRole === 'customer'">
                 <span>还没有账号？</span>
                 <el-link type="primary" @click="handleRegister">立即注册</el-link>
               </div>
@@ -143,6 +143,15 @@ const handleLogin = async () => {
         setUserRole(activeRole.value)
         
         ElMessage.success(response.message || '登录成功')
+        
+        // 检查司机是否需要修改密码
+        if (activeRole.value === 'driver' && response.needChangePassword) {
+          ElMessage.warning({
+            message: '您当前使用的是默认密码，为了账户安全，请尽快修改密码！',
+            duration: 5000,
+            showClose: true
+          })
+        }
         
         // 根据角色跳转
         if (activeRole.value === 'admin') {
