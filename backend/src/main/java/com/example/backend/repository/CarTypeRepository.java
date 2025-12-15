@@ -6,7 +6,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
 import java.util.Optional;
 
 /**
@@ -24,11 +23,5 @@ public interface CarTypeRepository extends JpaRepository<CarType, CarType.CarTyp
      */
     @Query("SELECT ct FROM CarType ct WHERE ct.tNo = :tNo AND ct.tName = :tName")
     Optional<CarType> findByTNoAndTName(@Param("tNo") String tNo, @Param("tName") String tName);
-
-    // 新增：根据 tNo 查找所有匹配的车型（通常返回一个或多个以回填 tName/rentRate）
-    @Query("SELECT ct FROM CarType ct WHERE ct.tNo = :tNo")
-    List<CarType> findByTNoQuery(@Param("tNo") String tNo);
-
-    @Query("SELECT ct FROM CarType ct WHERE ct.tName = :tName")
-    Optional<CarType> findByTName(@Param("tName") String tName);
 }
+

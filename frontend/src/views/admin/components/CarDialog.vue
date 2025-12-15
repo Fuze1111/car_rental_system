@@ -38,25 +38,18 @@
 
       <el-row :gutter="20">
         <el-col :span="12">
-          <el-form-item label="小时租金">
-            <!-- 小时租金：对新增操作为只读，由车型表决定；对编辑操作显示为只读值 -->
-            <div v-if="isEdit">
-              <el-input-number
-                v-model="formData.RentRate"
-                :min="0"
-                :step="10"
-                style="width: 100%"
-                controls-position="right"
-                class="custom-input-number"
-                disabled
-              >
-                <template #prefix>¥</template>
-                <template #append>/小时</template>
-              </el-input-number>
-            </div>
-            <div v-else>
-              <el-input v-model="displayRent" placeholder="由车型决定" disabled class="custom-input" />
-            </div>
+          <el-form-item label="小时租金" prop="RentRate">
+            <el-input-number 
+              v-model="formData.RentRate" 
+              :min="0" 
+              :step="10" 
+              style="width: 100%"
+              controls-position="right"
+              class="custom-input-number"
+            >
+              <template #prefix>¥</template>
+              <template #append>/小时</template>
+            </el-input-number>
           </el-form-item>
         </el-col>
         <el-col :span="12">
@@ -141,7 +134,7 @@
 <script setup>
 import { ref, reactive, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getCarTypes } from '@/api/car'
+import { getAllCars } from '@/api/car'
 
 const props = defineProps({
   visible: {
@@ -173,57 +166,24 @@ const formData = reactive({
   CarStatus: '0'
 })
 
-// 显示用小时租金（只读）
-const displayRent = ref('')
-
-// 表单校验规则
 const rules = {
-  CarID: [
-    { required: true, message: '请输入车牌号', trigger: 'blur' },
-    { validator: validatePlate, trigger: ['blur', 'change'] }
-  ],
+  CarID: [{ required: true, message: '请输入车牌号', trigger: 'blur' }],
   TNo: [{ required: true, message: '请选择车型', trigger: 'change' }],
+  RentRate: [{ required: true, message: '请输入日租金', trigger: 'blur' }],
   CarStatus: [{ required: true, message: '请选择状态', trigger: 'change' }]
-}
-
-// 车牌校验器（支持常见的中国车牌格式）
-function validatePlate(rule, value, callback) {
-  const v = (value || '').toString().trim()
-  if (!v) {
-    return callback(new Error('车牌号为必填项'))
-  }
-
-  // 简单的中国车牌正则（支持普通北京等: 京A12345，新能源：京A·D12345 等）
-  // 说明：这是前端友好校验，后端仍以数据库唯一性和长度为准。
-  const normalPlate = /^[\u4e00-\u9fa5][A-Z][A-Z0-9]{5}$/i
-  const newEnergyPlate = /^[\u4e00-\u9fa5][A-Z][A-Z0-9]{6}$/i
-  const hasDot = v.indexOf('·') >= 0 || v.indexOf('.') >= 0
-
-  if (hasDot) {
-    // 带分隔符的新能源/港澳车牌也允许
-    return callback()
-  }
-
-  if (normalPlate.test(v) || newEnergyPlate.test(v)) {
-    return callback()
-  }
-
-  // 如果不符合上述规则，提示但不阻止提交（可根据需求改为强制）
-  return callback(new Error('车牌号格式不符合预期，例如：京A12345'))
 }
 
 // 获取车型列表
 const fetchCarTypes = async () => {
   try {
-    // 从后端获取车型列表，兼容后端返回字段大小写（TNo/TName 或 tNo/tName）
-    const resp = await getCarTypes()
-    // 后端可能返回数组或封装对象（如 content）
-    const list = Array.isArray(resp) ? resp : (resp && resp.content) ? resp.content : []
-    carTypes.value = list.map(item => ({
-      TNo: item.TNo || item.tNo || item.tno || '',
-      TName: item.TName || item.tName || item.tname || '',
-      RentRate: item.rentRate || item.RentRate || null
-    }))
+    // TODO: 实际应该从后端获取车型列表
+    // 目前使用模拟数据
+    carTypes.value = [
+      { TNo: 'T001', TName: 'Toyota Camry' },
+      { TNo: 'T002', TName: 'Tesla Model 3' },
+      { TNo: 'T003', TName: 'Benz S-Class' },
+      { TNo: 'T004', TName: 'BMW X5' },
+    ]
   } catch (error) {
     console.error('获取车型列表失败:', error)
     ElMessage.error('获取车型列表失败')
@@ -251,8 +211,6 @@ watch(() => props.editData, (newVal) => {
     formData.TNo = newVal.TNo || newVal.tNo || ''
     formData.TName = newVal.TName || newVal.tName || ''
     formData.RentRate = newVal.RentRate || newVal.rentRate || 0
-    // 显示用租金
-    displayRent.value = formData.RentRate || ''
     formData.Price = newVal.Price || newVal.price || 0
     formData.PurchaseDate = newVal.PurchaseDate || newVal.purchaseDate || ''
     formData.RUNKM = newVal.RUNKM || 0
@@ -275,13 +233,6 @@ const handleTypeChange = (val) => {
   const type = carTypes.value.find(t => t.TNo === val)
   if (type) {
     formData.TName = type.TName
-    // 将小时租金用于展示；对于编辑模式仍保留在 formData.RentRate（只读）
-    if (type.RentRate !== undefined && type.RentRate !== null) {
-      displayRent.value = Number(type.RentRate)
-      if (isEdit.value) formData.RentRate = Number(type.RentRate)
-    } else {
-      displayRent.value = ''
-    }
   }
 }
 
@@ -292,41 +243,28 @@ const handleClose = () => {
 
 const handleSubmit = async () => {
   if (!formRef.value) return
-
+  
   await formRef.value.validate((valid) => {
     if (valid) {
       loading.value = true
       // 模拟请求延迟
       setTimeout(() => {
         loading.value = false
-        // 在提交前：如果选了 TNo 但 TName 为空，则从已加载的 carTypes 回填
-        if (formData.TNo && (!formData.TName || formData.TName === '')) {
-          const found = carTypes.value.find(t => t.TNo === formData.TNo)
-          if (found) {
-            formData.TName = found.TName || formData.TName
-            // Also set displayRent for UX
-            if (found.RentRate !== undefined && found.RentRate !== null) displayRent.value = Number(found.RentRate)
-          }
-        }
-
         // 将前端表单数据转换为后端DTO格式
-        // NOTE: 不向后端提交 rentRate，后端会根据 tNo/tName 从 car_type 回填租金
         const submitData = {
           carId: formData.CarID,
           tNo: formData.TNo,
           tName: formData.TName,
+          rentRate: formData.RentRate,
           price: formData.Price,
           purchaseDate: formData.PurchaseDate,
-          carStatus: formData.CarStatus,
-          runKm: formData.RUNKM,
-          runHour: formData.RunHour
+          carStatus: formData.CarStatus
         }
-        console.debug('CarDialog final submitData:', submitData)
-         emit('submit', submitData)
-         handleClose()
-       }, 500)
-     }
-   })
+        emit('submit', submitData)
+        handleClose()
+      }, 500)
+    }
+  })
 }
 </script>
 
