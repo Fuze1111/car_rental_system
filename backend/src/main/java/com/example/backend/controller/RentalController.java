@@ -98,6 +98,14 @@ public class RentalController {
     public ResponseEntity<RentalResponseDTO> updateRental(
             @PathVariable String invoiceNo,
             @RequestBody RentalRequestDTO rentalRequestDTO) {
+        System.out.println("========== 更新租赁记录 ==========");
+        System.out.println("invoiceNo: " + invoiceNo);
+        System.out.println("rentalRequestDTO: " + rentalRequestDTO);
+        System.out.println("returnDate: " + rentalRequestDTO.getReturnDate());
+        System.out.println("roundTripDistance: " + rentalRequestDTO.getRoundTripDistance());
+        System.out.println("driveTime: " + rentalRequestDTO.getDriveTime());
+        System.out.println("====================================");
+        
         RentalResponseDTO updatedRental = rentalService.updateRental(invoiceNo, rentalRequestDTO);
         return ResponseEntity.ok(updatedRental);
     }

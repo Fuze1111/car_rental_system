@@ -1,135 +1,225 @@
 <template>
   <div class="repair-management">
     <el-card class="main-card" shadow="hover">
-      <!-- 搜索栏 -->
-      <div class="search-bar">
-        <div class="search-left">
-          <el-form :inline="true" :model="searchForm" class="search-form">
-            <el-form-item>
-              <el-input 
-                v-model="searchForm.carId" 
-                placeholder="搜索车牌号..." 
-                prefix-icon="Search" 
-                clearable 
-                class="search-input" 
-                @keyup.enter="handleSearch"
-              />
-            </el-form-item>
-            <el-form-item>
-              <el-date-picker
-                v-model="searchForm.startDate"
-                type="date"
-                placeholder="维修开始日期"
-                format="YYYY-MM-DD"
-                value-format="YYYY-MM-DD"
-                class="search-date"
-              />
-            </el-form-item>
-            <el-form-item>
-              <el-date-picker
-                v-model="searchForm.endDate"
-                type="date"
-                placeholder="维修结束日期"
-                format="YYYY-MM-DD"
-                value-format="YYYY-MM-DD"
-                class="search-date"
-              />
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" @click="handleSearch" class="search-btn">
-                <el-icon><Search /></el-icon>查询
+      <!-- 标签页 -->
+      <el-tabs v-model="activeTab" @tab-change="handleTabChange" type="card" class="maintenance-tabs">
+        <!-- 正在维修标签页 -->
+        <el-tab-pane label="正在维修" name="ongoing">
+          <!-- 搜索栏 -->
+          <div class="search-bar">
+            <div class="search-left">
+              <el-form :inline="true" :model="ongoingSearchForm" class="search-form">
+                <el-form-item>
+                  <el-input 
+                    v-model="ongoingSearchForm.carId" 
+                    placeholder="搜索车牌号..." 
+                    prefix-icon="Search" 
+                    clearable 
+                    class="search-input" 
+                    @keyup.enter="handleOngoingSearch"
+                  />
+                </el-form-item>
+                <el-form-item>
+                  <el-button type="primary" @click="handleOngoingSearch" class="search-btn">
+                    <el-icon><Search /></el-icon>查询
+                  </el-button>
+                  <el-button @click="resetOngoingSearch">
+                    <el-icon><Refresh /></el-icon>重置
+                  </el-button>
+                </el-form-item>
+              </el-form>
+            </div>
+          </div>
+
+          <!-- 正在维修车辆表格 -->
+          <el-table 
+            :data="ongoingTableData" 
+            style="width: 100%" 
+            v-loading="ongoingLoading" 
+            class="modern-table"
+          >
+            <el-table-column prop="carId" label="车牌号" min-width="120" align="center">
+              <template #default="scope">
+                <div class="license-plate">{{ scope.row.carId }}</div>
+              </template>
+            </el-table-column>
+
+            <el-table-column prop="tName" label="车型" min-width="150" align="center" />
+
+            <el-table-column prop="runKm" label="当前公里" min-width="120" align="center">
+              <template #default="scope">
+                <span>{{ scope.row.runKm }} km</span>
+              </template>
+            </el-table-column>
+
+            <el-table-column prop="runHour" label="当前小时" min-width="120" align="center">
+              <template #default="scope">
+                <span>{{ scope.row.runHour }} h</span>
+              </template>
+            </el-table-column>
+
+            <el-table-column label="状态" width="120" align="center">
+              <template #default="scope">
+                <el-tag type="warning" round>维修中</el-tag>
+              </template>
+            </el-table-column>
+
+            <el-table-column label="操作" width="160" align="center">
+              <template #default="scope">
+                <el-tooltip content="完成维修" placement="top">
+                  <el-button size="small" type="success" @click="handleCompleteRepair(scope.row)">
+                    <el-icon><Check /></el-icon>完成
+                  </el-button>
+                </el-tooltip>
+              </template>
+            </el-table-column>
+          </el-table>
+
+          <div class="pagination-container">
+            <el-pagination
+              v-model:current-page="ongoingPagination.currentPage"
+              v-model:page-size="ongoingPagination.pageSize"
+              :page-sizes="[10, 20, 50]"
+              layout="total, sizes, prev, pager, next"
+              :total="ongoingPagination.total"
+              @size-change="handleOngoingSizeChange"
+              @current-change="handleOngoingCurrentChange"
+              background
+            />
+          </div>
+        </el-tab-pane>
+
+        <!-- 历史维修标签页 -->
+        <el-tab-pane label="历史维修" name="history">
+          <!-- 搜索栏 -->
+          <div class="search-bar">
+            <div class="search-left">
+              <el-form :inline="true" :model="searchForm" class="search-form">
+                <el-form-item>
+                  <el-input 
+                    v-model="searchForm.carId" 
+                    placeholder="搜索车牌号..." 
+                    prefix-icon="Search" 
+                    clearable 
+                    class="search-input" 
+                    @keyup.enter="handleSearch"
+                  />
+                </el-form-item>
+                <el-form-item>
+                  <el-date-picker
+                    v-model="searchForm.startDate"
+                    type="date"
+                    placeholder="维修开始日期"
+                    format="YYYY-MM-DD"
+                    value-format="YYYY-MM-DD"
+                    class="search-date"
+                  />
+                </el-form-item>
+                <el-form-item>
+                  <el-date-picker
+                    v-model="searchForm.endDate"
+                    type="date"
+                    placeholder="维修结束日期"
+                    format="YYYY-MM-DD"
+                    value-format="YYYY-MM-DD"
+                    class="search-date"
+                  />
+                </el-form-item>
+                <el-form-item>
+                  <el-button type="primary" @click="handleSearch" class="search-btn">
+                    <el-icon><Search /></el-icon>查询
+                  </el-button>
+                  <el-button @click="resetSearch">
+                    <el-icon><Refresh /></el-icon>重置
+                  </el-button>
+                </el-form-item>
+              </el-form>
+            </div>
+            
+            <div class="search-right">
+              <el-button type="primary" class="add-btn" @click="handleAdd">
+                <el-icon><Plus /></el-icon>新增维修记录
               </el-button>
-              <el-button @click="resetSearch">
-                <el-icon><Refresh /></el-icon>重置
-              </el-button>
-            </el-form-item>
-          </el-form>
-        </div>
-        
-        <div class="search-right">
-          <el-button type="primary" class="add-btn" @click="handleAdd">
-            <el-icon><Plus /></el-icon>新增维修记录
-          </el-button>
-        </div>
-      </div>
+            </div>
+          </div>
 
-      <!-- 维修记录表格 -->
-      <el-table 
-        :data="tableData" 
-        style="width: 100%" 
-        v-loading="loading" 
-        class="modern-table"
-      >
-        
-        
-        <!-- 维修编号 -->
-        <el-table-column prop="rNo" label="维修编号" min-width="100" align="center">
-          <template #default="scope">
-            <el-tag type="primary" round>#{{ scope.row.rNo }}</el-tag>
-          </template>
-        </el-table-column>
+          <!-- 维修记录表格 -->
+          <el-table 
+            :data="tableData" 
+            style="width: 100%" 
+            v-loading="loading" 
+            class="modern-table"
+          >
+            <!-- 维修编号 -->
+            <el-table-column prop="rNo" label="维修编号" min-width="100" align="center">
+              <template #default="scope">
+                <el-tag type="primary" round>#{{ scope.row.rNo }}</el-tag>
+              </template>
+            </el-table-column>
 
-        <!-- 车牌号 -->
-        <el-table-column prop="carId" label="车牌号" min-width="120" align="center">
-          <template #default="scope">
-            <div class="license-plate">{{ scope.row.carId }}</div>
-          </template>
-        </el-table-column>
+            <!-- 车牌号 -->
+            <el-table-column prop="carId" label="车牌号" min-width="120" align="center">
+              <template #default="scope">
+                <div class="license-plate">{{ scope.row.carId }}</div>
+              </template>
+            </el-table-column>
 
-        <!-- 车辆型号 -->
-        <el-table-column prop="carModel" label="车辆型号" min-width="150" align="center" />
+            <!-- 车辆型号 -->
+            <el-table-column prop="carModel" label="车辆型号" min-width="150" align="center" />
 
-        <!-- 维修日期 -->
-        <el-table-column prop="rDate" label="维修日期" min-width="180" align="center">
-          <template #default="scope">
-            <span>{{ formatDate(scope.row.rDate) }}</span>
-          </template>
-        </el-table-column>
+            <!-- 维修日期 -->
+            <el-table-column prop="rDate" label="维修日期" min-width="180" align="center">
+              <template #default="scope">
+                <span>{{ formatDate(scope.row.rDate) }}</span>
+              </template>
+            </el-table-column>
 
-        <!-- 运行公里 -->
-        <el-table-column prop="runKm" label="运行公里" min-width="120" align="center">
-          <template #default="scope">
-            <span>{{ scope.row.runKm }} km</span>
-          </template>
-        </el-table-column>
+            <!-- 运行公里 -->
+            <el-table-column prop="runKm" label="运行公里" min-width="120" align="center">
+              <template #default="scope">
+                <span>{{ scope.row.runKm }} km</span>
+              </template>
+            </el-table-column>
 
-        <!-- 运行小时 -->
-        <el-table-column prop="runHour" label="运行小时" min-width="120" align="center">
-          <template #default="scope">
-            <span>{{ scope.row.runHour }} h</span>
-          </template>
-        </el-table-column>
+            <!-- 运行小时 -->
+            <el-table-column prop="runHour" label="运行小时" min-width="120" align="center">
+              <template #default="scope">
+                <span>{{ scope.row.runHour }} h</span>
+              </template>
+            </el-table-column>
 
-        <!-- 操作列 -->
-        <el-table-column label="操作" width="160" align="center" fixed="right">
-          <template #default="scope">
-            <el-tooltip content="编辑" placement="top">
-              <el-button circle size="small" type="primary" plain @click="handleEdit(scope.row)">
-                <el-icon><Edit /></el-icon>
-              </el-button>
-            </el-tooltip>
-            <el-tooltip content="删除" placement="top">
-              <el-button circle size="small" type="danger" plain @click="handleDelete(scope.row)">
-                <el-icon><Delete /></el-icon>
-              </el-button>
-            </el-tooltip>
-          </template>
-        </el-table-column>
-      </el-table>
+            <!-- 操作列 -->
+            <el-table-column label="操作" width="160" align="center" fixed="right">
+              <template #default="scope">
+                <el-tooltip content="编辑" placement="top">
+                  <el-button circle size="small" type="primary" plain @click="handleEdit(scope.row)">
+                    <el-icon><Edit /></el-icon>
+                  </el-button>
+                </el-tooltip>
+                <el-tooltip content="删除" placement="top">
+                  <el-button circle size="small" type="danger" plain @click="handleDelete(scope.row)">
+                    <el-icon><Delete /></el-icon>
+                  </el-button>
+                </el-tooltip>
+              </template>
+            </el-table-column>
+          </el-table>
 
-      <!-- 分页 -->
-      <div class="pagination-container">
-        <el-pagination
-          v-model:current-page="pagination.currentPage"
-          v-model:page-size="pagination.pageSize"
-          :page-sizes="[10, 20, 50]"
-          layout="total, sizes, prev, pager, next"
-          :total="pagination.total"
-          @size-change="handleSizeChange"
-          @current-change="handleCurrentChange"
-          background
-        />
-      </div>
+          <!-- 分页 -->
+          <div class="pagination-container">
+            <el-pagination
+              v-model:current-page="pagination.currentPage"
+              v-model:page-size="pagination.pageSize"
+              :page-sizes="[10, 20, 50]"
+              layout="total, sizes, prev, pager, next"
+              :total="pagination.total"
+              @size-change="handleSizeChange"
+              @current-change="handleCurrentChange"
+              background
+            />
+          </div>
+        </el-tab-pane>
+      </el-tabs>
     </el-card>
 
     <!-- 新增/编辑维修记录弹窗 -->
@@ -226,7 +316,22 @@ import {
   getRepairsByCarId
 } from '@/api/car'
 
-// 数据相关
+// 标签页
+const activeTab = ref('ongoing')
+
+// 正在维修数据
+const ongoingTableData = ref([])
+const ongoingLoading = ref(false)
+const ongoingPagination = reactive({
+  currentPage: 1,
+  pageSize: 10,
+  total: 0
+})
+const ongoingSearchForm = reactive({
+  carId: ''
+})
+
+// 历史维修数据
 const tableData = ref([])
 const loading = ref(false)
 const submitLoading = ref(false)
@@ -282,8 +387,114 @@ const formatDate = (dateStr) => {
 
 // 页面加载时获取数据
 onMounted(() => {
-  fetchRepairs()
+  fetchOngoingRepairs()
 })
+
+// 标签页切换
+const handleTabChange = (tab) => {
+  if (tab === 'ongoing') {
+    fetchOngoingRepairs()
+  } else {
+    fetchRepairs()
+  }
+}
+
+// 获取正在维修的车辆
+const fetchOngoingRepairs = async () => {
+  ongoingLoading.value = true
+  try {
+    const { getCars } = await import('@/api/car')
+    const params = {
+      page: ongoingPagination.currentPage - 1,
+      size: ongoingPagination.pageSize,
+      carStatus: '2' // 维修中
+    }
+    
+    if (ongoingSearchForm.carId) {
+      params.carId = ongoingSearchForm.carId
+    }
+    
+    const response = await getCars(params)
+    const data = response && (response.data || response) || {}
+    
+    let cars = []
+    let total = 0
+    
+    if (Array.isArray(data)) {
+      cars = data
+      total = data.length
+    } else if (data.content) {
+      cars = data.content
+      total = data.totalElements || data.content.length
+    }
+    
+    ongoingTableData.value = cars.map(car => ({
+      carId: car.carId || car.CarID,
+      tName: car.tName || car.TName,
+      runKm: car.runKm || car.RUNKM || 0,
+      runHour: car.runHour || car.RunHour || 0
+    }))
+    
+    ongoingPagination.total = total
+  } catch (error) {
+    console.error('获取正在维修车辆失败:', error)
+    ElMessage.error('获取正在维修车辆失败')
+  } finally {
+    ongoingLoading.value = false
+  }
+}
+
+// 正在维修搜索
+const handleOngoingSearch = () => {
+  ongoingPagination.currentPage = 1
+  fetchOngoingRepairs()
+}
+
+const resetOngoingSearch = () => {
+  ongoingSearchForm.carId = ''
+  handleOngoingSearch()
+}
+
+const handleOngoingSizeChange = (val) => {
+  ongoingPagination.pageSize = val
+  fetchOngoingRepairs()
+}
+
+const handleOngoingCurrentChange = (val) => {
+  ongoingPagination.currentPage = val
+  fetchOngoingRepairs()
+}
+
+// 完成维修
+const handleCompleteRepair = (row) => {
+  ElMessageBox.prompt('请输入维修费用（元）', '完成维修', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    inputPattern: /^\d+(\.\d{1,2})?$/,
+    inputErrorMessage: '请输入正确的金额'
+  }).then(async ({ value }) => {
+    try {
+      // 创建维修记录
+      const repairData = {
+        carId: row.carId,
+        rDate: new Date().toISOString().slice(0, 19).replace('T', ' '),
+        runKm: row.runKm,
+        runHour: row.runHour
+      }
+      await createRepair(repairData)
+      
+      // 更新车辆状态为可租
+      const { updateCarStatus } = await import('@/api/car')
+      await updateCarStatus(row.carId, { carStatus: '0' })
+      
+      ElMessage.success('维修已完成')
+      fetchOngoingRepairs()
+    } catch (error) {
+      console.error('完成维修失败:', error)
+      ElMessage.error('完成维修失败')
+    }
+  }).catch(() => {})
+}
 
 // 获取维修记录列表
 const fetchRepairs = async () => {
@@ -487,6 +698,98 @@ const resetRepairForm = () => {
     }
   }
 
+  /* 维修管理标签页样式 - 现代分段控制器风格 */
+  .maintenance-tabs {
+    :deep(.el-tabs__header) {
+      margin: 0 0 32px 0;
+      display: flex;
+      justify-content: center;
+    }
+    
+    :deep(.el-tabs__nav-wrap) {
+      &::after {
+        display: none;
+      }
+    }
+    
+    :deep(.el-tabs__nav-scroll) {
+      display: flex;
+      justify-content: center;
+    }
+    
+    :deep(.el-tabs__nav) {
+      border: 2px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 6px;
+      background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+      display: inline-flex;
+      gap: 6px;
+    }
+    
+    :deep(.el-tabs__item) {
+      border: none !important;
+      border-radius: 12px;
+      padding: 12px 32px;
+      margin: 0;
+      color: #64748b;
+      font-size: 15px;
+      font-weight: 600;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      letter-spacing: 0.3px;
+      min-width: 140px;
+      text-align: center;
+      
+      &::before {
+        content: '';
+        position: absolute;
+        left: 50%;
+        bottom: 8px;
+        width: 0;
+        height: 2px;
+        background: linear-gradient(90deg, #3b82f6, #2563eb);
+        transform: translateX(-50%);
+        transition: width 0.3s ease;
+        border-radius: 2px;
+      }
+      
+      &:hover {
+        background: rgba(59, 130, 246, 0.08);
+        color: #3b82f6;
+        transform: translateY(-1px);
+        
+        &::before {
+          width: 60%;
+        }
+      }
+      
+      &.is-active {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        color: white;
+        box-shadow: 0 6px 20px rgba(59, 130, 246, 0.35), 0 2px 8px rgba(59, 130, 246, 0.2);
+        transform: translateY(-2px);
+        
+        &::before {
+          width: 0;
+        }
+        
+        &::after {
+          content: '';
+          position: absolute;
+          inset: -2px;
+          border-radius: 12px;
+          background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), transparent);
+          pointer-events: none;
+        }
+      }
+    }
+    
+    :deep(.el-tabs__active-bar) {
+      display: none;
+    }
+  }
+
   .search-bar {
     margin-bottom: 24px;
     display: flex;
@@ -494,7 +797,6 @@ const resetRepairForm = () => {
     align-items: center;
     flex-wrap: wrap;
     gap: 16px;
-    padding: 8px 4px;
     
     .search-form {
       display: flex;

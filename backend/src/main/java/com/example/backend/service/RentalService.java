@@ -255,6 +255,25 @@ public class RentalService {
         // 自动计算金额
         existingRental.setAmount(calculateRentalAmount(existingRental));
 
+        // 如果更新了行驶里程和时间，则更新车辆的累计数据
+        if (rentalRequestDTO.getRoundTripDistance() != null || rentalRequestDTO.getDriveTime() != null) {
+            Car car = carRepository.findById(existingRental.getCarId()).orElse(null);
+            if (car != null) {
+                // 累加行驶里程
+                if (rentalRequestDTO.getRoundTripDistance() != null) {
+                    BigDecimal currentKm = car.getRunKm() != null ? car.getRunKm() : BigDecimal.ZERO;
+                    car.setRunKm(currentKm.add(rentalRequestDTO.getRoundTripDistance()));
+                }
+                // 累加行驶小时
+                if (rentalRequestDTO.getDriveTime() != null) {
+                    BigDecimal currentHour = car.getRunHour() != null ? car.getRunHour() : BigDecimal.ZERO;
+                    car.setRunHour(currentHour.add(rentalRequestDTO.getDriveTime()));
+                }
+                carRepository.save(car);
+                System.out.println("已更新车辆 " + car.getCarId() + " 的行驶数据");
+            }
+        }
+
         Rental updatedRental = rentalRepository.save(existingRental);
         return convertToResponseDTO(updatedRental);
     }
@@ -565,7 +584,7 @@ public class RentalService {
 
     /**
      * 根据租赁信息自动计算金额
-     * 计算公式：amount = 每小时费用 × 时间差 + (每小时费用 ÷ 50) × 公里数
+     * 计算公式：基础费用（小时数*租金率）+ 里程费用（里程数*租金率/30）
      * @param rental 租赁实体
      * @return 计算出的金额
      */
@@ -587,7 +606,7 @@ public class RentalService {
             return BigDecimal.ZERO;
         }
 
-        // 获取每小时费用
+        // 获取每小时费用（租金率）
         BigDecimal hourlyRate = car.getCarType().getRentRate();
         if (hourlyRate == null) {
             System.err.println("警告: 车辆类型 " + car.getCarType().getTName() + " 的租金率为空");
@@ -596,16 +615,18 @@ public class RentalService {
 
         // 计算时间差（小时）
         long hoursDiff = java.time.Duration.between(rental.getLoanDate(), rental.getReturnDate()).toHours();
+        
+        // 基础费用 = 小时数 * 租金率
         BigDecimal timeCost = hourlyRate.multiply(BigDecimal.valueOf(hoursDiff));
 
-        // 计算里程费用（每小时费用 ÷ 50 × 公里数）
-        BigDecimal kilometerRate = hourlyRate.divide(BigDecimal.valueOf(50), 2, java.math.RoundingMode.HALF_UP);
+        // 里程费用 = 里程数 * 租金率 / 30
         BigDecimal distanceCost = BigDecimal.ZERO;
         if (rental.getRoundTripDistance() != null) {
-            distanceCost = kilometerRate.multiply(rental.getRoundTripDistance());
+            BigDecimal kilometerRate = hourlyRate.divide(BigDecimal.valueOf(30), 2, java.math.RoundingMode.HALF_UP);
+            distanceCost = rental.getRoundTripDistance().multiply(kilometerRate);
         }
 
-        // 总费用 = 时间费用 + 里程费用
+        // 总费用 = 基础费用 + 里程费用
         BigDecimal totalAmount = timeCost.add(distanceCost);
         return totalAmount.setScale(2, java.math.RoundingMode.HALF_UP);
     }

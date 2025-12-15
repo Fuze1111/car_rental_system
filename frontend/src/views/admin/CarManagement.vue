@@ -820,23 +820,16 @@ const handleTypeSubmit = async () => {
 
 const handleDialogSubmit = async (formData) => {
   try {
-    // 将前端表单数据转换为后端DTO格式
-    const carDTO = {
-      carId: formData.CarID,
-      tNo: formData.TNo,
-      tName: formData.TName,
-      price: formData.Price,
-      purchaseDate: formData.PurchaseDate,
-      carStatus: formData.CarStatus
-    }
-
+    // 子组件emit的数据字段已经是后端DTO格式（小写）
+    // formData = { carId, tNo, tName, price, purchaseDate, carStatus }
+    
     if (currentEditData.value) {
       // 更新车辆
-      await updateCar(formData.CarID, carDTO)
+      await updateCar(formData.carId, formData)
       ElMessage.success('车辆信息更新成功')
     } else {
       // 创建车辆
-      await createCar(carDTO)
+      await createCar(formData)
       ElMessage.success('车辆创建成功')
     }
     

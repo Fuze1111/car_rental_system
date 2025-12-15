@@ -60,7 +60,7 @@ INSERT INTO car (CarID, PurchaseDate, Price, CarStatus, TNo, TName, RUNKM, RunHo
 -- ================================================
 -- 5. 汽车维修表测试数据
 -- ================================================
-INSERT INTO car_repair (RNo, CompleteDate, Mileage, Cost, CarID) VALUES
+INSERT INTO car_repair (RNo, RDate, RUNKM, RunHour, CarID) VALUES
 ('R0000001', '2025-10-15', 20000.00, 1050.00, '京K88888'),
 ('R0000002', '2025-11-20', 16000.00, 850.00, '京B67890'),
 ('R0000003', '2025-09-05', 30000.00, 1500.00, '京A12345'),
