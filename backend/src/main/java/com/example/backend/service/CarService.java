@@ -81,10 +81,18 @@ public class CarService {
             throw new RuntimeException("车牌号已存在: " + carRequestDTO.getCarId());
         }
 
-        // 验证车型是否存在
-        if (carRequestDTO.getTNo() != null && carRequestDTO.getTName() != null) {
+        // 验证并回填车型信息：如果只提供了 tNo 或 tName，尝试回填另一项
+        if ((carRequestDTO.getTNo() != null && carRequestDTO.getTName() != null)) {
             carTypeRepository.findByTNoAndTName(carRequestDTO.getTNo(), carRequestDTO.getTName())
                     .orElseThrow(() -> new RuntimeException("车型不存在"));
+        } else if (carRequestDTO.getTNo() != null && (carRequestDTO.getTName() == null || carRequestDTO.getTName().isBlank())) {
+            List<com.example.backend.entity.CarType> found = carTypeRepository.findByTNoQuery(carRequestDTO.getTNo());
+            if (found == null || found.isEmpty()) throw new RuntimeException("车型不存在: tNo=" + carRequestDTO.getTNo());
+            // pick first match
+            carRequestDTO.setTName(found.get(0).getTName());
+        } else if (carRequestDTO.getTName() != null && (carRequestDTO.getTNo() == null || carRequestDTO.getTNo().isBlank())) {
+            carTypeRepository.findByTName(carRequestDTO.getTName())
+                    .ifPresent(ct -> carRequestDTO.setTNo(ct.getTNo()));
         }
 
         Car car = convertToEntity(carRequestDTO);
@@ -103,9 +111,17 @@ public class CarService {
                 .orElseThrow(() -> new RuntimeException("车辆不存在: " + carId));
 
         // 验证车型是否存在
-        if (carRequestDTO.getTNo() != null && carRequestDTO.getTName() != null) {
+        if ((carRequestDTO.getTNo() != null && carRequestDTO.getTName() != null)) {
             carTypeRepository.findByTNoAndTName(carRequestDTO.getTNo(), carRequestDTO.getTName())
                     .orElseThrow(() -> new RuntimeException("车型不存在"));
+        } else if (carRequestDTO.getTNo() != null && (carRequestDTO.getTName() == null || carRequestDTO.getTName().isBlank())) {
+            List<com.example.backend.entity.CarType> found = carTypeRepository.findByTNoQuery(carRequestDTO.getTNo());
+            if (found != null && !found.isEmpty()) {
+                carRequestDTO.setTName(found.get(0).getTName());
+            }
+        } else if (carRequestDTO.getTName() != null && (carRequestDTO.getTNo() == null || carRequestDTO.getTNo().isBlank())) {
+            carTypeRepository.findByTName(carRequestDTO.getTName())
+                    .ifPresent(ct -> carRequestDTO.setTNo(ct.getTNo()));
         }
 
         // 更新车辆信息
@@ -123,6 +139,12 @@ public class CarService {
         }
         if (carRequestDTO.getTName() != null) {
             existingCar.setTName(carRequestDTO.getTName());
+        }
+        if (carRequestDTO.getRunKm() != null) {
+            existingCar.setRunKm(carRequestDTO.getRunKm());
+        }
+        if (carRequestDTO.getRunHour() != null) {
+            existingCar.setRunHour(carRequestDTO.getRunHour());
         }
 
         Car updatedCar = carRepository.save(existingCar);
@@ -293,6 +315,20 @@ public class CarService {
         // 设置租金率（如果车型信息存在）
         if (car.getCarType() != null) {
             dto.setRentRate(car.getCarType().getRentRate());
+            // if tName is missing on Car entity, try fill from associated CarType
+            if ((dto.getTName() == null || dto.getTName().isBlank()) && car.getCarType().getTName() != null) {
+                dto.setTName(car.getCarType().getTName());
+            }
+        } else {
+            // 如果 carType 为空，但 car.tNo 有值，尝试通过 repository 回填 tName 与 rentRate
+            if (car.getTNo() != null && (dto.getTName() == null || dto.getTName().isBlank())) {
+                List<com.example.backend.entity.CarType> matches = carTypeRepository.findByTNoQuery(car.getTNo());
+                if (matches != null && !matches.isEmpty()) {
+                    com.example.backend.entity.CarType ct = matches.get(0);
+                    dto.setTName(ct.getTName());
+                    dto.setRentRate(ct.getRentRate());
+                }
+            }
         }
 
         // 判断是否需要维修（状态为2）
@@ -316,6 +352,8 @@ public class CarService {
         car.setCarStatus(dto.getCarStatus() != null ? dto.getCarStatus() : "0"); // 默认可租
         car.setTNo(dto.getTNo());
         car.setTName(dto.getTName());
+        if (dto.getRunKm() != null) car.setRunKm(dto.getRunKm());
+        if (dto.getRunHour() != null) car.setRunHour(dto.getRunHour());
         return car;
     }
 }

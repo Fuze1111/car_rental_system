@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * 车辆信息管理控制器
@@ -24,6 +26,8 @@ import java.util.Map;
 @RequestMapping("/api/cars")
 @CrossOrigin(origins = "*")
 public class CarController {
+
+    private static final Logger logger = LoggerFactory.getLogger(CarController.class);
 
     @Autowired
     private CarService carService;
@@ -103,6 +107,7 @@ public class CarController {
      */
     @PostMapping
     public ResponseEntity<CarResponseDTO> createCar(@RequestBody CarRequestDTO carRequestDTO) {
+        logger.info("Received createCar request: {}", carRequestDTO);
         CarResponseDTO createdCar = carService.createCar(carRequestDTO);
         return ResponseEntity.status(HttpStatus.CREATED).body(createdCar);
     }
@@ -118,6 +123,7 @@ public class CarController {
     public ResponseEntity<CarResponseDTO> updateCar(
             @PathVariable String carId,
             @RequestBody CarRequestDTO carRequestDTO) {
+        logger.info("Received updateCar request for {}: {}", carId, carRequestDTO);
         CarResponseDTO updatedCar = carService.updateCar(carId, carRequestDTO);
         return ResponseEntity.ok(updatedCar);
     }
