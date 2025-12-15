@@ -17,21 +17,19 @@ import java.math.BigDecimal;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@IdClass(CarType.CarTypeId.class)
 public class CarType {
 
     /**
-     * 类型编号 - 复合主键之一
+     * 类型编号 - 主键
      */
     @Id
     @Column(name = "TNo", length = 4, nullable = false)
     private String tNo;
 
     /**
-     * 汽车型号 - 复合主键之一
+     * 汽车型号 - 唯一索引
      */
-    @Id
-    @Column(name = "TName", length = 20, nullable = false)
+    @Column(name = "TName", length = 20, nullable = false, unique = true)
     private String tName;
 
     /**
@@ -39,16 +37,5 @@ public class CarType {
      */
     @Column(name = "RentRate", precision = 4, scale = 2)
     private BigDecimal rentRate;
-
-    /**
-     * 复合主键类
-     */
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class CarTypeId implements Serializable {
-        private String tNo;
-        private String tName;
-    }
 }
 

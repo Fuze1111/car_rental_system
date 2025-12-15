@@ -626,7 +626,7 @@ const initMap = () => {
 
     // 解析取车地址
     const p1 = new Promise((resolve) => {
-      geocoder.getLocation(startStore.Address, (status, result) => {
+      geocoder.getLocation(startStore.address, (status, result) => {
         if (status === 'complete' && result.geocodes.length) {
           resolve(result.geocodes[0].location)
         } else {
@@ -638,7 +638,7 @@ const initMap = () => {
 
     // 解析还车地址
     const p2 = new Promise((resolve) => {
-      geocoder.getLocation(endStore.Address, (status, result) => {
+      geocoder.getLocation(endStore.address, (status, result) => {
         if (status === 'complete' && result.geocodes.length) {
           resolve(result.geocodes[0].location)
         } else {
@@ -651,14 +651,14 @@ const initMap = () => {
     Promise.all([p1, p2]).then(([startLngLat, endLngLat]) => {
       const startMarker = new AMap.Marker({
         position: startLngLat,
-        title: startStore.StoreName,
-        label: { content: '取车: ' + startStore.StoreName, direction: 'top' }
+        title: startStore.storeName,
+        label: { content: '取车: ' + startStore.storeName, direction: 'top' }
       })
       
       const endMarker = new AMap.Marker({
         position: endLngLat,
-        title: endStore.StoreName,
-        label: { content: '还车: ' + endStore.StoreName, direction: 'top' }
+        title: endStore.storeName,
+        label: { content: '还车: ' + endStore.storeName, direction: 'top' }
       })
 
       const polyline = new AMap.Polyline({

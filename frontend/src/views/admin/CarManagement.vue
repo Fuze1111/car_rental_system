@@ -820,23 +820,33 @@ const handleTypeSubmit = async () => {
 
 const handleDialogSubmit = async (formData) => {
   try {
-    // 将前端表单数据转换为后端DTO格式
+    console.log('收到的formData:', formData)
+    console.log('是否编辑模式:', !!currentEditData.value)
+    
+    // formData已经是CarDialog转换好的格式，字段名为小写驼峰
     const carDTO = {
-      carId: formData.CarID,
-      tNo: formData.TNo,
-      tName: formData.TName,
-      price: formData.Price,
-      purchaseDate: formData.PurchaseDate,
-      carStatus: formData.CarStatus
+      carId: formData.carId,
+      tNo: formData.tNo,
+      tName: formData.tName,
+      price: formData.price,
+      purchaseDate: formData.purchaseDate,
+      carStatus: formData.carStatus,
+      runKm: formData.runKm,
+      runHour: formData.runHour
     }
+    
+    console.log('准备提交的carDTO:', carDTO)
 
     if (currentEditData.value) {
       // 更新车辆
-      await updateCar(formData.CarID, carDTO)
+      console.log('执行更新操作')
+      await updateCar(formData.carId, carDTO)
       ElMessage.success('车辆信息更新成功')
     } else {
       // 创建车辆
-      await createCar(carDTO)
+      console.log('执行创建操作')
+      const result = await createCar(carDTO)
+      console.log('创建结果:', result)
       ElMessage.success('车辆创建成功')
     }
     
@@ -845,6 +855,7 @@ const handleDialogSubmit = async (formData) => {
     fetchCars()
   } catch (error) {
     console.error('操作失败:', error)
+    console.error('错误详情:', error.response?.data || error.message)
     ElMessage.error(currentEditData.value ? '更新失败' : '创建失败')
   }
 }

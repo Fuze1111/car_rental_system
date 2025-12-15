@@ -1,5 +1,6 @@
 package com.example.backend.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -45,11 +46,13 @@ public class CarResponseDTO {
     /**
      * 类型编号
      */
+    @JsonProperty("tNo")
     private String tNo;
 
     /**
      * 汽车型号
      */
+    @JsonProperty("tName")
     private String tName;
 
     /**

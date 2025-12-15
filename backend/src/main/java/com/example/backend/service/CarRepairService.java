@@ -178,7 +178,9 @@ public class CarRepairService {
 
         // 获取车型信息
         carRepository.findById(repair.getCarId()).ifPresent(car -> {
-            dto.setCarModel(car.getTName());
+            if (car.getCarType() != null) {
+                dto.setCarModel(car.getCarType().getTName());
+            }
         });
 
         return dto;

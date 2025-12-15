@@ -35,7 +35,21 @@ public class CarTypeController {
     }
 
     /**
-     * 根据类型编号和型号名称获取车型信息
+     * 根据类型编号获取车型信息
+     * GET /api/car-types/{tNo}
+     *
+     * @param tNo 类型编号
+     * @return 车型信息
+     */
+    @GetMapping("/{tNo}")
+    public ResponseEntity<CarType> getCarTypeById(@PathVariable String tNo) {
+        return carTypeService.getCarTypeById(tNo)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * 根据类型编号和型号名称获取车型信息（兼容旧接口）
      * GET /api/car-types/{tNo}/{tName}
      *
      * @param tNo   类型编号
@@ -43,10 +57,11 @@ public class CarTypeController {
      * @return 车型信息
      */
     @GetMapping("/{tNo}/{tName}")
-    public ResponseEntity<CarType> getCarTypeById(
+    @Deprecated
+    public ResponseEntity<CarType> getCarTypeByIdOld(
             @PathVariable String tNo,
             @PathVariable String tName) {
-        return carTypeService.getCarTypeById(tNo, tName)
+        return carTypeService.getCarTypeById(tNo)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -66,6 +81,22 @@ public class CarTypeController {
 
     /**
      * 更新车型信息
+     * PUT /api/car-types/{tNo}
+     *
+     * @param tNo     类型编号
+     * @param carType 车型信息
+     * @return 更新后的车型信息
+     */
+    @PutMapping("/{tNo}")
+    public ResponseEntity<CarType> updateCarType(
+            @PathVariable String tNo,
+            @RequestBody CarType carType) {
+        CarType updatedCarType = carTypeService.updateCarType(tNo, carType);
+        return ResponseEntity.ok(updatedCarType);
+    }
+
+    /**
+     * 更新车型信息（兼容旧接口）
      * PUT /api/car-types/{tNo}/{tName}
      *
      * @param tNo     类型编号
@@ -74,27 +105,42 @@ public class CarTypeController {
      * @return 更新后的车型信息
      */
     @PutMapping("/{tNo}/{tName}")
-    public ResponseEntity<CarType> updateCarType(
+    @Deprecated
+    public ResponseEntity<CarType> updateCarTypeOld(
             @PathVariable String tNo,
             @PathVariable String tName,
             @RequestBody CarType carType) {
-        CarType updatedCarType = carTypeService.updateCarType(tNo, tName, carType);
+        CarType updatedCarType = carTypeService.updateCarType(tNo, carType);
         return ResponseEntity.ok(updatedCarType);
     }
 
     /**
      * 删除车型
+     * DELETE /api/car-types/{tNo}
+     *
+     * @param tNo 类型编号
+     * @return 无内容
+     */
+    @DeleteMapping("/{tNo}")
+    public ResponseEntity<Void> deleteCarType(@PathVariable String tNo) {
+        carTypeService.deleteCarType(tNo);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * 删除车型（兼容旧接口）
      * DELETE /api/car-types/{tNo}/{tName}
      *
      * @param tNo   类型编号
-     * @param tName 型号名称
+     * @param tName 型号名称（已忽略）
      * @return 无内容
      */
     @DeleteMapping("/{tNo}/{tName}")
-    public ResponseEntity<Void> deleteCarType(
+    @Deprecated
+    public ResponseEntity<Void> deleteCarTypeOld(
             @PathVariable String tNo,
             @PathVariable String tName) {
-        carTypeService.deleteCarType(tNo, tName);
+        carTypeService.deleteCarType(tNo);
         return ResponseEntity.noContent().build();
     }
 

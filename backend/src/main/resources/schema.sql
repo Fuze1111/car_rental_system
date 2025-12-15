@@ -60,7 +60,8 @@ CREATE TABLE IF NOT EXISTS car_type (
     TName           CHAR(20)        NOT NULL COMMENT '汽车型号',
     RentRate        NUMERIC(4,2)    NULL COMMENT '租金率',
 
-    PRIMARY KEY (TNo, TName)
+    PRIMARY KEY (TNo),
+    UNIQUE KEY (TName)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='汽车类型表';
 
 -- ================================================
@@ -73,12 +74,11 @@ CREATE TABLE IF NOT EXISTS car (
     Price           NUMERIC(8,2)    NULL COMMENT '价格',
     CarStatus       CHAR(5)         NULL COMMENT '车辆状态（0-可租；1-已租；2-维修）',
     TNo             CHAR(4)         NULL COMMENT '类型编号（外键）',
-    TName           CHAR(20)        NULL COMMENT '汽车型号（外键）',
     RUNKM           NUMERIC(10,2)   NULL COMMENT '运行公里',
     RunHour         NUMERIC(8,2)    NULL COMMENT '运行小时',
 
     PRIMARY KEY (CarID),
-    FOREIGN KEY (TNo, TName) REFERENCES car_type(TNo, TName)
+    FOREIGN KEY (TNo) REFERENCES car_type(TNo)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='汽车表';
 
 -- ================================================
@@ -167,11 +167,10 @@ DROP TABLE IF EXISTS car_type_image;
 CREATE TABLE IF NOT EXISTS car_type_image (
     ImageID     INT             NOT NULL AUTO_INCREMENT COMMENT '图片索引',
     TNo         CHAR(4)         NOT NULL COMMENT '类型编号',
-    TName       CHAR(20)        NOT NULL COMMENT '汽车型号',
     ImagePath   VARCHAR(255)    NOT NULL COMMENT '图片路径',
 
     PRIMARY KEY (ImageID),
-    FOREIGN KEY (TNo, TName) REFERENCES car_type(TNo, TName) ON DELETE CASCADE
+    FOREIGN KEY (TNo) REFERENCES car_type(TNo) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='车型图片表';
 
 -- ================================================

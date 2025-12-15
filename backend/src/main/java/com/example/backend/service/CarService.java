@@ -4,6 +4,7 @@ import com.example.backend.dto.CarRequestDTO;
 import com.example.backend.dto.CarResponseDTO;
 import com.example.backend.entity.Car;
 import com.example.backend.entity.CarRepair;
+import com.example.backend.entity.CarType;
 import com.example.backend.repository.CarRepairRepository;
 import com.example.backend.repository.CarRepository;
 import com.example.backend.repository.CarTypeRepository;
@@ -82,14 +83,17 @@ public class CarService {
         }
 
         // 验证车型是否存在
-        if (carRequestDTO.getTNo() != null && carRequestDTO.getTName() != null) {
-            carTypeRepository.findByTNoAndTName(carRequestDTO.getTNo(), carRequestDTO.getTName())
-                    .orElseThrow(() -> new RuntimeException("车型不存在"));
+        if (carRequestDTO.getTNo() != null) {
+            carTypeRepository.findById(carRequestDTO.getTNo())
+                    .orElseThrow(() -> new RuntimeException("车型不存在: " + carRequestDTO.getTNo()));
         }
 
         Car car = convertToEntity(carRequestDTO);
         Car savedCar = carRepository.save(car);
-        return convertToResponseDTO(savedCar);
+        // 重新查询以确保CarType关联被加载
+        Car reloadedCar = carRepository.findById(savedCar.getCarId())
+                .orElseThrow(() -> new RuntimeException("保存后查询失败"));
+        return convertToResponseDTO(reloadedCar);
     }
 
     /**
@@ -103,9 +107,9 @@ public class CarService {
                 .orElseThrow(() -> new RuntimeException("车辆不存在: " + carId));
 
         // 验证车型是否存在
-        if (carRequestDTO.getTNo() != null && carRequestDTO.getTName() != null) {
-            carTypeRepository.findByTNoAndTName(carRequestDTO.getTNo(), carRequestDTO.getTName())
-                    .orElseThrow(() -> new RuntimeException("车型不存在"));
+        if (carRequestDTO.getTNo() != null) {
+            carTypeRepository.findById(carRequestDTO.getTNo())
+                    .orElseThrow(() -> new RuntimeException("车型不存在: " + carRequestDTO.getTNo()));
         }
 
         // 更新车辆信息
@@ -119,10 +123,15 @@ public class CarService {
             existingCar.setCarStatus(carRequestDTO.getCarStatus());
         }
         if (carRequestDTO.getTNo() != null) {
-            existingCar.setTNo(carRequestDTO.getTNo());
+            CarType carType = carTypeRepository.findById(carRequestDTO.getTNo())
+                    .orElse(null);
+            existingCar.setCarType(carType);
         }
-        if (carRequestDTO.getTName() != null) {
-            existingCar.setTName(carRequestDTO.getTName());
+        if (carRequestDTO.getRunKm() != null) {
+            existingCar.setRunKm(carRequestDTO.getRunKm());
+        }
+        if (carRequestDTO.getRunHour() != null) {
+            existingCar.setRunHour(carRequestDTO.getRunHour());
         }
 
         Car updatedCar = carRepository.save(existingCar);
@@ -170,9 +179,7 @@ public class CarService {
      */
     public List<CarResponseDTO> getCarsByType(String tNo, String tName) {
         List<Car> cars;
-        if (tNo != null && tName != null) {
-            cars = carRepository.findByMultipleConditions(null, tNo, tName);
-        } else if (tNo != null) {
+        if (tNo != null) {
             cars = carRepository.findByTNo(tNo);
         } else if (tName != null) {
             cars = carRepository.findByTName(tName);
@@ -285,8 +292,11 @@ public class CarService {
         dto.setPurchaseDate(car.getPurchaseDate());
         dto.setPrice(car.getPrice());
         dto.setCarStatus(car.getCarStatus());
-        dto.setTNo(car.getTNo());
-        dto.setTName(car.getTName());
+        // tNo和tName通过carType关联获取
+        if (car.getCarType() != null) {
+            dto.setTNo(car.getCarType().getTNo());
+            dto.setTName(car.getCarType().getTName());
+        }
         dto.setRunKm(car.getRunKm());
         dto.setRunHour(car.getRunHour());
 
@@ -314,8 +324,16 @@ public class CarService {
         car.setPurchaseDate(dto.getPurchaseDate());
         car.setPrice(dto.getPrice());
         car.setCarStatus(dto.getCarStatus() != null ? dto.getCarStatus() : "0"); // 默认可租
-        car.setTNo(dto.getTNo());
-        car.setTName(dto.getTName());
+        car.setRunKm(dto.getRunKm());
+        car.setRunHour(dto.getRunHour());
+        
+        // 设置CarType关联
+        if (dto.getTNo() != null) {
+            CarType carType = carTypeRepository.findById(dto.getTNo())
+                    .orElse(null);
+            car.setCarType(carType);
+        }
+        
         return car;
     }
 }

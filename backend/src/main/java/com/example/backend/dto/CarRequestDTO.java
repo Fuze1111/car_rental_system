@@ -45,5 +45,14 @@ public class CarRequestDTO {
      * 汽车型号
      */
     private String tName;
-}
 
+    /**
+     * 运行公里
+     */
+    private BigDecimal runKm;
+
+    /**
+     * 运行小时
+     */
+    private BigDecimal runHour;
+}

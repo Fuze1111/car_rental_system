@@ -660,14 +660,11 @@ public class RentalService {
         // 通过carRepository获取车辆信息，而不是依赖于rental.getCar()
         if (rental.getCarId() != null) {
             carRepository.findById(rental.getCarId()).ifPresent(car -> {
-                if (car.getTName() != null) {
-                    dto.setCarType(car.getTName());
-                    dto.setCarBrand(car.getTName()); // Car实体中用tName表示车型/品牌
-                }
-                // 获取车型的租金率
-                if (car.getTNo() != null && car.getTName() != null) {
-                    carTypeRepository.findById(new CarType.CarTypeId(car.getTNo(), car.getTName()))
-                        .ifPresent(carType -> dto.setRentRate(carType.getRentRate()));
+                // 通过carType关联获取车型名称
+                if (car.getCarType() != null) {
+                    dto.setCarType(car.getCarType().getTName());
+                    dto.setCarBrand(car.getCarType().getTName());
+                    dto.setRentRate(car.getCarType().getRentRate());
                 }
             });
         }

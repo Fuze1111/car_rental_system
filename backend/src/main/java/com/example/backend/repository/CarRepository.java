@@ -30,7 +30,7 @@ public interface CarRepository extends JpaRepository<Car, String> {
      * @param tNo 车型编号
      * @return 车辆列表
      */
-    @Query("SELECT c FROM Car c WHERE c.tNo = :tNo")
+    @Query("SELECT c FROM Car c LEFT JOIN c.carType ct WHERE ct.tNo = :tNo")
     List<Car> findByTNo(@Param("tNo") String tNo);
 
     /**
@@ -38,7 +38,7 @@ public interface CarRepository extends JpaRepository<Car, String> {
      * @param tName 车型名称
      * @return 车辆列表
      */
-    @Query("SELECT c FROM Car c WHERE c.tName = :tName")
+    @Query("SELECT c FROM Car c LEFT JOIN c.carType ct WHERE ct.tName = :tName")
     List<Car> findByTName(@Param("tName") String tName);
 
     /**
@@ -48,10 +48,10 @@ public interface CarRepository extends JpaRepository<Car, String> {
      * @param tName 车型名称
      * @return 车辆列表
      */
-    @Query("SELECT c FROM Car c WHERE " +
+    @Query("SELECT c FROM Car c LEFT JOIN c.carType ct WHERE " +
            "(:carStatus IS NULL OR c.carStatus = :carStatus) AND " +
-           "(:tNo IS NULL OR c.tNo = :tNo) AND " +
-           "(:tName IS NULL OR c.tName = :tName)")
+           "(:tNo IS NULL OR ct.tNo = :tNo) AND " +
+           "(:tName IS NULL OR ct.tName = :tName)")
     List<Car> findByMultipleConditions(
         @Param("carStatus") String carStatus,
         @Param("tNo") String tNo,
@@ -76,8 +76,8 @@ public interface CarRepository extends JpaRepository<Car, String> {
      */
     @Query("SELECT c FROM Car c LEFT JOIN c.carType ct WHERE " +
            "(:carStatus IS NULL OR c.carStatus = :carStatus) AND " +
-           "(:tNo IS NULL OR c.tNo = :tNo) AND " +
-           "(:tName IS NULL OR c.tName = :tName) AND " +
+           "(:tNo IS NULL OR ct.tNo = :tNo) AND " +
+           "(:tName IS NULL OR ct.tName = :tName) AND " +
            "(:minRent IS NULL OR ct.rentRate >= :minRent) AND " +
            "(:maxRent IS NULL OR ct.rentRate <= :maxRent)")
     Page<Car> findByFilters(
@@ -94,8 +94,8 @@ public interface CarRepository extends JpaRepository<Car, String> {
      */
     @Query("SELECT c FROM Car c LEFT JOIN c.carType ct WHERE " +
            "(:carStatus IS NULL OR c.carStatus = :carStatus) AND " +
-           "(:tNo IS NULL OR c.tNo = :tNo) AND " +
-           "(:tName IS NULL OR c.tName = :tName) AND " +
+           "(:tNo IS NULL OR ct.tNo = :tNo) AND " +
+           "(:tName IS NULL OR ct.tName = :tName) AND " +
            "(:minRent IS NULL OR ct.rentRate >= :minRent) AND " +
            "(:maxRent IS NULL OR ct.rentRate <= :maxRent)")
     List<Car> findByFilters(

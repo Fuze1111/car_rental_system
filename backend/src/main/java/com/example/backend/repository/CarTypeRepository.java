@@ -13,7 +13,7 @@ import java.util.Optional;
  * 提供汽车类型信息的数据访问操作
  */
 @Repository
-public interface CarTypeRepository extends JpaRepository<CarType, CarType.CarTypeId> {
+public interface CarTypeRepository extends JpaRepository<CarType, String> {
 
     /**
      * 根据类型编号和型号名称查询车型

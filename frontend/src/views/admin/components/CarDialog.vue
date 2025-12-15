@@ -30,28 +30,13 @@
           <el-option 
             v-for="item in carTypes" 
             :key="item.TNo" 
-            :label="item.TName" 
+            :label="`${item.TNo} (${item.TName})`" 
             :value="item.TNo" 
           />
         </el-select>
       </el-form-item>
 
       <el-row :gutter="20">
-        <el-col :span="12">
-          <el-form-item label="小时租金" prop="RentRate">
-            <el-input-number 
-              v-model="formData.RentRate" 
-              :min="0" 
-              :step="10" 
-              style="width: 100%"
-              controls-position="right"
-              class="custom-input-number"
-            >
-              <template #prefix>¥</template>
-              <template #append>/小时</template>
-            </el-input-number>
-          </el-form-item>
-        </el-col>
         <el-col :span="12">
           <el-form-item label="购入价格" prop="Price">
             <el-input-number 
@@ -158,7 +143,6 @@ const formData = reactive({
   CarID: '',
   TNo: '',
   TName: '',
-  RentRate: 0,
   Price: 0,
   PurchaseDate: '',
   RUNKM: 0,
@@ -169,21 +153,26 @@ const formData = reactive({
 const rules = {
   CarID: [{ required: true, message: '请输入车牌号', trigger: 'blur' }],
   TNo: [{ required: true, message: '请选择车型', trigger: 'change' }],
-  RentRate: [{ required: true, message: '请输入日租金', trigger: 'blur' }],
   CarStatus: [{ required: true, message: '请选择状态', trigger: 'change' }]
 }
 
 // 获取车型列表
 const fetchCarTypes = async () => {
   try {
-    // TODO: 实际应该从后端获取车型列表
-    // 目前使用模拟数据
-    carTypes.value = [
-      { TNo: 'T001', TName: 'Toyota Camry' },
-      { TNo: 'T002', TName: 'Tesla Model 3' },
-      { TNo: 'T003', TName: 'Benz S-Class' },
-      { TNo: 'T004', TName: 'BMW X5' },
-    ]
+    const { getCarTypes } = await import('@/api/car')
+    const response = await getCarTypes()
+    console.log('车型API响应:', response)
+    const types = response.data || response || []
+    console.log('车型数据:', types)
+    // 转换为大写字段名以匹配表单数据格式
+    carTypes.value = types.map(type => {
+      console.log('处理车型:', type)
+      return {
+        TNo: type.tno || type.TNo,
+        TName: type.tname || type.TName
+      }
+    })
+    console.log('最终车型列表:', carTypes.value)
   } catch (error) {
     console.error('获取车型列表失败:', error)
     ElMessage.error('获取车型列表失败')
@@ -194,7 +183,6 @@ const resetForm = () => {
   formData.CarID = ''
   formData.TNo = ''
   formData.TName = ''
-  formData.RentRate = 0
   formData.Price = 0
   formData.PurchaseDate = ''
   formData.RUNKM = 0
@@ -210,7 +198,6 @@ watch(() => props.editData, (newVal) => {
     formData.CarID = newVal.CarID || newVal.carId || ''
     formData.TNo = newVal.TNo || newVal.tNo || ''
     formData.TName = newVal.TName || newVal.tName || ''
-    formData.RentRate = newVal.RentRate || newVal.rentRate || 0
     formData.Price = newVal.Price || newVal.price || 0
     formData.PurchaseDate = newVal.PurchaseDate || newVal.purchaseDate || ''
     formData.RUNKM = newVal.RUNKM || 0
@@ -255,10 +242,11 @@ const handleSubmit = async () => {
           carId: formData.CarID,
           tNo: formData.TNo,
           tName: formData.TName,
-          rentRate: formData.RentRate,
           price: formData.Price,
           purchaseDate: formData.PurchaseDate,
-          carStatus: formData.CarStatus
+          carStatus: formData.CarStatus,
+          runKm: formData.RUNKM,
+          runHour: formData.RunHour
         }
         emit('submit', submitData)
         handleClose()

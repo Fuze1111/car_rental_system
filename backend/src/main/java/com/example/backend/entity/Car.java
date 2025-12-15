@@ -48,18 +48,6 @@ public class Car {
     private String carStatus;
 
     /**
-     * 类型编号（外键）
-     */
-    @Column(name = "TNo", length = 4)
-    private String tNo;
-
-    /**
-     * 汽车型号（外键）
-     */
-    @Column(name = "TName", length = 20)
-    private String tName;
-
-    /**
      * 运行公里
      */
     @Column(name = "RUNKM", precision = 10, scale = 2)
@@ -75,9 +63,6 @@ public class Car {
      * 关联的汽车类型
      */
     @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumns({
-        @JoinColumn(name = "TNo", referencedColumnName = "TNo", insertable = false, updatable = false),
-        @JoinColumn(name = "TName", referencedColumnName = "TName", insertable = false, updatable = false)
-    })
+    @JoinColumn(name = "TNo", referencedColumnName = "TNo")
     private CarType carType;
 }
