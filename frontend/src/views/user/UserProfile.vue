@@ -20,49 +20,114 @@
 
         <el-tabs v-model="activeTab" class="custom-tabs">
           <el-tab-pane label="我的订单" name="orders">
-            <div class="orders-list">
-              <el-empty v-if="myOrders.length === 0" description="暂无订单，快去租辆车吧！">
-                <el-button type="primary" round @click="$router.push('/user/cars')">去租车</el-button>
-              </el-empty>
+            <!-- 订单子分类 -->
+            <el-tabs v-model="activeOrderTab" type="card" class="order-sub-tabs">
+              <!-- 现有订单 -->
+              <el-tab-pane label="现有订单" name="current">
+                <div class="orders-list">
+                  <el-empty v-if="currentOrders.length === 0" description="暂无进行中的订单">
+                    <el-button type="primary" round @click="$router.push('/user/cars')">去租车</el-button>
+                  </el-empty>
 
-              <div v-else class="order-grid">
-                <div class="order-card" v-for="order in myOrders" :key="order.id">
-                  <div class="card-header">
-                    <span class="order-no">{{ order.invoiceNo }}</span>
-                    <el-tag :type="order.status === '已完成' ? 'success' : 'primary'" size="small" effect="light">{{ order.status }}</el-tag>
-                  </div>
-                  <div class="card-body">
-                    <div class="car-brief">
-                      <div class="icon-box"><el-icon><Van /></el-icon></div>
-                      <span class="car-name">{{ order.carName }}</span>
-                    </div>
-                    <div class="detail-list">
-                      <div class="detail-item">
-                        <span class="label">日期</span>
-                        <span class="value">{{ order.dates }}</span>
+                  <div v-else class="order-grid">
+                    <div class="order-card active" v-for="order in currentOrders" :key="order.id">
+                      <div class="card-header">
+                        <span class="order-no">{{ order.invoiceNo }}</span>
+                        <el-tag type="warning" size="small" effect="light">{{ order.status }}</el-tag>
                       </div>
-                      <div class="detail-item">
-                        <span class="label">取车</span>
-                        <span class="value">{{ order.loanPlace }}</span>
+                      <div class="card-body">
+                        <div class="car-brief">
+                          <div class="icon-box"><el-icon><Van /></el-icon></div>
+                          <span class="car-name">{{ order.carName }}</span>
+                          <span class="car-plate">{{ order.carPlate }}</span>
+                        </div>
+                        <div class="detail-list">
+                          <div class="detail-item">
+                            <span class="label">借车时间</span>
+                            <span class="value">{{ order.startTime }}</span>
+                          </div>
+                          <div class="detail-item">
+                            <span class="label">取车地点</span>
+                            <span class="value">{{ order.loanPlace }}</span>
+                          </div>
+                          <div class="detail-item">
+                            <span class="label">还车地点</span>
+                            <span class="value">{{ order.returnPlace || '待定' }}</span>
+                          </div>
+                          <div class="detail-item" v-if="order.driverName">
+                            <span class="label">司机</span>
+                            <span class="value">{{ order.driverName }}</span>
+                          </div>
+                        </div>
                       </div>
-                      <div class="detail-item">
-                        <span class="label">还车</span>
-                        <span class="value">{{ order.returnPlace }}</span>
+                      <div class="card-footer">
+                        <div class="amount-box">
+                          <span class="label">预估金额</span>
+                          <span class="amount estimate">待结算</span>
+                        </div>
+                        <el-button link type="primary" @click="openDetail(order)">详情</el-button>
                       </div>
                     </div>
-                  </div>
-                  <div class="card-footer">
-                    <div class="amount-box">
-                      <span class="label">{{ order.status === '进行中' ? '预估' : '实付' }}</span>
-                      <span class="amount" :class="{ 'estimate': order.status === '进行中' }">
-                        {{ order.status === '进行中' ? '待结算' : '¥' + order.amount }}
-                      </span>
-                    </div>
-                    <el-button link type="primary" @click="openDetail(order)">详情</el-button>
                   </div>
                 </div>
-              </div>
-            </div>
+              </el-tab-pane>
+
+              <!-- 历史订单 -->
+              <el-tab-pane label="历史订单" name="history">
+                <div class="orders-list">
+                  <el-empty v-if="historyOrders.length === 0" description="暂无历史订单记录" />
+
+                  <div v-else class="order-grid">
+                    <div class="order-card" v-for="order in historyOrders" :key="order.id">
+                      <div class="card-header">
+                        <span class="order-no">{{ order.invoiceNo }}</span>
+                        <el-tag type="success" size="small" effect="light">{{ order.status }}</el-tag>
+                      </div>
+                      <div class="card-body">
+                        <div class="car-brief">
+                          <div class="icon-box"><el-icon><Van /></el-icon></div>
+                          <span class="car-name">{{ order.carName }}</span>
+                          <span class="car-plate">{{ order.carPlate }}</span>
+                        </div>
+                        <div class="detail-list">
+                          <div class="detail-item">
+                            <span class="label">借车时间</span>
+                            <span class="value">{{ order.startTime }}</span>
+                          </div>
+                          <div class="detail-item">
+                            <span class="label">还车时间</span>
+                            <span class="value">{{ order.endTime }}</span>
+                          </div>
+                          <div class="detail-item">
+                            <span class="label">取车地点</span>
+                            <span class="value">{{ order.loanPlace }}</span>
+                          </div>
+                          <div class="detail-item">
+                            <span class="label">还车地点</span>
+                            <span class="value">{{ order.returnPlace }}</span>
+                          </div>
+                          <div class="detail-item" v-if="order.distance">
+                            <span class="label">行驶里程</span>
+                            <span class="value">{{ order.distance }} km</span>
+                          </div>
+                          <div class="detail-item" v-if="order.duration">
+                            <span class="label">行驶时长</span>
+                            <span class="value">{{ order.duration }} h</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="card-footer">
+                        <div class="amount-box">
+                          <span class="label">实付金额</span>
+                          <span class="amount">¥{{ order.amount }}</span>
+                        </div>
+                        <el-button link type="primary" @click="openDetail(order)">详情</el-button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </el-tab-pane>
+            </el-tabs>
           </el-tab-pane>
 
           <el-tab-pane label="个人信息" name="info">
@@ -202,15 +267,19 @@
 </template>
 
 <script setup>
-import { ref, reactive, nextTick } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { Van, LocationFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import { getCustomerRentals } from '@/api/rental'
+import { getUserInfo } from '@/utils/auth'
 
 const activeTab = ref('orders')
+const activeOrderTab = ref('current') // 订单子标签页：current-现有订单, history-历史订单
 const saving = ref(false)
 const detailVisible = ref(false)
 const currentOrder = ref(null)
 const hasMapKey = ref(false)
+const loading = ref(false)
 
 const userForm = reactive({
   name: '张三',
@@ -220,38 +289,63 @@ const userForm = reactive({
   address: '北京市朝阳区某某街道123号'
 })
 
-const myOrders = ref([
-  {
-    id: 1,
-    invoiceNo: 'INV2023120101',
-    carName: 'Toyota Camry',
-    CarID: '京A88888',
-    dates: '12/01 - 12/03',
-    LoanDate: '2023-12-01 10:00:00',
-    ReturnDate: '2023-12-03 14:00:00',
-    loanPlace: '北京大兴国际机场',
-    returnPlace: '北京首都国际机场',
-    amount: 650,
-    distance: 120,
-    duration: 5,
-    status: '已完成',
-    DNo: null
-  },
-  {
-    id: 2,
-    invoiceNo: 'INV2023121502',
-    carName: 'Tesla Model 3',
-    CarID: '京AD12345',
-    dates: '12/20 - 12/22',
-    LoanDate: '2023-12-20 09:30:00',
-    ReturnDate: '2023-12-22 18:00:00',
-    loanPlace: '上海虹桥国际机场',
-    returnPlace: '上海浦东国际机场',
-    amount: null, // 进行中，金额为空
-    status: '进行中',
-    DNo: 'D001'
+// 订单数据
+const allOrders = ref([])
+const currentOrders = ref([]) // 现有订单（进行中）
+const historyOrders = ref([]) // 历史订单（已完成）
+
+// 加载客户订单
+const loadCustomerOrders = async () => {
+  loading.value = true
+  try {
+    const userInfo = getUserInfo()
+    if (!userInfo || !userInfo.userId) {
+      ElMessage.error('未找到用户信息，请重新登录')
+      return
+    }
+    
+    // 获取客户的租赁订单
+    const rentals = await getCustomerRentals(userInfo.userId)
+    
+    // 将后端数据转换为前端需要的格式
+    const orders = rentals.map(rental => {
+      // 判断订单状态：如果还车日期为空或未到，则为进行中；否则为已完成
+      const now = new Date()
+      const returnDate = rental.returnDate ? new Date(rental.returnDate) : null
+      const isPending = !returnDate || returnDate > now
+      
+      return {
+        id: rental.invoiceNo,
+        invoiceNo: rental.invoiceNo,
+        status: isPending ? '进行中' : '已完成',
+        carName: rental.carBrand && rental.carType ? `${rental.carBrand} ${rental.carType}` : (rental.carBrand || rental.carType || '未知车辆'),
+        carPlate: rental.carId || '未知车牌',
+        CarID: rental.carId,
+        startTime: rental.loanDate ? new Date(rental.loanDate).toLocaleString('zh-CN') : '未知',
+        endTime: rental.returnDate ? new Date(rental.returnDate).toLocaleString('zh-CN') : '待定',
+        LoanDate: rental.loanDate,
+        ReturnDate: rental.returnDate,
+        loanPlace: rental.loanPlace || '未知地点',
+        returnPlace: rental.returnPlace || (isPending ? '待定' : '未知地点'),
+        amount: rental.amount || 0,
+        distance: rental.roundTripDistance || null,
+        duration: rental.driveTime || null,
+        driverName: rental.driverName || null,
+        DNo: rental.dNo
+      }
+    })
+    
+    // 将订单分为现有订单和历史订单
+    allOrders.value = orders
+    currentOrders.value = orders.filter(order => order.status === '进行中')
+    historyOrders.value = orders.filter(order => order.status === '已完成')
+  } catch (error) {
+    console.error('加载订单失败:', error)
+    ElMessage.error('加载订单失败，请稍后重试')
+  } finally {
+    loading.value = false
   }
-])
+}
 
 const openDetail = (order) => {
   currentOrder.value = order
@@ -357,6 +451,10 @@ const saveProfile = () => {
   }, 800)
 }
 
+// 组件挂载时加载订单数据
+onMounted(() => {
+  loadCustomerOrders()
+})
 </script>
 
 <style scoped lang="scss">
@@ -415,6 +513,100 @@ const saveProfile = () => {
   }
 }
 
+/* 订单子标签页样式 - 现代分段控制器风格 */
+.order-sub-tabs {
+  margin-top: 24px;
+  
+  :deep(.el-tabs__header) {
+    margin: 0 0 32px 0;
+    display: flex;
+    justify-content: center;
+  }
+  
+  :deep(.el-tabs__nav-wrap) {
+    &::after {
+      display: none;
+    }
+  }
+  
+  :deep(.el-tabs__nav-scroll) {
+    display: flex;
+    justify-content: center;
+  }
+  
+  :deep(.el-tabs__nav) {
+    border: 2px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 6px;
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+    display: inline-flex;
+    gap: 6px;
+  }
+  
+  :deep(.el-tabs__item) {
+    border: none !important;
+    border-radius: 12px;
+    padding: 12px 32px;
+    margin: 0;
+    color: #64748b;
+    font-size: 15px;
+    font-weight: 600;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    letter-spacing: 0.3px;
+    min-width: 140px;
+    text-align: center;
+    
+    &::before {
+      content: '';
+      position: absolute;
+      left: 50%;
+      bottom: 8px;
+      width: 0;
+      height: 2px;
+      background: linear-gradient(90deg, #3b82f6, #2563eb);
+      transform: translateX(-50%);
+      transition: width 0.3s ease;
+      border-radius: 2px;
+    }
+    
+    &:hover {
+      background: rgba(59, 130, 246, 0.08);
+      color: #3b82f6;
+      transform: translateY(-1px);
+      
+      &::before {
+        width: 60%;
+      }
+    }
+    
+    &.is-active {
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+      color: white;
+      box-shadow: 0 6px 20px rgba(59, 130, 246, 0.35), 0 2px 8px rgba(59, 130, 246, 0.2);
+      transform: translateY(-2px);
+      
+      &::before {
+        width: 0;
+      }
+      
+      &::after {
+        content: '';
+        position: absolute;
+        inset: -2px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), transparent);
+        pointer-events: none;
+      }
+    }
+  }
+  
+  :deep(.el-tabs__active-bar) {
+    display: none;
+  }
+}
+
 .order-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -433,6 +625,11 @@ const saveProfile = () => {
     transform: translateY(-2px);
     box-shadow: 0 10px 20px rgba(0,0,0,0.05);
     border-color: #e2e8f0;
+  }
+  
+  &.active {
+    border-color: #bfdbfe;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
   }
 
   .card-header {
@@ -465,7 +662,16 @@ const saveProfile = () => {
         justify-content: center;
         color: #3b82f6;
       }
-      .car-name { font-weight: 700; color: #1e293b; }
+      .car-name { font-weight: 700; color: #1e293b; font-size: 14px; }
+      .car-plate { 
+        background: #f1f5f9; 
+        padding: 2px 8px; 
+        border-radius: 4px; 
+        font-size: 12px;
+        color: #64748b;
+        font-family: monospace;
+        margin-left: auto;
+      }
     }
 
     .detail-list {
@@ -493,7 +699,16 @@ const saveProfile = () => {
 
     .amount-box {
       .label { font-size: 12px; color: #94a3b8; margin-right: 4px; }
-      .amount { font-size: 16px; font-weight: 700; color: #1e293b; }
+      .amount { 
+        font-size: 16px; 
+        font-weight: 700; 
+        color: #10b981;
+        
+        &.estimate { 
+          color: #f59e0b;
+          font-size: 14px;
+        }
+      }
     }
   }
 }
