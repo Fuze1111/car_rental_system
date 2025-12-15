@@ -10,12 +10,12 @@
               <el-input v-model="searchForm.CarID" placeholder="搜索车牌号..." prefix-icon="Search" clearable class="search-input" />
             </el-form-item>
             <el-form-item>
-              <el-select v-model="searchForm.TName" placeholder="选择车型" clearable filterable style="width: 180px">
-                <el-option 
+              <el-select v-model="searchForm.tNo" placeholder="选择车型" clearable filterable style="width: 180px">
+                <el-option
                   v-for="type in carTypeOptions" 
                   :key="type.tNo + type.tName" 
                   :label="type.tName" 
-                  :value="type.tName">
+                  :value="type.tNo">
                    <span style="float: left">{{ type.tName }}</span>
                    <span style="float: right; color: #8492a6; font-size: 13px">{{ type.tNo }}</span>
                 </el-option>
@@ -72,8 +72,11 @@
         <el-table-column prop="TName" label="车型信息" min-width="200" align="left">
           <template #default="scope">
             <div class="car-info">
-              <div class="car-model">{{ scope.row.TName }}</div>
-              <div class="car-code">编号: {{ scope.row.TNo }}</div>
+              <div class="car-model">
+                <span v-if="scope.row.TName">{{ scope.row.TName }}</span>
+                <span v-else class="missing-type">未设置车型</span>
+              </div>
+              <div class="car-code">编号: {{ scope.row.TNo || '—' }}</div>
             </div>
           </template>
         </el-table-column>
@@ -83,7 +86,7 @@
           <template #default="scope">
             <div class="price-tag">
               <span class="currency">¥</span>
-              <span class="amount">{{ scope.row.RentRate }}</span>
+              <span class="amount">{{ formatRent(scope.row.RentRate) }}</span>
               <span class="unit">/小时</span>
             </div>
           </template>
@@ -284,7 +287,7 @@
           <el-input v-model="typeFormData.TNo" placeholder="例如: C1" class="custom-input" :disabled="isTypeEdit" />
         </el-form-item>
         <el-form-item label="车型名称" prop="TName">
-          <el-input v-model="typeFormData.TName" placeholder="例如: Toyota Camry" class="custom-input" :disabled="isTypeEdit" />
+          <el-input v-model="typeFormData.TName" placeholder="例如: 丰田凯美瑞" class="custom-input" :disabled="isTypeEdit" />
         </el-form-item>
         <el-form-item label="小时租金" prop="RentRate">
           <el-input-number 
@@ -324,7 +327,7 @@
     <!-- 新增/编辑弹窗 -->
     <CarEditDialog 
       v-model:visible="dialogVisible"
-      :edit-data="currentEditData"
+      :edit-data="currentEditData && currentEditData.value ? currentEditData.value : currentEditData"
       @submit="handleDialogSubmit"
     />
 
@@ -351,7 +354,8 @@ import {
   getCarTypes,
   createCarType,
   updateCarType,
-  deleteCarType
+  deleteCarType,
+  getCarById // Import the new API function
 } from '@/api/car'
 import request from '@/api/request'
 
@@ -374,7 +378,8 @@ const isTypeEdit = ref(false)
 // 搜索表单 (Cars)
 const searchForm = reactive({
   CarID: '',
-  TName: '',
+  // now store selected type as tNo (primary key)
+  tNo: '',
   CarStatus: '',
   minPrice: undefined,
   maxPrice: undefined
@@ -443,6 +448,20 @@ const formatDateTime = (dateString) => {
          String(date.getDate()).padStart(2, '0') + ' ' +
          String(date.getHours()).padStart(2, '0') + ':' +
          String(date.getMinutes()).padStart(2, '0')
+}
+
+// 新增：格式化小时租金显示
+const formatRent = (rate) => {
+  if (rate === undefined || rate === null || rate === '') return '-'
+  // 如果是对象（比如 BigDecimal 转为字符串），转字符串再处理
+  try {
+    const n = Number(rate)
+    if (Number.isNaN(n)) return String(rate)
+    // 如果是整数，显示无小数；否则保留两位
+    return Number.isInteger(n) ? n.toString() : n.toFixed(2)
+  } catch (e) {
+    return String(rate)
+  }
 }
 
 // 根据车型名称获取对应图片的辅助函数（放在 fetchCarTypes 之前，避免未定义）
@@ -541,9 +560,10 @@ const handleSearch = () => {
 }
 
 // 页面加载时获取车辆数据
-onMounted(() => {
+onMounted(async () => {
+  // 确保先加载车型（用于在fetchCars里做回填），再加载车辆列表
+  await fetchCarTypes()
   fetchCars()
-  fetchCarTypes()
 })
 
 // 获取车辆列表
@@ -560,9 +580,9 @@ const fetchCars = async () => {
     if (searchForm.CarID) {
       params.carId = searchForm.CarID
     }
-    if (searchForm.TName) {
-      // 前端选择的是车型名称（tName），后端 controller 支持 tName 和 tNo
-      params.tName = searchForm.TName
+    if (searchForm.tNo) {
+      // 前端选择的是车型编号（tNo），后端 controller 支持 tNo
+      params.tNo = searchForm.tNo
     }
     if (searchForm.CarStatus) {
       params.carStatus = searchForm.CarStatus
@@ -576,24 +596,11 @@ const fetchCars = async () => {
     }
 
     const response = await getCars(params)
+    // DEBUG: 打印后端原始响应，帮助排查字段名/结构
+    console.debug('GET /api/cars response raw:', response)
     const { content, totalElements } = response
 
     // 转换数据格式以适配前端显示（注意后端返回的是小写字段名）
-<<<<<<< HEAD
-    tableData.value = content.map(car => ({
-      CarID: car.carId,
-      TNo: car.tno,
-      TName: car.tname,
-      RentRate: car.rentRate,
-      CarStatus: car.carStatus,
-      PurchaseDate: car.purchaseDate,
-      Price: car.price,
-      LastRepairDate: car.lastRepairDate,
-      RUNKM: car.runKm || 0,
-      RunHour: car.runHour || 0
-    }))
-    
-=======
     tableData.value = content.map(car => {
       // Accept multiple naming variants returned by backend
       const tNo = car.tNo || car.TNo || car.tno || car.TNO || car.t_no || null
@@ -691,7 +698,6 @@ const fetchCars = async () => {
       console.debug('After detail backfill, tableData (first rows):', tableData.value.slice(0,5))
     }
 
->>>>>>> parent of c083572 (编辑按钮实现 与 新增车辆)
     pagination.total = totalElements
   } catch (error) {
     console.error('获取车辆列表失败:', error)
@@ -706,10 +712,7 @@ const fetchCarTypes = async () => {
   typeLoading.value = true
   try {
     const response = await getCarTypes()
-<<<<<<< HEAD
-=======
     console.debug('GET /api/car-types response raw:', response)
->>>>>>> parent of c083572 (编辑按钮实现 与 新增车辆)
     // backend now returns CarTypeDTO { tNo, tName, rentRate, imageUrl }
     const allTypes = (response || []).map(type => ({
       tno: type.tNo || type.tno,
@@ -725,6 +728,8 @@ const fetchCarTypes = async () => {
       tName: type.tname,
       rentRate: type.rentRate
     }))
+
+    console.debug('Processed carTypeOptions:', carTypeOptions.value)
 
     // 过滤（按关键字匹配 tno 或 tname，忽略大小写）
     const kw = (typeSearchForm.keyword || '').toString().trim().toLowerCase()
@@ -770,7 +775,7 @@ const handleTypeSearch = async () => {
 
 const resetSearch = () => {
   searchForm.CarID = ''
-  searchForm.TName = ''
+  searchForm.tNo = ''
   searchForm.CarStatus = ''
   searchForm.minPrice = undefined
   searchForm.maxPrice = undefined
@@ -866,7 +871,7 @@ const handleTypeDelete = (row) => {
     cancelButtonText: '取消'
   }).then(async () => {
     try {
-      await deleteCarType(row.TNo || row.tno, row.TName || row.tname)
+      await deleteCarType(row.TNo || row.tno)
       ElMessage.success('删除成功')
       fetchCarTypes()
     } catch (error) {
@@ -894,26 +899,52 @@ const handleTypeSubmit = async () => {
   await typeFormRef.value.validate(async (valid) => {
     if (valid) {
       try {
+        let updatedType
         if (isTypeEdit.value) {
-          // 更新车型
-          await updateCarType(typeFormData.TNo, typeFormData.TName, {
-            tno: typeFormData.TNo,
-            tname: typeFormData.TName,
+          // 更新车型（现在以 tNo 作为主键）
+          updatedType = await updateCarType(typeFormData.TNo, {
+            tName: typeFormData.TName,
             rentRate: typeFormData.RentRate
           })
           ElMessage.success('修改成功')
         } else {
-          // 创建新车型
-          await createCarType({
-            tno: typeFormData.TNo,
-            tname: typeFormData.TName,
-            rentRate: typeFormData.RentRate
-          })
-          ElMessage.success('新增成功')
-        }
-        
+           // 创建新车型
+           updatedType = await createCarType({
+             tno: typeFormData.TNo,
+             tname: typeFormData.TName,
+             rentRate: typeFormData.RentRate
+           })
+           ElMessage.success('新增成功')
+         }
+
         typeDialogVisible.value = false
-        fetchCarTypes()
+        // 先刷新车型列表，确保下拉/本地缓存是最新的
+        await fetchCarTypes()
+        // 如果后端返回了 updatedType（create/update 响应），在本地 tableData 中立即同步匹配的车辆行，
+        // 以确保 UI 不依赖于后端分页缓存延迟
+        try {
+          if (updatedType) {
+            const canonicalTNo = updatedType.tNo || updatedType.TNo || typeFormData.TNo
+            const canonicalTName = updatedType.tName || updatedType.TName || typeFormData.TName
+            const canonicalRent = updatedType.rentRate || updatedType.RentRate || typeFormData.RentRate
+            tableData.value.forEach(row => {
+              if (row && (row.TNo === canonicalTNo || row.TName === canonicalTName)) {
+                row.TNo = canonicalTNo
+                row.TName = canonicalTName
+                row.RentRate = (canonicalRent !== undefined && canonicalRent !== null) ? Number(canonicalRent) : row.RentRate
+              }
+            })
+          }
+        } catch (syncErr) {
+          console.warn('Failed to sync local tableData after type change:', syncErr)
+        }
+
+        // 再刷新车辆列表，保证任何使用车型信息（TName/RentRate）的地方得到最新数据
+        try {
+          await fetchCars()
+        } catch (err) {
+          console.warn('Failed to refresh cars after type change:', err)
+        }
       } catch (error) {
         console.error('操作失败:', error)
         ElMessage.error('操作失败: ' + (error.message || '未知错误'))
@@ -924,15 +955,6 @@ const handleTypeSubmit = async () => {
 
 const handleDialogSubmit = async (formData) => {
   try {
-<<<<<<< HEAD
-    // 子组件emit的数据字段已经是后端DTO格式（小写）
-    // formData = { carId, tNo, tName, price, purchaseDate, carStatus }
-    
-    if (currentEditData.value) {
-      // 更新车辆
-      await updateCar(formData.carId, formData)
-      ElMessage.success('车辆信息更新成功')
-=======
     // support both uppercase and lowercase field names emitted by dialog
     const carDTO = {
       carId: (formData.CarID !== undefined ? formData.CarID : formData.carId),
@@ -1011,19 +1033,40 @@ const handleDialogSubmit = async (formData) => {
         ElMessage.error(msg)
         return
       }
->>>>>>> parent of c083572 (编辑按钮实现 与 新增车辆)
     } else {
-      // 创建车辆
-      await createCar(formData)
-      ElMessage.success('车辆创建成功')
+       // 创建车辆
+       try {
+         await createCar(payload)
+         ElMessage.success('车辆创建成功')
+       } catch (err) {
+         // 显示后端返回的详细错误信息（如果有）
+         let backendMsg = null
+         if (err && err.response && err.response.data) {
+           const data = err.response.data
+           // 后端 ErrorResponse 使用字段: timestamp, status, message, details
+           backendMsg = data.details || data.message || data.error || JSON.stringify(data)
+         }
+         if (backendMsg) {
+           ElMessage.error('创建失败: ' + backendMsg)
+         } else {
+           console.error('创建车辆时发生未知错误:', err)
+           ElMessage.error('创建失败: 服务器返回未知错误')
+         }
+         return
+       }
     }
-    
+
     // 关闭对话框并刷新数据
     dialogVisible.value = false
-    fetchCars()
+    await fetchCars()
   } catch (error) {
     console.error('操作失败:', error)
-    ElMessage.error(currentEditData.value ? '更新失败' : '创建失败')
+    let backendMsg = null
+    if (error && error.response && error.response.data) {
+      const data = error.response.data
+      backendMsg = data.details || data.message || data.error || JSON.stringify(data)
+    }
+    ElMessage.error(backendMsg || (currentEditData.value ? '更新失败' : '创建失败'))
   }
 }
 
@@ -1187,13 +1230,13 @@ const handleTypeCurrentChange = (val) => {
 
 .car-management {
   padding: 0;
-  
+
   .section-divider {
     height: 40px;
     margin: 20px 0;
     border-top: 1px dashed rgba(0,0,0,0.1);
     position: relative;
-    
+
     &::after {
       content: '•••';
       position: absolute;
@@ -1226,7 +1269,7 @@ const handleTypeCurrentChange = (val) => {
     backdrop-filter: blur(20px); /* Blur effect */
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.02);
     overflow: hidden;
-    
+
     :deep(.el-card__body) {
       padding: 32px; /* Increased padding to match others */
     }
@@ -1240,13 +1283,13 @@ const handleTypeCurrentChange = (val) => {
     flex-wrap: wrap;
     gap: 16px;
     padding: 8px 4px; /* Add some breathing room */
-    
+
     .search-form {
       display: flex;
       flex-wrap: wrap;
       gap: 16px; /* Increased gap */
       align-items: center;
-      
+
       :deep(.el-form-item) {
         margin-bottom: 0;
         margin-right: 0;
@@ -1254,7 +1297,7 @@ const handleTypeCurrentChange = (val) => {
 
       .search-input {
         width: 220px;
-        
+
         :deep(.el-input__wrapper) {
           border-radius: 50px; /* Pill shape */
           background: rgba(248, 250, 252, 0.8);
@@ -1262,12 +1305,12 @@ const handleTypeCurrentChange = (val) => {
           border: 1px solid transparent;
           transition: all 0.3s;
           padding-left: 16px;
-          
+
           &:hover {
             background: white;
             box-shadow: 0 4px 12px rgba(0,0,0,0.05);
           }
-          
+
           &.is-focus {
             background: white;
             box-shadow: 0 4px 12px rgba(64, 158, 255, 0.15);
@@ -1282,103 +1325,23 @@ const handleTypeCurrentChange = (val) => {
         background: rgba(248, 250, 252, 0.8);
         box-shadow: none;
         border: 1px solid transparent;
-        
-        &:hover {
-          background: white;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-        }
-        
-        &.is-focus {
-          box-shadow: 0 4px 12px rgba(64, 158, 255, 0.15);
-        }
       }
 
-      /* General Button Styling (Reset & Search) */
-      :deep(.el-button) {
-        border-radius: 50px;
-        padding: 8px 24px;
-        font-weight: 500;
-        transition: all 0.3s;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        
-        &:hover {
-          transform: translateY(-2px);
-        }
-      }
+    } /* end .search-form */
 
-      .search-btn {
-        background: linear-gradient(135deg, #409eff 0%, #3b82f6 100%);
-        border: none;
-        box-shadow: 0 4px 12px rgba(64, 158, 255, 0.3);
-        letter-spacing: 1px;
-        color: white;
-        display: flex;
-        align-items: center;
-        gap: 6px;
+  } /* end .search-bar */
 
-        &:hover {
-          box-shadow: 0 6px 16px rgba(64, 158, 255, 0.4);
-        }
-      }
-    }
 
-    .add-btn {
-      border-radius: 50px;
-      padding: 10px 24px;
-      background: linear-gradient(135deg, #10b981, #059669); /* Green for Add action */
-      border: none;
-      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
-      transition: all 0.3s;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-weight: 600;
+  /* Restored UI styles for car table and badges */
+  :deep(.el-table__row) {
+    transition: all 0.3s;
 
-      &:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
-        background: linear-gradient(135deg, #34d399, #059669);
-      }
-    }
-  }
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.6) !important;
+      transform: scale(1.002);
 
-  /* 现代表格样式优化 */
-  .modern-table {
-    background-color: transparent !important;
-    --el-table-border-color: transparent;
-    --el-table-header-bg-color: transparent;
-    --el-table-tr-bg-color: transparent;
-    
-    &::before { display: none; } /* 去除底部边框线 */
-
-    :deep(th.el-table__cell) {
-      background: transparent;
-      font-weight: 600;
-      color: #64748b;
-      height: 56px;
-      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-      font-size: 13px;
-      letter-spacing: 0.5px;
-    }
-
-    :deep(td.el-table__cell) {
-      border-bottom: 1px solid rgba(0, 0, 0, 0.03);
-      padding: 16px 0;
-      transition: all 0.3s;
-    }
-
-    :deep(.el-table__row) {
-      transition: all 0.3s;
-      
-      &:hover {
+      td.el-table__cell {
         background-color: rgba(255, 255, 255, 0.6) !important;
-        transform: scale(1.002);
-        
-        td.el-table__cell {
-          background-color: rgba(255, 255, 255, 0.6) !important;
-        }
       }
     }
   }
@@ -1395,7 +1358,7 @@ const handleTypeCurrentChange = (val) => {
     font-family: 'Monaco', 'Consolas', monospace;
     font-weight: bold;
     font-size: 14px;
-    
+
     &.green-plate {
       background: #00b578; /* 新能源绿 */
     }
@@ -1444,7 +1407,7 @@ const handleTypeCurrentChange = (val) => {
     border-radius: 12px;
     font-size: 13px;
     font-weight: 500;
-    
+
     .dot {
       width: 6px;
       height: 6px;
@@ -1457,13 +1420,13 @@ const handleTypeCurrentChange = (val) => {
       color: #67c23a;
       .dot { background: #67c23a; }
     }
-    
+
     &.status-danger {
       background: #fef0f0;
       color: #f56c6c;
       .dot { background: #f56c6c; }
     }
-    
+
     &.status-warning {
       background: #fdf6ec;
       color: #e6a23c;
@@ -1476,5 +1439,6 @@ const handleTypeCurrentChange = (val) => {
     display: flex;
     justify-content: flex-end;
   }
-}
+
+} /* end .car-management */
 </style>
