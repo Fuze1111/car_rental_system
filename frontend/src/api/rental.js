@@ -108,3 +108,11 @@ export function calculateRevenue(start, end) {
     quiet: true
   })
 }
+
+// 根据客户号查询租赁记录
+export function getCustomerRentals(cNo) {
+  return request({
+    url: `/rentals/customer/${cNo}`,
+    method: 'get'
+  })
+}
