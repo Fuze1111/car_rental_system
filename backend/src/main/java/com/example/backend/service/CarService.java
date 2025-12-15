@@ -82,17 +82,21 @@ public class CarService {
         }
 
         // 验证并回填车型信息：如果只提供了 tNo 或 tName，尝试回填另一项
-        if ((carRequestDTO.getTNo() != null && carRequestDTO.getTName() != null)) {
-            carTypeRepository.findByTNoAndTName(carRequestDTO.getTNo(), carRequestDTO.getTName())
-                    .orElseThrow(() -> new RuntimeException("车型不存在"));
-        } else if (carRequestDTO.getTNo() != null && (carRequestDTO.getTName() == null || carRequestDTO.getTName().isBlank())) {
-            List<com.example.backend.entity.CarType> found = carTypeRepository.findByTNoQuery(carRequestDTO.getTNo());
-            if (found == null || found.isEmpty()) throw new RuntimeException("车型不存在: tNo=" + carRequestDTO.getTNo());
-            // pick first match
+        String tNo = carRequestDTO.getTNo();
+        String tName = carRequestDTO.getTName();
+        if (tNo != null && tName != null) {
+            carTypeRepository.findByTNoAndTName(tNo, tName)
+                    .orElseThrow(() -> new RuntimeException("车型不存在: " + tNo + "/" + tName));
+        } else if (tNo != null && (tName == null || tName.isBlank())) {
+            List<com.example.backend.entity.CarType> found = carTypeRepository.findByTNoQuery(tNo);
+            if (found == null || found.isEmpty()) throw new RuntimeException("车型不存在: tNo=" + tNo);
             carRequestDTO.setTName(found.get(0).getTName());
-        } else if (carRequestDTO.getTName() != null && (carRequestDTO.getTNo() == null || carRequestDTO.getTNo().isBlank())) {
-            carTypeRepository.findByTName(carRequestDTO.getTName())
-                    .ifPresent(ct -> carRequestDTO.setTNo(ct.getTNo()));
+        } else if (tName != null && (tNo == null || tNo.isBlank())) {
+            // 尝试按 tName 查找所有匹配的车型并回填 tNo（取第一个匹配项）
+            List<com.example.backend.entity.CarType> matches = carTypeRepository.findByTNameQuery(tName);
+            if (matches != null && !matches.isEmpty()) {
+                carRequestDTO.setTNo(matches.get(0).getTNo());
+            }
         }
 
         Car car = convertToEntity(carRequestDTO);
@@ -110,18 +114,22 @@ public class CarService {
         Car existingCar = carRepository.findById(carId)
                 .orElseThrow(() -> new RuntimeException("车辆不存在: " + carId));
 
-        // 验证车型是否存在
-        if ((carRequestDTO.getTNo() != null && carRequestDTO.getTName() != null)) {
-            carTypeRepository.findByTNoAndTName(carRequestDTO.getTNo(), carRequestDTO.getTName())
-                    .orElseThrow(() -> new RuntimeException("车型不存在"));
-        } else if (carRequestDTO.getTNo() != null && (carRequestDTO.getTName() == null || carRequestDTO.getTName().isBlank())) {
-            List<com.example.backend.entity.CarType> found = carTypeRepository.findByTNoQuery(carRequestDTO.getTNo());
+        // 验证车型是否存在并回填缺失字段
+        String tNo = carRequestDTO.getTNo();
+        String tName = carRequestDTO.getTName();
+        if (tNo != null && tName != null) {
+            carTypeRepository.findByTNoAndTName(tNo, tName)
+                    .orElseThrow(() -> new RuntimeException("车型不存在: " + tNo + "/" + tName));
+        } else if (tNo != null && (tName == null || tName.isBlank())) {
+            List<com.example.backend.entity.CarType> found = carTypeRepository.findByTNoQuery(tNo);
             if (found != null && !found.isEmpty()) {
                 carRequestDTO.setTName(found.get(0).getTName());
             }
-        } else if (carRequestDTO.getTName() != null && (carRequestDTO.getTNo() == null || carRequestDTO.getTNo().isBlank())) {
-            carTypeRepository.findByTName(carRequestDTO.getTName())
-                    .ifPresent(ct -> carRequestDTO.setTNo(ct.getTNo()));
+        } else if (tName != null && (tNo == null || tNo.isBlank())) {
+            List<com.example.backend.entity.CarType> matches = carTypeRepository.findByTNameQuery(tName);
+            if (matches != null && !matches.isEmpty()) {
+                carRequestDTO.setTNo(matches.get(0).getTNo());
+            }
         }
 
         // 更新车辆信息

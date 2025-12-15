@@ -20,18 +20,18 @@
       </el-form-item>
 
       <el-form-item label="车型" prop="TNo">
-        <el-select 
-          v-model="formData.TNo" 
-          placeholder="请选择车型" 
+        <el-select
+          v-model="formData.TNo"
+          placeholder="请选择车型"
           style="width: 100%"
           @change="handleTypeChange"
           class="custom-select"
         >
           <el-option 
             v-for="item in carTypes" 
-            :key="item.TNo" 
-            :label="item.TName" 
-            :value="item.TNo" 
+            :key="item.TNo"
+            :label="`${item.TNo}(${item.TName})`"
+            :value="item.TNo"
           />
         </el-select>
       </el-form-item>
@@ -258,6 +258,30 @@ watch(() => props.editData, (newVal) => {
     formData.RUNKM = newVal.RUNKM || 0
     formData.RunHour = newVal.RunHour || 0
     formData.CarStatus = newVal.CarStatus || newVal.carStatus || '0'
+
+    // 如果仅有 TName 而没有 TNo，尝试从后端车型表回填对应的 TNo 与 RentRate
+    ;(async () => {
+      try {
+        if ((!formData.TNo || formData.TNo === '') && formData.TName) {
+          // 如果本地 carTypes 缓存为空，先加载
+          if (!carTypes.value || carTypes.value.length === 0) {
+            await fetchCarTypes()
+          }
+          const match = carTypes.value.find(t => (t.TName || t.tName || '').toString() === formData.TName.toString())
+          if (match) {
+            formData.TNo = match.TNo || match.tNo || match.tno || formData.TNo
+            formData.TName = match.TName || match.tName || formData.TName
+            if (match.RentRate !== undefined && match.RentRate !== null) {
+              formData.RentRate = Number(match.RentRate)
+              displayRent.value = Number(match.RentRate)
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to resolve TNo from TName in CarDialog:', e)
+      }
+    })()
+
   } else {
     isEdit.value = false
     resetForm()
@@ -297,15 +321,26 @@ const handleSubmit = async () => {
     if (valid) {
       loading.value = true
       // 模拟请求延迟
-      setTimeout(() => {
+      setTimeout(async () => {
         loading.value = false
         // 在提交前：如果选了 TNo 但 TName 为空，则从已加载的 carTypes 回填
         if (formData.TNo && (!formData.TName || formData.TName === '')) {
-          const found = carTypes.value.find(t => t.TNo === formData.TNo)
+          const found = carTypes.value.find(t => t.TNo === formData.TNo || t.tNo === formData.TNo)
           if (found) {
-            formData.TName = found.TName || formData.TName
+            formData.TName = found.TName || found.tName || formData.TName
             // Also set displayRent for UX
             if (found.RentRate !== undefined && found.RentRate !== null) displayRent.value = Number(found.RentRate)
+          }
+        }
+
+        // 如果选了 TName 但没有 TNo，也尝试回填
+        if (formData.TName && (!formData.TNo || formData.TNo === '')) {
+          // ensure carTypes loaded
+          if (!carTypes.value || carTypes.value.length === 0) await fetchCarTypes()
+          const foundByName = carTypes.value.find(t => (t.TName || t.tName || '').toString() === formData.TName.toString())
+          if (foundByName) {
+            formData.TNo = foundByName.TNo || foundByName.tNo || formData.TNo
+            if (foundByName.RentRate !== undefined && foundByName.RentRate !== null) displayRent.value = Number(foundByName.RentRate)
           }
         }
 

@@ -171,18 +171,18 @@ export function createCarType(data) {
 }
 
 // 更新车型
-export function updateCarType(tNo, tName, data) {
+export function updateCarType(tNo, data) {
   return request({
-    url: `/car-types/${tNo}/${tName}`,
+    url: `/car-types/${tNo}`,
     method: 'put',
     data
   })
 }
 
 // 删除车型
-export function deleteCarType(tNo, tName) {
+export function deleteCarType(tNo) {
   return request({
-    url: `/car-types/${tNo}/${tName}`,
+    url: `/car-types/${tNo}`,
     method: 'delete'
   })
 }

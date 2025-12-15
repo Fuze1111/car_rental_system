@@ -14,7 +14,7 @@ import java.util.Optional;
  * 提供汽车类型信息的数据访问操作
  */
 @Repository
-public interface CarTypeRepository extends JpaRepository<CarType, CarType.CarTypeId> {
+public interface CarTypeRepository extends JpaRepository<CarType, String> {
 
     /**
      * 根据类型编号和型号名称查询车型
@@ -31,4 +31,8 @@ public interface CarTypeRepository extends JpaRepository<CarType, CarType.CarTyp
 
     @Query("SELECT ct FROM CarType ct WHERE ct.tName = :tName")
     Optional<CarType> findByTName(@Param("tName") String tName);
+
+    // 新增：根据 tName 查找所有匹配的车型（用于回填 tNo）
+    @Query("SELECT ct FROM CarType ct WHERE ct.tName = :tName")
+    List<CarType> findByTNameQuery(@Param("tName") String tName);
 }
