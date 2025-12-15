@@ -10,12 +10,12 @@
               <el-input v-model="searchForm.CarID" placeholder="搜索车牌号..." prefix-icon="Search" clearable class="search-input" />
             </el-form-item>
             <el-form-item>
-              <el-select v-model="searchForm.tNo" placeholder="选择车型" clearable filterable style="width: 180px">
-                <el-option
+              <el-select v-model="searchForm.TName" placeholder="选择车型" clearable filterable style="width: 180px">
+                <el-option 
                   v-for="type in carTypeOptions" 
                   :key="type.tNo + type.tName" 
                   :label="type.tName" 
-                  :value="type.tNo">
+                  :value="type.tName">
                    <span style="float: left">{{ type.tName }}</span>
                    <span style="float: right; color: #8492a6; font-size: 13px">{{ type.tNo }}</span>
                 </el-option>
@@ -378,8 +378,7 @@ const isTypeEdit = ref(false)
 // 搜索表单 (Cars)
 const searchForm = reactive({
   CarID: '',
-  // now store selected type as tNo (primary key)
-  tNo: '',
+  TName: '',
   CarStatus: '',
   minPrice: undefined,
   maxPrice: undefined
@@ -580,9 +579,9 @@ const fetchCars = async () => {
     if (searchForm.CarID) {
       params.carId = searchForm.CarID
     }
-    if (searchForm.tNo) {
-      // 前端选择的是车型编号（tNo），后端 controller 支持 tNo
-      params.tNo = searchForm.tNo
+    if (searchForm.TName) {
+      // 前端选择的是车型名称（tName），后端 controller 支持 tName 和 tNo
+      params.tName = searchForm.TName
     }
     if (searchForm.CarStatus) {
       params.carStatus = searchForm.CarStatus
@@ -618,15 +617,14 @@ const fetchCars = async () => {
         }
       }
 
-      // Prefer canonical values from carTypeOptions when available (ensures type edits propagate)
+      // If tName missing but we have tNo, try to fill from loaded carTypeOptions
       let finalTName = tName
       let finalRentRate = rentRate
-      if (tNo) {
+      if ((!finalTName || finalTName === '') && tNo) {
         const found = carTypeOptions.value.find(t => t.tNo === tNo || t.tno === tNo)
         if (found) {
-          // Always prefer the centralized tName/rentRate from carTypeOptions for consistency
-          finalTName = found.tName || found.tname || finalTName
-          finalRentRate = found.rentRate !== undefined && found.rentRate !== null ? found.rentRate : finalRentRate
+          finalTName = found.tName || found.tname || found.TName
+          if (!finalRentRate) finalRentRate = found.rentRate
         }
       }
 
@@ -641,8 +639,8 @@ const fetchCars = async () => {
         console.warn('Car row missing both tNo and tName:', car)
       }
 
-      // If rentRate still missing, as a fallback try lookup by tName
-      if ((finalRentRate === null || finalRentRate === undefined) && finalTName) {
+      // If rentRate still missing and tName present, try lookup by name
+      if (!finalRentRate && finalTName) {
          const foundByName = carTypeOptions.value.find(t => t.tName === finalTName || t.tname === finalTName)
          if (foundByName) finalRentRate = foundByName.rentRate
        }
@@ -775,7 +773,7 @@ const handleTypeSearch = async () => {
 
 const resetSearch = () => {
   searchForm.CarID = ''
-  searchForm.tNo = ''
+  searchForm.TName = ''
   searchForm.CarStatus = ''
   searchForm.minPrice = undefined
   searchForm.maxPrice = undefined
@@ -871,7 +869,7 @@ const handleTypeDelete = (row) => {
     cancelButtonText: '取消'
   }).then(async () => {
     try {
-      await deleteCarType(row.TNo || row.tno)
+      await deleteCarType(row.TNo || row.tno, row.TName || row.tname)
       ElMessage.success('删除成功')
       fetchCarTypes()
     } catch (error) {
@@ -899,46 +897,27 @@ const handleTypeSubmit = async () => {
   await typeFormRef.value.validate(async (valid) => {
     if (valid) {
       try {
-        let updatedType
         if (isTypeEdit.value) {
-          // 更新车型（现在以 tNo 作为主键）
-          updatedType = await updateCarType(typeFormData.TNo, {
-            tName: typeFormData.TName,
+          // 更新车型
+          await updateCarType(typeFormData.TNo, typeFormData.TName, {
+            tno: typeFormData.TNo,
+            tname: typeFormData.TName,
             rentRate: typeFormData.RentRate
           })
           ElMessage.success('修改成功')
         } else {
-           // 创建新车型
-           updatedType = await createCarType({
-             tno: typeFormData.TNo,
-             tname: typeFormData.TName,
-             rentRate: typeFormData.RentRate
-           })
-           ElMessage.success('新增成功')
-         }
-
+          // 创建新车型
+          await createCarType({
+            tno: typeFormData.TNo,
+            tname: typeFormData.TName,
+            rentRate: typeFormData.RentRate
+          })
+          ElMessage.success('新增成功')
+        }
+        
         typeDialogVisible.value = false
         // 先刷新车型列表，确保下拉/本地缓存是最新的
         await fetchCarTypes()
-        // 如果后端返回了 updatedType（create/update 响应），在本地 tableData 中立即同步匹配的车辆行，
-        // 以确保 UI 不依赖于后端分页缓存延迟
-        try {
-          if (updatedType) {
-            const canonicalTNo = updatedType.tNo || updatedType.TNo || typeFormData.TNo
-            const canonicalTName = updatedType.tName || updatedType.TName || typeFormData.TName
-            const canonicalRent = updatedType.rentRate || updatedType.RentRate || typeFormData.RentRate
-            tableData.value.forEach(row => {
-              if (row && (row.TNo === canonicalTNo || row.TName === canonicalTName)) {
-                row.TNo = canonicalTNo
-                row.TName = canonicalTName
-                row.RentRate = (canonicalRent !== undefined && canonicalRent !== null) ? Number(canonicalRent) : row.RentRate
-              }
-            })
-          }
-        } catch (syncErr) {
-          console.warn('Failed to sync local tableData after type change:', syncErr)
-        }
-
         // 再刷新车辆列表，保证任何使用车型信息（TName/RentRate）的地方得到最新数据
         try {
           await fetchCars()
@@ -1028,10 +1007,7 @@ const handleDialogSubmit = async (formData) => {
         ElMessage.success('车辆信息更新成功')
       } catch (err) {
         console.error('updateCar failed:', err)
-        // 友好地在 UI 中显示错误并返回
-        const msg = (err && err.response && err.response.data && (err.response.data.message || err.response.data.details)) || err.message || '更新车辆失败'
-        ElMessage.error(msg)
-        return
+        throw err
       }
     } else {
        // 创建车辆
@@ -1230,13 +1206,13 @@ const handleTypeCurrentChange = (val) => {
 
 .car-management {
   padding: 0;
-
+  
   .section-divider {
     height: 40px;
     margin: 20px 0;
     border-top: 1px dashed rgba(0,0,0,0.1);
     position: relative;
-
+    
     &::after {
       content: '•••';
       position: absolute;
@@ -1269,7 +1245,7 @@ const handleTypeCurrentChange = (val) => {
     backdrop-filter: blur(20px); /* Blur effect */
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.02);
     overflow: hidden;
-
+    
     :deep(.el-card__body) {
       padding: 32px; /* Increased padding to match others */
     }
@@ -1283,13 +1259,13 @@ const handleTypeCurrentChange = (val) => {
     flex-wrap: wrap;
     gap: 16px;
     padding: 8px 4px; /* Add some breathing room */
-
+    
     .search-form {
       display: flex;
       flex-wrap: wrap;
       gap: 16px; /* Increased gap */
       align-items: center;
-
+      
       :deep(.el-form-item) {
         margin-bottom: 0;
         margin-right: 0;
@@ -1297,7 +1273,7 @@ const handleTypeCurrentChange = (val) => {
 
       .search-input {
         width: 220px;
-
+        
         :deep(.el-input__wrapper) {
           border-radius: 50px; /* Pill shape */
           background: rgba(248, 250, 252, 0.8);
@@ -1305,12 +1281,12 @@ const handleTypeCurrentChange = (val) => {
           border: 1px solid transparent;
           transition: all 0.3s;
           padding-left: 16px;
-
+          
           &:hover {
             background: white;
             box-shadow: 0 4px 12px rgba(0,0,0,0.05);
           }
-
+          
           &.is-focus {
             background: white;
             box-shadow: 0 4px 12px rgba(64, 158, 255, 0.15);
@@ -1325,23 +1301,103 @@ const handleTypeCurrentChange = (val) => {
         background: rgba(248, 250, 252, 0.8);
         box-shadow: none;
         border: 1px solid transparent;
+        
+        &:hover {
+          background: white;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+        
+        &.is-focus {
+          box-shadow: 0 4px 12px rgba(64, 158, 255, 0.15);
+        }
       }
 
-    } /* end .search-form */
+      /* General Button Styling (Reset & Search) */
+      :deep(.el-button) {
+        border-radius: 50px;
+        padding: 8px 24px;
+        font-weight: 500;
+        transition: all 0.3s;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        
+        &:hover {
+          transform: translateY(-2px);
+        }
+      }
 
-  } /* end .search-bar */
+      .search-btn {
+        background: linear-gradient(135deg, #409eff 0%, #3b82f6 100%);
+        border: none;
+        box-shadow: 0 4px 12px rgba(64, 158, 255, 0.3);
+        letter-spacing: 1px;
+        color: white;
+        display: flex;
+        align-items: center;
+        gap: 6px;
 
+        &:hover {
+          box-shadow: 0 6px 16px rgba(64, 158, 255, 0.4);
+        }
+      }
+    }
 
-  /* Restored UI styles for car table and badges */
-  :deep(.el-table__row) {
-    transition: all 0.3s;
+    .add-btn {
+      border-radius: 50px;
+      padding: 10px 24px;
+      background: linear-gradient(135deg, #10b981, #059669); /* Green for Add action */
+      border: none;
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
 
-    &:hover {
-      background-color: rgba(255, 255, 255, 0.6) !important;
-      transform: scale(1.002);
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
+        background: linear-gradient(135deg, #34d399, #059669);
+      }
+    }
+  }
 
-      td.el-table__cell {
+  /* 现代表格样式优化 */
+  .modern-table {
+    background-color: transparent !important;
+    --el-table-border-color: transparent;
+    --el-table-header-bg-color: transparent;
+    --el-table-tr-bg-color: transparent;
+    
+    &::before { display: none; } /* 去除底部边框线 */
+
+    :deep(th.el-table__cell) {
+      background: transparent;
+      font-weight: 600;
+      color: #64748b;
+      height: 56px;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+      font-size: 13px;
+      letter-spacing: 0.5px;
+    }
+
+    :deep(td.el-table__cell) {
+      border-bottom: 1px solid rgba(0, 0, 0, 0.03);
+      padding: 16px 0;
+      transition: all 0.3s;
+    }
+
+    :deep(.el-table__row) {
+      transition: all 0.3s;
+      
+      &:hover {
         background-color: rgba(255, 255, 255, 0.6) !important;
+        transform: scale(1.002);
+        
+        td.el-table__cell {
+          background-color: rgba(255, 255, 255, 0.6) !important;
+        }
       }
     }
   }
@@ -1358,7 +1414,7 @@ const handleTypeCurrentChange = (val) => {
     font-family: 'Monaco', 'Consolas', monospace;
     font-weight: bold;
     font-size: 14px;
-
+    
     &.green-plate {
       background: #00b578; /* 新能源绿 */
     }
@@ -1407,7 +1463,7 @@ const handleTypeCurrentChange = (val) => {
     border-radius: 12px;
     font-size: 13px;
     font-weight: 500;
-
+    
     .dot {
       width: 6px;
       height: 6px;
@@ -1420,13 +1476,13 @@ const handleTypeCurrentChange = (val) => {
       color: #67c23a;
       .dot { background: #67c23a; }
     }
-
+    
     &.status-danger {
       background: #fef0f0;
       color: #f56c6c;
       .dot { background: #f56c6c; }
     }
-
+    
     &.status-warning {
       background: #fdf6ec;
       color: #e6a23c;
@@ -1439,6 +1495,5 @@ const handleTypeCurrentChange = (val) => {
     display: flex;
     justify-content: flex-end;
   }
-
-} /* end .car-management */
+}
 </style>
