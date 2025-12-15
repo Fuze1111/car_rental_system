@@ -217,13 +217,15 @@ const fetchCarTypes = async () => {
   try {
     // 从后端获取车型列表，兼容后端返回字段大小写（TNo/TName 或 tNo/tName）
     const resp = await getCarTypes()
-    // 后端可能返回数组或封装对象（如 content）
-    const list = Array.isArray(resp) ? resp : (resp && resp.content) ? resp.content : []
-    carTypes.value = list.map(item => ({
-      TNo: item.TNo || item.tNo || item.tno || '',
-      TName: item.TName || item.tName || item.tname || '',
-      RentRate: item.rentRate || item.RentRate || null
+    // 后端可能返回数组或封装对象（如 content 或 value）
+    const list = Array.isArray(resp) ? resp : (resp && (resp.content || resp.value) ? (resp.content || resp.value) : [])
+    const mapped = (list || []).map(item => ({
+      TNo: item.TNo || item.tNo || item.tno || item.t_no || '',
+      TName: item.TName || item.tName || item.tname || item.t_name || '',
+      RentRate: item.rentRate || item.RentRate || item.Rent || null
     }))
+    carTypes.value = mapped
+    console.debug('CarDialog fetched carTypes:', mapped)
   } catch (error) {
     console.error('获取车型列表失败:', error)
     ElMessage.error('获取车型列表失败')
@@ -357,6 +359,10 @@ const handleSubmit = async () => {
           runHour: formData.RunHour
         }
         console.debug('CarDialog final submitData:', submitData)
+        // 额外打印方便问题排查
+        if (!submitData.tNo && !submitData.tName) {
+          console.warn('CarDialog submit missing both tNo and tName, current formData:', JSON.parse(JSON.stringify(formData)), 'available carTypes:', carTypes.value)
+        }
          emit('submit', submitData)
          handleClose()
        }, 500)

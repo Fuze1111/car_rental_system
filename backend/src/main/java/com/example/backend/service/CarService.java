@@ -19,6 +19,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * 车辆信息管理服务类
  * 提供车辆信息的业务逻辑处理
@@ -26,6 +29,8 @@ import java.util.stream.Collectors;
 @Service
 @Transactional
 public class CarService {
+
+    private static final Logger logger = LoggerFactory.getLogger(CarService.class);
 
     @Autowired
     private CarRepository carRepository;
@@ -76,6 +81,7 @@ public class CarService {
      * @return 创建的车辆信息
      */
     public CarResponseDTO createCar(CarRequestDTO carRequestDTO) {
+        logger.info("createCar payload: {}", carRequestDTO);
         // 检查车牌号是否已存在
         if (carRepository.existsById(carRequestDTO.getCarId())) {
             throw new RuntimeException("车牌号已存在: " + carRequestDTO.getCarId());
@@ -84,6 +90,11 @@ public class CarService {
         // 验证并回填车型信息：如果只提供了 tNo 或 tName，尝试回填另一项
         String tNo = carRequestDTO.getTNo();
         String tName = carRequestDTO.getTName();
+
+        if ((tNo == null || tNo.isBlank()) && (tName == null || tName.isBlank())) {
+            throw new RuntimeException("创建车辆时车型不能为空，请提供 tNo 或 tName");
+        }
+
         if (tNo != null && tName != null) {
             carTypeRepository.findByTNoAndTName(tNo, tName)
                     .orElseThrow(() -> new RuntimeException("车型不存在: " + tNo + "/" + tName));
@@ -91,17 +102,58 @@ public class CarService {
             List<com.example.backend.entity.CarType> found = carTypeRepository.findByTNoQuery(tNo);
             if (found == null || found.isEmpty()) throw new RuntimeException("车型不存在: tNo=" + tNo);
             carRequestDTO.setTName(found.get(0).getTName());
+            logger.info("createCar auto-filled tName={} for tNo={}", found.get(0).getTName(), tNo);
         } else if (tName != null && (tNo == null || tNo.isBlank())) {
             // 尝试按 tName 查找所有匹配的车型并回填 tNo（取第一个匹配项）
             List<com.example.backend.entity.CarType> matches = carTypeRepository.findByTNameQuery(tName);
             if (matches != null && !matches.isEmpty()) {
                 carRequestDTO.setTNo(matches.get(0).getTNo());
+                logger.info("createCar auto-filled tNo={} for tName={}", matches.get(0).getTNo(), tName);
             }
         }
 
         Car car = convertToEntity(carRequestDTO);
         Car savedCar = carRepository.save(car);
-        return convertToResponseDTO(savedCar);
+        logger.info("createCar saved: {}", savedCar);
+
+        // Post-save sanity: if persisted entity missing tNo or tName, try to backfill from carType or request
+        Car persisted = carRepository.findById(savedCar.getCarId()).orElse(savedCar);
+        boolean changed = false;
+        if ((persisted.getTNo() == null || persisted.getTNo().isBlank()) && (carRequestDTO.getTNo() != null && !carRequestDTO.getTNo().isBlank())) {
+            persisted.setTNo(carRequestDTO.getTNo());
+            changed = true;
+            logger.warn("createCar post-fill: set TNo from request: {}", carRequestDTO.getTNo());
+        }
+        if ((persisted.getTName() == null || persisted.getTName().isBlank()) && (carRequestDTO.getTName() != null && !carRequestDTO.getTName().isBlank())) {
+            persisted.setTName(carRequestDTO.getTName());
+            changed = true;
+            logger.warn("createCar post-fill: set TName from request: {}", carRequestDTO.getTName());
+        }
+        // If still missing one side, try lookup by the other side
+        if ((persisted.getTName() == null || persisted.getTName().isBlank()) && persisted.getTNo() != null && !persisted.getTNo().isBlank()) {
+            List<com.example.backend.entity.CarType> found = carTypeRepository.findByTNoQuery(persisted.getTNo());
+            if (found != null && !found.isEmpty()) {
+                persisted.setTName(found.get(0).getTName());
+                changed = true;
+                logger.warn("createCar post-fill: set TName from CarType for TNo {} => {}", persisted.getTNo(), found.get(0).getTName());
+            }
+        }
+        if ((persisted.getTNo() == null || persisted.getTNo().isBlank()) && persisted.getTName() != null && !persisted.getTName().isBlank()) {
+            List<com.example.backend.entity.CarType> matches = carTypeRepository.findByTNameQuery(persisted.getTName());
+            if (matches != null && !matches.isEmpty()) {
+                persisted.setTNo(matches.get(0).getTNo());
+                changed = true;
+                logger.warn("createCar post-fill: set TNo from CarType for TName {} => {}", persisted.getTName(), matches.get(0).getTNo());
+            }
+        }
+
+        if (changed) {
+            Car resaved = carRepository.save(persisted);
+            logger.info("createCar post-saved after backfill: {}", resaved);
+            return convertToResponseDTO(resaved);
+        }
+
+        return convertToResponseDTO(persisted);
     }
 
     /**
@@ -111,28 +163,47 @@ public class CarService {
      * @return 更新后的车辆信息
      */
     public CarResponseDTO updateCar(String carId, CarRequestDTO carRequestDTO) {
+        logger.info("updateCar called for {} payload: {}", carId, carRequestDTO);
         Car existingCar = carRepository.findById(carId)
                 .orElseThrow(() -> new RuntimeException("车辆不存在: " + carId));
 
         // 验证车型是否存在并回填缺失字段
         String tNo = carRequestDTO.getTNo();
         String tName = carRequestDTO.getTName();
+
+        // Keep resolved values in local vars to avoid accidental null overrides
+        String resolvedTNo = tNo;
+        String resolvedTName = tName;
+
         if (tNo != null && tName != null) {
+            // both provided: validate pair exists
             carTypeRepository.findByTNoAndTName(tNo, tName)
                     .orElseThrow(() -> new RuntimeException("车型不存在: " + tNo + "/" + tName));
+            logger.info("updateCar validated tNo/tName pair {} / {}", tNo, tName);
         } else if (tNo != null && (tName == null || tName.isBlank())) {
             List<com.example.backend.entity.CarType> found = carTypeRepository.findByTNoQuery(tNo);
             if (found != null && !found.isEmpty()) {
-                carRequestDTO.setTName(found.get(0).getTName());
+                resolvedTName = found.get(0).getTName();
+                // also normalize resolvedTNo from repository result (in case of casing)
+                resolvedTNo = found.get(0).getTNo();
+                carRequestDTO.setTName(resolvedTName);
+                logger.info("updateCar resolved tName={} for tNo={}", resolvedTName, resolvedTNo);
+            } else {
+                // if user provided an explicit tNo that doesn't exist, throw
+                throw new RuntimeException("车型不存在: tNo=" + tNo);
             }
         } else if (tName != null && (tNo == null || tNo.isBlank())) {
+            // Try to find a CarType by name and fill tNo
             List<com.example.backend.entity.CarType> matches = carTypeRepository.findByTNameQuery(tName);
             if (matches != null && !matches.isEmpty()) {
-                carRequestDTO.setTNo(matches.get(0).getTNo());
+                resolvedTNo = matches.get(0).getTNo();
+                resolvedTName = matches.get(0).getTName();
+                carRequestDTO.setTNo(resolvedTNo);
+                logger.info("updateCar resolved tNo={} for tName={}", resolvedTNo, resolvedTName);
             }
         }
 
-        // 更新车辆信息
+        // 更新车辆信息（确保使用解析后的 resolvedTNo/resolvedTName）
         if (carRequestDTO.getPurchaseDate() != null) {
             existingCar.setPurchaseDate(carRequestDTO.getPurchaseDate());
         }
@@ -142,11 +213,11 @@ public class CarService {
         if (carRequestDTO.getCarStatus() != null) {
             existingCar.setCarStatus(carRequestDTO.getCarStatus());
         }
-        if (carRequestDTO.getTNo() != null) {
-            existingCar.setTNo(carRequestDTO.getTNo());
+        if (resolvedTNo != null) {
+            existingCar.setTNo(resolvedTNo);
         }
-        if (carRequestDTO.getTName() != null) {
-            existingCar.setTName(carRequestDTO.getTName());
+        if (resolvedTName != null) {
+            existingCar.setTName(resolvedTName);
         }
         if (carRequestDTO.getRunKm() != null) {
             existingCar.setRunKm(carRequestDTO.getRunKm());
@@ -156,7 +227,11 @@ public class CarService {
         }
 
         Car updatedCar = carRepository.save(existingCar);
-        return convertToResponseDTO(updatedCar);
+        logger.info("updateCar persisted: {}", updatedCar);
+        // reload to ensure all JPA-managed relations are initialized and values persisted
+        Car persisted = carRepository.findById(updatedCar.getCarId()).orElse(updatedCar);
+        logger.info("updateCar after reload tNo/tName: {}/{}", persisted.getTNo(), persisted.getTName());
+        return convertToResponseDTO(persisted);
     }
 
     /**

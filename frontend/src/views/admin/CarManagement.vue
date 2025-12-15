@@ -603,56 +603,86 @@ const fetchCars = async () => {
     // 转换数据格式以适配前端显示（注意后端返回的是小写字段名）
     tableData.value = content.map(car => {
       // Accept multiple naming variants returned by backend
-      const tNo = car.tNo || car.TNo || car.tno || car.TNO || car.t_no || null
-      const tName = car.tName || car.TName || car.tname || car.TNAME || car.t_name || null
+      const tNo = car.tNo || car.TNo || car.tno || car.TNO || car.t_no || car.T_no || null
+      const tName = car.tName || car.TName || car.tname || car.TNAME || car.t_name || car.T_name || null
       // try to find nested car type object under common keys
-      const nestedType = car.carType || car.car_type || car.type || car.carTypeDto || car._embedded?.carType || car.typeInfo || null
-      let rentRate = car.rentRate || (nestedType && (nestedType.rentRate || nestedType.RentRate)) || null
+      const nestedType = car.carType || car.car_type || car.type || car.carTypeDto || car._embedded?.carType || car.typeInfo || car.typeDto || car.carTypeDTO || null
+      let rentRate = car.rentRate || car.RentRate || (nestedType && (nestedType.rentRate || nestedType.RentRate)) || null
+
+      // If rentRate appears as an object (BigDecimal wrapper), unwrap common shapes
+      if (rentRate && typeof rentRate === 'object') {
+        // e.g., { value: '30.00' } or { amount: '30.00' }
+        if (rentRate.value !== undefined) rentRate = rentRate.value
+        else if (rentRate.amount !== undefined) rentRate = rentRate.amount
+      }
 
       // coerce BigDecimal-like strings to number when possible
       if (rentRate !== null && rentRate !== undefined) {
-        // leave as-is if already a number
-        if (typeof rentRate === 'object' && rentRate.hasOwnProperty('value')) {
-          // some serializers wrap BigDecimal as { value: "30.00" }
-          rentRate = rentRate.value
+        if (typeof rentRate === 'string' && rentRate.trim() !== '') {
+          const maybe = Number(rentRate)
+          if (!Number.isNaN(maybe)) rentRate = maybe
         }
       }
 
       // Prefer canonical values from carTypeOptions when available (ensures type edits propagate)
       let finalTName = tName
       let finalRentRate = rentRate
-      if (tNo) {
-        const found = carTypeOptions.value.find(t => t.tNo === tNo || t.tno === tNo)
-        if (found) {
-          // Always prefer the centralized tName/rentRate from carTypeOptions for consistency
-          finalTName = found.tName || found.tname || finalTName
-          finalRentRate = found.rentRate !== undefined && found.rentRate !== null ? found.rentRate : finalRentRate
+      let finalTNo = tNo
+
+      // If nestedType contains tNo/tName, prefer those
+      if (nestedType) {
+        finalTNo = finalTNo || nestedType.tNo || nestedType.TNo || nestedType.tno || nestedType.t_no || null
+        finalTName = finalTName || nestedType.tName || nestedType.TName || nestedType.tname || nestedType.name || null
+        if (finalRentRate === null || finalRentRate === undefined) {
+          finalRentRate = nestedType.rentRate || nestedType.RentRate || null
         }
       }
 
-      // If still missing, try to pull from nestedType's tNo/tName
-      if ((!finalTName || finalTName === '') && nestedType) {
-        finalTName = finalTName || nestedType.tName || nestedType.TName || nestedType.tname || nestedType.name || null
-        if (!finalRentRate) finalRentRate = nestedType.rentRate || nestedType.RentRate || null
+      if (finalTNo) {
+        const found = carTypeOptions.value.find(t => (t.tNo || t.tno) === finalTNo || (t.tNo || t.tno) === (finalTNo && finalTNo.toString()))
+        if (found) {
+          finalTName = found.tName || found.tname || finalTName
+          finalRentRate = (found.rentRate !== undefined && found.rentRate !== null) ? found.rentRate : finalRentRate
+          finalTNo = found.tNo || found.tno || finalTNo
+        }
       }
 
-      // Final fallback: if both tNo and tName missing, log this row for debugging
-      if ((!tNo || tNo === '') && (!finalTName || finalTName === '')) {
+      // Final fallback: try to lookup by name
+      if ((!finalTNo || finalTNo === '') && finalTName) {
+        const foundByName = carTypeOptions.value.find(t => (t.tName || t.tname) === finalTName || (t.tName || t.tname) === (finalTName && finalTName.toString()))
+        if (foundByName) {
+          finalTNo = foundByName.tNo || foundByName.tno
+          finalRentRate = finalRentRate || foundByName.rentRate
+        }
+      }
+
+      // If still missing, try to inspect raw payload for common nested shapes
+      if ((!finalTNo || finalTNo === '') && (!finalTName || finalTName === '')) {
+        const raw = car || {}
+        // common shapes
+        const alt = raw.carTypeDto || raw.carTypeDTO || raw.typeInfo || raw.type || raw.car_type || raw._embedded?.carType
+        if (alt) {
+          finalTNo = finalTNo || alt.tNo || alt.TNo || alt.tno || null
+          finalTName = finalTName || alt.tName || alt.TName || alt.tname || alt.name || null
+          finalRentRate = finalRentRate || alt.rentRate || alt.RentRate || null
+        }
+      }
+
+      // Final fallback logging for debugging
+      if ((!finalTNo || finalTNo === '') && (!finalTName || finalTName === '')) {
         console.warn('Car row missing both tNo and tName:', car)
+        try {
+          console.debug('Car raw keys:', Object.keys(car || {}))
+        } catch (e) {
+          console.debug('Car raw (unable to list keys)', car)
+        }
       }
 
-      // If rentRate still missing, as a fallback try lookup by tName
-      if ((finalRentRate === null || finalRentRate === undefined) && finalTName) {
-         const foundByName = carTypeOptions.value.find(t => t.tName === finalTName || t.tname === finalTName)
-         if (foundByName) finalRentRate = foundByName.rentRate
-       }
-
-      // normalize numeric/text fields
       const normalizedRent = (finalRentRate === null || finalRentRate === undefined) ? null : (typeof finalRentRate === 'number' ? finalRentRate : Number(finalRentRate))
 
       return {
         CarID: car.carId || car.CarID || car.carID || car.CarId,
-        TNo: tNo || (nestedType && (nestedType.tNo || nestedType.TNo || nestedType.tno)) || null,
+        TNo: finalTNo || null,
         TName: finalTName || null,
         RentRate: normalizedRent,
         CarStatus: car.carStatus || car.CarStatus,
@@ -713,13 +743,15 @@ const fetchCarTypes = async () => {
   try {
     const response = await getCarTypes()
     console.debug('GET /api/car-types response raw:', response)
-    // backend now returns CarTypeDTO { tNo, tName, rentRate, imageUrl }
-    const allTypes = (response || []).map(type => ({
-      tno: type.tNo || type.tno,
-      tname: type.tName || type.tname,
-      rentRate: type.rentRate,
-      // normalize any relative backend path to absolute URL so <img> can load it from the backend
-      imageUrl: normalizeImageUrl(type.imageUrl || type.Image || type.imageUrl)
+    // backend may return an array directly or wrap it as { value: [...], Count: N }
+    const payload = Array.isArray(response) ? response : (response && response.value ? response.value : [])
+
+    // backend may use lowercase keys (tno/tname) or camelCase (tNo/tName)
+    const allTypes = (payload || []).map(type => ({
+      tno: type.tNo || type.tno || type.TNo || type.TNO || type.t_no || '',
+      tname: type.tName || type.tname || type.TName || type.TNAME || type.t_name || '',
+      rentRate: type.rentRate || type.RentRate || type.Rent || null,
+      imageUrl: normalizeImageUrl(type.imageUrl || type.Image || type.image || '')
     }))
 
     // 用于车辆搜索下拉的完整选项（保持原样）
@@ -787,20 +819,41 @@ const handleAdd = () => {
   dialogVisible.value = true
 }
 
-const handleEdit = (row) => {
-  // 直接设置编辑数据（无需额外中间变量）
-  currentEditData.value = {
-    CarID: row.CarID,
-    TNo: row.TNo,
-    TName: row.TName,
-    rentRate: row.rentRate,
-    Price: row.Price,
-    PurchaseDate: row.PurchaseDate,
-    CarStatus: row.CarStatus,
-    RUNKM: row.RUNKM,
-    RunHour: row.RunHour
+const handleEdit = async (row) => {
+  // Before opening the edit dialog, ensure we have the complete latest detail from backend
+  try {
+    loading.value = true
+    // attempt to fetch full detail for this car to avoid missing tNo/tName
+    const detail = await getCarById(row.CarID || row.CarId || row.carId)
+    if (detail) {
+      // normalize fields similar to fetchCars mapping
+      const tNo = detail.tNo || detail.TNo || detail.tno || null
+      const tName = detail.tName || detail.TName || detail.tname || null
+      const rentRate = detail.rentRate || detail.RentRate || (detail.carType && (detail.carType.rentRate || detail.carType.RentRate)) || null
+
+      currentEditData.value = {
+        CarID: detail.carId || detail.CarID || detail.carId || row.CarID,
+        TNo: tNo,
+        TName: tName,
+        RentRate: (rentRate !== undefined && rentRate !== null) ? Number(rentRate) : null,
+        Price: detail.price || detail.Price || row.Price,
+        PurchaseDate: detail.purchaseDate || detail.PurchaseDate || row.PurchaseDate,
+        RUNKM: detail.runKm || detail.RUNKM || row.RUNKM,
+        RunHour: detail.runHour || detail.RunHour || row.RunHour,
+        CarStatus: detail.carStatus || detail.CarStatus || row.CarStatus,
+        _raw: detail
+      }
+    } else {
+      // fallback to the row we had
+      currentEditData.value = row
+    }
+  } catch (err) {
+    console.warn('Failed to fetch car detail before edit, falling back to row:', err)
+    currentEditData.value = row
+  } finally {
+    loading.value = false
+    dialogVisible.value = true
   }
-  dialogVisible.value = true
 }
 
 const handleMaintenance = (row) => {
@@ -967,6 +1020,20 @@ const handleDialogSubmit = async (formData) => {
       runHour: (formData.RunHour !== undefined ? formData.RunHour : formData.runHour)
     }
 
+    // Ensure we always send a tNo (primary key) to backend when possible. If not provided,
+    // try to resolve from tName using loaded carTypeOptions; if still unresolved, load types from backend.
+    if ((!carDTO.tNo || carDTO.tNo === '') && carDTO.tName) {
+      let found = carTypeOptions.value.find(t => (t.tName || t.tname) === carDTO.tName || (t.tName || t.tname) === (carDTO.tName && carDTO.tName.toString()))
+      if (!found) {
+        // try to refresh car types once
+        try {
+          await fetchCarTypes()
+          found = carTypeOptions.value.find(t => (t.tName || t.tname) === carDTO.tName || (t.tName || t.tname) === (carDTO.tName && carDTO.tName.toString()))
+        } catch (e) { /* ignore */ }
+      }
+      if (found) carDTO.tNo = found.tNo || found.tno
+    }
+
     // 前端校验：必填字段
     if (!carDTO.carId || carDTO.carId.toString().trim() === '') {
       ElMessage.error('车牌号为必填项')
@@ -980,7 +1047,7 @@ const handleDialogSubmit = async (formData) => {
 
     // 如果提供了 tNo，但 tName 为空或不可信，尝试从已加载的车型选项中填充标准 tName（避免后端严格校验失败）
     if (carDTO.tNo && (!carDTO.tName || carDTO.tName === '')) {
-      const found = carTypeOptions.value.find(t => t.tNo === carDTO.tNo)
+      const found = carTypeOptions.value.find(t => t.tNo === carDTO.tNo || t.tno === carDTO.tNo)
       if (found) {
         carDTO.tName = found.tName || found.tname || found.TName || found.tName
       }
@@ -1003,34 +1070,21 @@ const handleDialogSubmit = async (formData) => {
     console.debug('Creating/updating car with payload (clean):', payload)
 
     if (currentEditData.value) {
-      // 更新车辆：构建完整的更新对象，由原始记录（currentEditData）开始，payload 覆盖其中的字段，保证 tNo/tName 等不会被遗漏
+      // 更新车辆：直接使用清洗后的 payload 提交给后端，确保包含 carId/tNo/tName
       try {
-        const original = (currentEditData.value && (currentEditData.value._raw || currentEditData.value)) || currentEditData.value
-
-        const fullUpdate = {
-          carId: (original.CarID || original.carId || payload.carId || formData.CarID || formData.carId),
-          tNo: original.TNo || original.tNo || original.tno || payload.tNo || null,
-          tName: original.TName || original.tName || original.tname || payload.tName || null,
-          price: (original.Price !== undefined && original.Price !== null) ? original.Price : (original.price || payload.price || null),
-          purchaseDate: original.PurchaseDate || original.purchaseDate || payload.purchaseDate || null,
-          carStatus: (original.CarStatus || original.carStatus) || payload.carStatus || null,
-          runKm: (original.RUNKM !== undefined && original.RUNKM !== null) ? original.RUNKM : (original.runKm || payload.runKm || null),
-          runHour: (original.RunHour !== undefined && original.RunHour !== null) ? original.RunHour : (original.runHour || payload.runHour || null)
+        const targetId = payload.carId || (currentEditData.value && (currentEditData.value.CarID || currentEditData.value.carId))
+        if (!targetId) {
+          ElMessage.error('无法确定要更新的车辆 ID')
+          return
         }
-
-        // 覆盖任何来自表单的新值
-        Object.assign(fullUpdate, payload)
-
-        const targetId = fullUpdate.carId || payload.carId || (currentEditData.value && (currentEditData.value.CarID || currentEditData.value.carId)) || formData.CarID || formData.carId
-        console.debug('Updating car id:', targetId, 'with merged payload:', fullUpdate)
-        const resp = await updateCar(targetId, fullUpdate)
+        console.debug('Updating car id:', targetId, 'with payload:', payload)
+        const resp = await updateCar(targetId, payload)
         console.debug('updateCar response:', resp)
         ElMessage.success('车辆信息更新成功')
       } catch (err) {
         console.error('updateCar failed:', err)
-        // 友好地在 UI 中显示错误并返回
-        const msg = (err && err.response && err.response.data && (err.response.data.message || err.response.data.details)) || err.message || '更新车辆失败'
-        ElMessage.error(msg)
+        const msg = (err && err.response && err.response.data && (err.response.data.message || err.response.data.details)) || (err && err.message) || '更新车辆失败'
+        ElMessage.error('更新失败: ' + msg)
         return
       }
     } else {
