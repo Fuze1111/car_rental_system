@@ -19,7 +19,7 @@
           <el-dropdown trigger="click" @command="handleCommand">
             <div class="user-profile">
               <el-avatar :size="32" src="https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png" class="avatar" />
-              <span class="username">王师傅</span>
+              <span class="username">{{ driverName }}</span>
             </div>
             <template #dropdown>
               <el-dropdown-menu class="custom-dropdown">
@@ -48,17 +48,29 @@
 </template>
 
 <script setup>
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessageBox, ElMessage } from 'element-plus'
+import { getUserInfo } from '@/utils/auth'
 
 const router = useRouter()
+const driverName = ref('司机')
+
+// 获取司机名字
+onMounted(() => {
+  const userInfo = getUserInfo()
+  if (userInfo && userInfo.userName) {
+    driverName.value = userInfo.userName
+  }
+})
 
 const handleCommand = (command) => {
   if (command === 'logout') {
-    ElMessageBox.confirm('确定要退出登录吗?', '提示', {
-      confirmButtonText: '确定',
+    ElMessageBox.confirm('确定要退出登录吗?', '退出确认', {
+      confirmButtonText: '确定退出',
       cancelButtonText: '取消',
-      type: 'warning'
+      type: 'warning',
+      customClass: 'modern-message-box'
     }).then(() => {
       ElMessage.success('已退出登录')
       router.push('/login')

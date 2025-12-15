@@ -3,9 +3,11 @@ package com.example.backend.service;
 import com.example.backend.dto.RentalRequestDTO;
 import com.example.backend.dto.RentalResponseDTO;
 import com.example.backend.entity.Car;
+import com.example.backend.entity.CarType;
 import com.example.backend.entity.Driver;
 import com.example.backend.entity.Rental;
 import com.example.backend.repository.CarRepository;
+import com.example.backend.repository.CarTypeRepository;
 import com.example.backend.repository.DriverRepository;
 import com.example.backend.repository.RentalRepository;
 import com.example.backend.repository.CustomerRepository;
@@ -43,6 +45,9 @@ public class RentalService {
 
     @Autowired
     private CarRepository carRepository;
+
+    @Autowired
+    private CarTypeRepository carTypeRepository;
 
     /**
      * 获取所有租赁记录
@@ -637,6 +642,11 @@ public class RentalService {
                 if (car.getTName() != null) {
                     dto.setCarType(car.getTName());
                     dto.setCarBrand(car.getTName()); // Car实体中用tName表示车型/品牌
+                }
+                // 获取车型的租金率
+                if (car.getTNo() != null && car.getTName() != null) {
+                    carTypeRepository.findById(new CarType.CarTypeId(car.getTNo(), car.getTName()))
+                        .ifPresent(carType -> dto.setRentRate(carType.getRentRate()));
                 }
             });
         }

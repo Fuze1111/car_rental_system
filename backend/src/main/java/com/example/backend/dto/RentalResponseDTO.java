@@ -91,4 +91,9 @@ public class RentalResponseDTO {
      * 车辆品牌（关联信息）
      */
     private String carBrand;
+
+    /**
+     * 租金率（元/小时），用于前端实时计算基本费用
+     */
+    private BigDecimal rentRate;
 }

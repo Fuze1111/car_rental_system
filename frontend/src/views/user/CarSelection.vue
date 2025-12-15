@@ -78,7 +78,7 @@
                 <div class="car-price">
                   <span class="currency">¥</span>
                   <span class="amount">{{ car.price }}</span>
-                  <span class="unit">/日</span>
+                  <span class="unit">/小时</span>
                 </div>
               </div>
               
@@ -472,7 +472,7 @@ const loadCars = async () => {
         brand: carInfo.brand,
         model: carInfo.model,
         type: typeName || '轿车',
-        price: carType.rentRate ? Number(carType.rentRate) * 8 : 200, // 租金率转换为日租金
+        price: carType.rentRate ? Number(carType.rentRate) : 30, // 直接使用租金率（元/小时）
         seats: carInfo.seats,
         transmission: carInfo.transmission,
         fuel: carInfo.fuel,

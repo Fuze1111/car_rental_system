@@ -252,6 +252,38 @@ public class AuthService {
     }
 
     /**
+     * 客户修改密码
+     * @param request 修改密码请求
+     * @return 成功消息
+     */
+    @Transactional
+    public String changeCustomerPassword(ChangePasswordRequest request) {
+        // 查找客户登录信息
+        Optional<CustomerLogin> customerLoginOpt = customerLoginRepository.findById(request.getUserId());
+        if (!customerLoginOpt.isPresent()) {
+            throw new IllegalArgumentException("客户不存在");
+        }
+        
+        CustomerLogin customerLogin = customerLoginOpt.get();
+        
+        // 验证当前密码
+        if (!PasswordUtil.matches(request.getCurrentPassword(), customerLogin.getPassword())) {
+            throw new IllegalArgumentException("当前密码不正确");
+        }
+        
+        // 验证新密码不能与当前密码相同
+        if (request.getCurrentPassword().equals(request.getNewPassword())) {
+            throw new IllegalArgumentException("新密码不能与当前密码相同");
+        }
+        
+        // 更新密码
+        customerLogin.setPassword(PasswordUtil.encode(request.getNewPassword()));
+        customerLoginRepository.save(customerLogin);
+        
+        return "密码修改成功";
+    }
+
+    /**
      * 管理员修改密码
      * @param request 修改密码请求
      * @return 成功消息

@@ -77,6 +77,11 @@ public class CustomerService {
 
         Customer customer = convertToEntity(customerRequestDTO);
         Customer savedCustomer = customerRepository.save(customer);
+        System.out.println("========== 创建客户信息 ==========");
+        System.out.println("客户号: " + customerRequestDTO.getCNo());
+        System.out.println("请求数据: " + customerRequestDTO);
+        System.out.println("保存后的客户信息: " + savedCustomer);
+        System.out.println("========== 创建完成 ==========");
         return convertToResponseDTO(savedCustomer);
     }
 
@@ -87,11 +92,18 @@ public class CustomerService {
      * @return 更新后的客户信息
      */
     public CustomerResponseDTO updateCustomer(String cNo, CustomerRequestDTO customerRequestDTO) {
+        System.out.println("========== 更新客户信息 ==========");
+        System.out.println("客户号: " + cNo);
+        System.out.println("请求数据: " + customerRequestDTO);
+
         Customer existingCustomer = customerRepository.findById(cNo)
                 .orElseThrow(() -> new RuntimeException("客户不存在: " + cNo));
 
+        System.out.println("原始姓名: " + existingCustomer.getCName());
+
         // 更新客户信息
         if (customerRequestDTO.getCName() != null) {
+            System.out.println("更新姓名为: " + customerRequestDTO.getCName());
             existingCustomer.setCName(customerRequestDTO.getCName());
         }
         if (customerRequestDTO.getCompany() != null) {
@@ -108,6 +120,9 @@ public class CustomerService {
         }
 
         Customer updatedCustomer = customerRepository.save(existingCustomer);
+        System.out.println("保存后的姓名: " + updatedCustomer.getCName());
+        System.out.println("========== 更新完成 ==========");
+
         return convertToResponseDTO(updatedCustomer);
     }
 

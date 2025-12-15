@@ -1,7 +1,9 @@
 package com.example.backend.service;
 
 import com.example.backend.dto.CarTypeDTO;
+import com.example.backend.entity.Car;
 import com.example.backend.entity.CarType;
+import com.example.backend.repository.CarRepository;
 import com.example.backend.repository.CarTypeRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,16 +24,35 @@ public class CarTypeService {
     @Autowired
     private CarTypeRepository carTypeRepository;
 
+    @Autowired
+    private CarRepository carRepository;
+
     /**
      * 获取所有车型信息（包含图片URL）
+     * 只返回有可用车辆（carStatus='0'）的车型
      *
      * @return 车型DTO列表
      */
     public List<CarTypeDTO> getAllCarTypes() {
         List<CarType> carTypes = carTypeRepository.findAll();
+        
+        // 过滤掉没有可用车辆的车型
         return carTypes.stream()
+                .filter(carType -> hasAvailableCars(carType.getTNo(), carType.getTName()))
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
+    }
+    
+    /**
+     * 检查指定车型是否有可用车辆
+     * @param tNo 车型编号
+     * @param tName 车型名称
+     * @return true if 有可用车辆，false otherwise
+     */
+    private boolean hasAvailableCars(String tNo, String tName) {
+        // 查询该车型下状态为'0'（可租）的车辆
+        List<Car> availableCars = carRepository.findByMultipleConditions("0", tNo, tName);
+        return !availableCars.isEmpty();
     }
     
     /**

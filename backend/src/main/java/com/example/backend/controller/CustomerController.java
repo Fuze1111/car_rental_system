@@ -80,6 +80,12 @@ public class CustomerController {
      */
     @PostMapping
     public ResponseEntity<CustomerResponseDTO> createCustomer(@RequestBody CustomerRequestDTO customerRequestDTO) {
+        System.out.println("========== Controller 接收到的数据 ==========");
+        System.out.println("RequestBody DTO: " + customerRequestDTO);
+        System.out.println("DTO.getCName(): " + customerRequestDTO.getCName());
+        System.out.println("DTO.getCNo(): " + customerRequestDTO.getCNo());
+        System.out.println("==========================================");
+        
         CustomerResponseDTO createdCustomer = customerService.createCustomer(customerRequestDTO);
         return ResponseEntity.status(HttpStatus.CREATED).body(createdCustomer);
     }
@@ -95,6 +101,13 @@ public class CustomerController {
     public ResponseEntity<CustomerResponseDTO> updateCustomer(
             @PathVariable String cNo,
             @RequestBody CustomerRequestDTO customerRequestDTO) {
+        System.out.println("========== Controller 接收到的数据 ==========");
+        System.out.println("PathVariable cNo: " + cNo);
+        System.out.println("RequestBody DTO: " + customerRequestDTO);
+        System.out.println("DTO.getCName(): " + customerRequestDTO.getCName());
+        System.out.println("DTO.getCNo(): " + customerRequestDTO.getCNo());
+        System.out.println("==========================================");
+        
         CustomerResponseDTO updatedCustomer = customerService.updateCustomer(cNo, customerRequestDTO);
         return ResponseEntity.ok(updatedCustomer);
     }

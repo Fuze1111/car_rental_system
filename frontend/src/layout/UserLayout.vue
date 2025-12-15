@@ -85,10 +85,11 @@ const bgStyle = computed(() => {
 
 const handleCommand = (command) => {
   if (command === 'logout') {
-    ElMessageBox.confirm('确定要退出登录吗?', '提示', {
-      confirmButtonText: '确定',
+    ElMessageBox.confirm('确定要退出登录吗?', '退出确认', {
+      confirmButtonText: '确定退出',
       cancelButtonText: '取消',
-      type: 'warning'
+      type: 'warning',
+      customClass: 'modern-message-box'
     }).then(() => {
       ElMessage.success('已退出登录')
       router.push('/login')

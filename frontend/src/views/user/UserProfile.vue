@@ -62,8 +62,16 @@
                       </div>
                       <div class="card-footer">
                         <div class="amount-box">
-                          <span class="label">预估金额</span>
-                          <span class="amount estimate">待结算</span>
+                          <div class="fee-breakdown">
+                            <div class="fee-item">
+                              <span class="fee-label">基本费用：</span>
+                              <span class="fee-value">¥{{ calculateBasicFee(order) }}</span>
+                            </div>
+                            <div class="fee-item">
+                              <span class="fee-label">里程费用：</span>
+                              <span class="fee-value pending">待计算</span>
+                            </div>
+                          </div>
                         </div>
                         <el-button link type="primary" @click="openDetail(order)">详情</el-button>
                       </div>
@@ -140,18 +148,27 @@
                     </el-form-item>
                   </el-col>
                   <el-col :span="12">
-                    <el-form-item label="手机号">
-                      <el-input v-model="userForm.phone" />
+                    <el-form-item label="客户号">
+                      <el-input v-model="userForm.id" disabled />
                     </el-form-item>
                   </el-col>
                 </el-row>
 
-                <el-form-item label="电子邮箱">
-                  <el-input v-model="userForm.email" />
-                </el-form-item>
+                <el-row :gutter="24">
+                  <el-col :span="12">
+                    <el-form-item label="手机号">
+                      <el-input v-model="userForm.phone" />
+                    </el-form-item>
+                  </el-col>
+                  <el-col :span="12">
+                    <el-form-item label="邮编">
+                      <el-input v-model="userForm.postCode" />
+                    </el-form-item>
+                  </el-col>
+                </el-row>
 
-                <el-form-item label="驾照号码">
-                  <el-input v-model="userForm.licenseNo" placeholder="请输入驾照号码" />
+                <el-form-item label="所属单位">
+                  <el-input v-model="userForm.company" />
                 </el-form-item>
 
                 <el-form-item label="居住地址">
@@ -164,6 +181,60 @@
                   </el-button>
                 </el-form-item>
               </el-form>
+
+              <!-- 修改密码区域 -->
+              <div class="password-section">
+                <el-divider content-position="left">
+                  <span style="color: #64748b; font-size: 14px; font-weight: 600;">修改密码</span>
+                </el-divider>
+                
+                <el-form :model="passwordForm" :rules="passwordRules" ref="passwordFormRef" label-position="top" class="custom-form">
+                  <el-row :gutter="24">
+                    <el-col :span="24">
+                      <el-form-item label="当前密码" prop="currentPassword">
+                        <el-input v-model="passwordForm.currentPassword" type="password" show-password placeholder="请输入当前密码" />
+                      </el-form-item>
+                    </el-col>
+                  </el-row>
+
+                  <el-row :gutter="24">
+                    <el-col :span="12">
+                      <el-form-item label="新密码" prop="newPassword">
+                        <el-input v-model="passwordForm.newPassword" type="password" show-password placeholder="请输入新密码" />
+                      </el-form-item>
+                    </el-col>
+                    <el-col :span="12">
+                      <el-form-item label="确认新密码" prop="confirmPassword">
+                        <el-input v-model="passwordForm.confirmPassword" type="password" show-password placeholder="请确认新密码" />
+                      </el-form-item>
+                    </el-col>
+                  </el-row>
+
+                  <el-form-item>
+                    <el-button type="warning" round @click="changePassword" :loading="changingPassword" style="padding: 10px 30px">
+                      <el-icon><Lock /></el-icon>
+                      修改密码
+                    </el-button>
+                    <el-button round @click="resetPasswordForm" style="padding: 10px 20px; margin-left: 12px">
+                      重置
+                    </el-button>
+                  </el-form-item>
+                  
+                  <el-alert 
+                    title="密码安全提示" 
+                    type="info" 
+                    :closable="false"
+                    show-icon>
+                    <template #default>
+                      <ul style="margin: 0; padding-left: 16px; font-size: 13px;">
+                        <li>密码长度至少6位</li>
+                        <li>建议包含字母、数字的组合</li>
+                        <li>修改密码后下次登录需使用新密码</li>
+                      </ul>
+                    </template>
+                  </el-alert>
+                </el-form>
+              </div>
             </div>
           </el-tab-pane>
         </el-tabs>
@@ -268,9 +339,10 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { Van, LocationFilled } from '@element-plus/icons-vue'
+import { Van, LocationFilled, Lock } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { getCustomerRentals } from '@/api/rental'
+import { getCustomerInfo, updateCustomerInfo, changeCustomerPassword } from '@/api/customer'
 import { getUserInfo } from '@/utils/auth'
 
 const activeTab = ref('orders')
@@ -280,14 +352,46 @@ const detailVisible = ref(false)
 const currentOrder = ref(null)
 const hasMapKey = ref(false)
 const loading = ref(false)
+const changingPassword = ref(false)
+const passwordFormRef = ref(null)
 
 const userForm = reactive({
-  name: '张三',
-  phone: '13800138000',
-  email: 'zhangsan@example.com',
-  licenseNo: '110101199001011234',
-  address: '北京市朝阳区某某街道123号'
+  id: '',
+  name: '',
+  phone: '',
+  company: '',
+  address: '',
+  postCode: ''
 })
+
+const passwordForm = reactive({
+  currentPassword: '',
+  newPassword: '',
+  confirmPassword: ''
+})
+
+const passwordRules = {
+  currentPassword: [
+    { required: true, message: '请输入当前密码', trigger: 'blur' }
+  ],
+  newPassword: [
+    { required: true, message: '请输入新密码', trigger: 'blur' },
+    { min: 6, message: '密码长度至少6位', trigger: 'blur' }
+  ],
+  confirmPassword: [
+    { required: true, message: '请确认新密码', trigger: 'blur' },
+    {
+      validator: (rule, value, callback) => {
+        if (value !== passwordForm.newPassword) {
+          callback(new Error('两次输入的密码不一致'))
+        } else {
+          callback()
+        }
+      },
+      trigger: 'blur'
+    }
+  ]
+}
 
 // 订单数据
 const allOrders = ref([])
@@ -318,7 +422,7 @@ const loadCustomerOrders = async () => {
         id: rental.invoiceNo,
         invoiceNo: rental.invoiceNo,
         status: isPending ? '进行中' : '已完成',
-        carName: rental.carBrand && rental.carType ? `${rental.carBrand} ${rental.carType}` : (rental.carBrand || rental.carType || '未知车辆'),
+        carName: rental.carType || rental.carBrand || '未知车辆',
         carPlate: rental.carId || '未知车牌',
         CarID: rental.carId,
         startTime: rental.loanDate ? new Date(rental.loanDate).toLocaleString('zh-CN') : '未知',
@@ -331,7 +435,8 @@ const loadCustomerOrders = async () => {
         distance: rental.roundTripDistance || null,
         duration: rental.driveTime || null,
         driverName: rental.driverName || null,
-        DNo: rental.dNo
+        DNo: rental.dNo,
+        rentRate: rental.rentRate || 0
       }
     })
     
@@ -345,6 +450,38 @@ const loadCustomerOrders = async () => {
   } finally {
     loading.value = false
   }
+}
+
+// 计算基本费用（租金率 × 租期小时数）
+const calculateBasicFee = (order) => {
+  if (!order.LoanDate || !order.rentRate) {
+    return '待定'
+  }
+  
+  const startDate = new Date(order.LoanDate)
+  let endDate
+  
+  // 对于进行中的订单，如果有预计还车时间则使用，否则显示待定
+  if (order.status === '进行中') {
+    if (!order.ReturnDate) {
+      return '待定'
+    }
+    endDate = new Date(order.ReturnDate)
+  } else {
+    // 已完成订单使用实际还车时间
+    if (!order.ReturnDate) {
+      return '待定'
+    }
+    endDate = new Date(order.ReturnDate)
+  }
+  
+  // 计算租期小时数
+  const diffMs = endDate - startDate
+  const diffHours = diffMs / (1000 * 60 * 60)
+  
+  // 基本费用 = 租金率（元/小时）× 租期小时数
+  const basicFee = order.rentRate * diffHours
+  return basicFee.toFixed(2)
 }
 
 const openDetail = (order) => {
@@ -443,17 +580,112 @@ const initMap = () => {
   })
 }
 
-const saveProfile = () => {
-  saving.value = true
-  setTimeout(() => {
-    saving.value = false
-    ElMessage.success('个人信息保存成功')
-  }, 800)
+// 加载客户信息
+const loadCustomerInfo = async () => {
+  try {
+    const userInfo = getUserInfo()
+    if (!userInfo || !userInfo.userId) {
+      return
+    }
+    
+    const customerInfo = await getCustomerInfo(userInfo.userId)
+    userForm.id = customerInfo.cNo
+    userForm.name = customerInfo.cName || ''
+    userForm.phone = customerInfo.phone || ''
+    userForm.company = customerInfo.company || ''
+    userForm.address = customerInfo.address || ''
+    userForm.postCode = customerInfo.postCode || ''
+  } catch (error) {
+    console.error('加载客户信息失败:', error)
+  }
 }
 
-// 组件挂载时加载订单数据
+// 保存个人信息
+const saveProfile = async () => {
+  saving.value = true
+  try {
+    const userInfo = getUserInfo()
+    if (!userInfo || !userInfo.userId) {
+      ElMessage.error('未找到用户信息，请重新登录')
+      return
+    }
+    
+    const dataToSend = {
+      cName: userForm.name,
+      phone: userForm.phone,
+      company: userForm.company,
+      address: userForm.address,
+      postCode: userForm.postCode
+    }
+    
+    console.log('========== 前端保存个人信息 ==========')
+    console.log('userForm数据:', userForm)
+    console.log('准备发送的数据:', dataToSend)
+    console.log('=======================================')
+    
+    await updateCustomerInfo(userInfo.userId, dataToSend)
+    
+    ElMessage.success('个人信息保存成功')
+  } catch (error) {
+    console.error('保存个人信息失败:', error)
+    ElMessage.error('保存失败：' + (error.message || '请稍后重试'))
+  } finally {
+    saving.value = false
+  }
+}
+
+// 修改密码
+const changePassword = async () => {
+  if (!passwordFormRef.value) return
+  
+  await passwordFormRef.value.validate(async (valid) => {
+    if (!valid) return
+    
+    changingPassword.value = true
+    try {
+      const userInfo = getUserInfo()
+      if (!userInfo || !userInfo.userId) {
+        ElMessage.error('未找到用户信息，请重新登录')
+        return
+      }
+      
+      await changeCustomerPassword({
+        userId: userInfo.userId,
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword
+      })
+      
+      ElMessage.success('密码修改成功，请重新登录')
+      resetPasswordForm()
+      
+      // 可选：3秒后跳转到登录页
+      setTimeout(() => {
+        localStorage.removeItem('userInfo')
+        window.location.href = '/login'
+      }, 3000)
+    } catch (error) {
+      console.error('修改密码失败:', error)
+      ElMessage.error(error.response?.data?.message || '修改密码失败，请稍后重试')
+    } finally {
+      changingPassword.value = false
+    }
+  })
+}
+
+// 重置密码表单
+const resetPasswordForm = () => {
+  passwordForm.currentPassword = ''
+  passwordForm.newPassword = ''
+  passwordForm.confirmPassword = ''
+  if (passwordFormRef.value) {
+    passwordFormRef.value.resetFields()
+  }
+}
+
+// 组件挂载时加载订单数据和客户信息
 onMounted(() => {
   loadCustomerOrders()
+  loadCustomerInfo()
 })
 </script>
 
@@ -698,6 +930,8 @@ onMounted(() => {
     align-items: center;
 
     .amount-box {
+      flex: 1;
+      
       .label { font-size: 12px; color: #94a3b8; margin-right: 4px; }
       .amount { 
         font-size: 16px; 
@@ -709,13 +943,136 @@ onMounted(() => {
           font-size: 14px;
         }
       }
+      
+      .fee-breakdown {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        
+        .fee-item {
+          display: flex;
+          align-items: center;
+          font-size: 13px;
+          
+          .fee-label {
+            color: #64748b;
+            font-weight: 500;
+          }
+          
+          .fee-value {
+            color: #10b981;
+            font-weight: 700;
+            margin-left: 4px;
+            
+            &.pending {
+              color: #f59e0b;
+              font-weight: 600;
+            }
+          }
+        }
+      }
     }
   }
 }
 
 .form-container {
-  max-width: 600px;
+  max-width: 700px;
   padding-top: 20px;
+  
+  .custom-form {
+    :deep(.el-input__wrapper) {
+      border-radius: 12px;
+      background: rgba(248, 250, 252, 0.6);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+      border: 1px solid rgba(226, 232, 240, 0.8);
+      transition: all 0.3s ease;
+      padding: 4px 16px;
+      
+      &:hover {
+        background: white;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+        border-color: rgba(59, 130, 246, 0.3);
+      }
+      
+      &.is-focus {
+        background: white;
+        box-shadow: 0 4px 16px rgba(59, 130, 246, 0.15);
+        border-color: #3b82f6;
+      }
+    }
+    
+    :deep(.el-form-item__label) {
+      font-weight: 600;
+      color: #475569;
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+    
+    :deep(.el-button) {
+      border-radius: 50px;
+      padding: 10px 32px;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+      }
+      
+      &:active {
+        transform: translateY(0);
+      }
+    }
+    
+    :deep(.el-button--primary) {
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+      border: none;
+      box-shadow: 0 4px 16px rgba(59, 130, 246, 0.4);
+      
+      &:hover {
+        box-shadow: 0 6px 24px rgba(59, 130, 246, 0.5);
+      }
+    }
+    
+    :deep(.el-button--warning) {
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      border: none;
+      color: white;
+      box-shadow: 0 4px 16px rgba(245, 158, 11, 0.4);
+      
+      &:hover {
+        box-shadow: 0 6px 24px rgba(245, 158, 11, 0.5);
+      }
+    }
+  }
+  
+  .password-section {
+    margin-top: 48px;
+    padding: 32px;
+    background: linear-gradient(135deg, rgba(248, 250, 252, 0.8) 0%, rgba(241, 245, 249, 0.6) 100%);
+    border-radius: 20px;
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+    
+    :deep(.el-divider) {
+      margin: 0 0 28px 0;
+      
+      .el-divider__text {
+        font-weight: 700;
+        color: #334155;
+        font-size: 15px;
+        background: transparent;
+      }
+    }
+    
+    :deep(.el-alert) {
+      margin-top: 20px;
+      border-radius: 12px;
+      background: rgba(239, 246, 255, 0.8);
+      border: 1px solid rgba(147, 197, 253, 0.3);
+    }
+  }
 }
 
 .custom-form {

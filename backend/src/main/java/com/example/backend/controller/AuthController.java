@@ -94,6 +94,30 @@ public class AuthController {
     }
 
     /**
+     * 客户修改密码
+     * POST /api/auth/change-password/customer
+     * @param request 修改密码请求
+     * @return 成功消息
+     */
+    @PostMapping("/change-password/customer")
+    public ResponseEntity<?> changeCustomerPassword(@RequestBody ChangePasswordRequest request) {
+        try {
+            String message = authService.changeCustomerPassword(request);
+            Map<String, String> response = new HashMap<>();
+            response.put("message", message);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+        } catch (Exception e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("message", "修改密码失败: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+        }
+    }
+
+    /**
      * 管理员修改密码
      * POST /api/auth/change-password/admin
      * @param request 修改密码请求
