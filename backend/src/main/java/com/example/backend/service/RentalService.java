@@ -645,7 +645,7 @@ public class RentalService {
                 }
                 // 获取车型的租金率
                 if (car.getTNo() != null && car.getTName() != null) {
-                    carTypeRepository.findById(car.getTNo())
+                    carTypeRepository.findById(new CarType.CarTypeId(car.getTNo(), car.getTName()))
                         .ifPresent(carType -> dto.setRentRate(carType.getRentRate()));
                 }
             });
