@@ -36,18 +36,37 @@
         </el-select>
       </el-form-item>
 
-      <el-form-item label="购入价格" prop="Price">
-        <el-input-number 
-          v-model="formData.Price" 
-          :min="0" 
-          :step="1000" 
-          style="width: 100%"
-          controls-position="right"
-          class="custom-input-number"
-        >
-          <template #prefix>¥</template>
-        </el-input-number>
-      </el-form-item>
+      <el-row :gutter="20">
+        <el-col :span="12">
+          <el-form-item label="小时租金" prop="RentRate">
+            <el-input-number 
+              v-model="formData.RentRate" 
+              :min="0" 
+              :step="10" 
+              style="width: 100%"
+              controls-position="right"
+              class="custom-input-number"
+            >
+              <template #prefix>¥</template>
+              <template #append>/小时</template>
+            </el-input-number>
+          </el-form-item>
+        </el-col>
+        <el-col :span="12">
+          <el-form-item label="购入价格" prop="Price">
+            <el-input-number 
+              v-model="formData.Price" 
+              :min="0" 
+              :step="1000" 
+              style="width: 100%"
+              controls-position="right"
+              class="custom-input-number"
+            >
+              <template #prefix>¥</template>
+            </el-input-number>
+          </el-form-item>
+        </el-col>
+      </el-row>
 
       <el-form-item label="购入日期" prop="PurchaseDate">
         <el-date-picker
@@ -150,20 +169,21 @@ const formData = reactive({
 const rules = {
   CarID: [{ required: true, message: '请输入车牌号', trigger: 'blur' }],
   TNo: [{ required: true, message: '请选择车型', trigger: 'change' }],
+  RentRate: [{ required: true, message: '请输入日租金', trigger: 'blur' }],
   CarStatus: [{ required: true, message: '请选择状态', trigger: 'change' }]
 }
 
 // 获取车型列表
 const fetchCarTypes = async () => {
   try {
-    const { getCarTypes } = await import('@/api/car')
-    const data = await getCarTypes()
-    // 统一字段格式
-    carTypes.value = data.map(item => ({
-      TNo: item.tNo || item.TNo,
-      TName: item.tName || item.TName,
-      RentRate: item.rentRate || item.RentRate || 0
-    }))
+    // TODO: 实际应该从后端获取车型列表
+    // 目前使用模拟数据
+    carTypes.value = [
+      { TNo: 'T001', TName: 'Toyota Camry' },
+      { TNo: 'T002', TName: 'Tesla Model 3' },
+      { TNo: 'T003', TName: 'Benz S-Class' },
+      { TNo: 'T004', TName: 'BMW X5' },
+    ]
   } catch (error) {
     console.error('获取车型列表失败:', error)
     ElMessage.error('获取车型列表失败')
@@ -190,21 +210,12 @@ watch(() => props.editData, (newVal) => {
     formData.CarID = newVal.CarID || newVal.carId || ''
     formData.TNo = newVal.TNo || newVal.tNo || ''
     formData.TName = newVal.TName || newVal.tName || ''
+    formData.RentRate = newVal.RentRate || newVal.rentRate || 0
     formData.Price = newVal.Price || newVal.price || 0
     formData.PurchaseDate = newVal.PurchaseDate || newVal.purchaseDate || ''
     formData.RUNKM = newVal.RUNKM || 0
     formData.RunHour = newVal.RunHour || 0
     formData.CarStatus = newVal.CarStatus || newVal.carStatus || '0'
-    
-    // 租金率：优先使用editData中的值，否则从车型列表中查找
-    let rentRate = newVal.RentRate || newVal.rentRate || 0
-    if (!rentRate && formData.TNo) {
-      const type = carTypes.value.find(t => t.TNo === formData.TNo)
-      if (type) {
-        rentRate = type.RentRate || 0
-      }
-    }
-    formData.RentRate = rentRate
   } else {
     isEdit.value = false
     resetForm()
@@ -222,8 +233,6 @@ const handleTypeChange = (val) => {
   const type = carTypes.value.find(t => t.TNo === val)
   if (type) {
     formData.TName = type.TName
-    // 选择车型时，自动填充该车型的租金率
-    formData.RentRate = type.RentRate || 0
   }
 }
 
@@ -238,30 +247,19 @@ const handleSubmit = async () => {
   await formRef.value.validate((valid) => {
     if (valid) {
       loading.value = true
-      
-      console.log('========== CarDialog提交数据 ==========')
-      console.log('formData:', formData)
-      console.log('formData.TNo:', formData.TNo)
-      console.log('formData.TName:', formData.TName)
-      
       // 模拟请求延迟
       setTimeout(() => {
         loading.value = false
         // 将前端表单数据转换为后端DTO格式
-        // 注意：不提交rentRate，租金率由车型统一管理
         const submitData = {
           carId: formData.CarID,
           tNo: formData.TNo,
           tName: formData.TName,
+          rentRate: formData.RentRate,
           price: formData.Price,
           purchaseDate: formData.PurchaseDate,
-          carStatus: formData.CarStatus,
-          runKm: formData.RUNKM,
-          runHour: formData.RunHour
+          carStatus: formData.CarStatus
         }
-        console.log('提交的数据:', submitData)
-        console.log('========================================')
-        
         emit('submit', submitData)
         handleClose()
       }, 500)

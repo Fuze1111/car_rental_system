@@ -751,16 +751,16 @@ const handleCompleteSubmit = async () => {
     const pad = (n) => String(n).padStart(2, '0')
     const localIso = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
 
-    // 确保日期格式为ISO格式（带T）
-    let returnDateIso = currentOrder.value.ReturnDate || localIso
-    // 如果是空格格式，转换为T格式
-    if (typeof returnDateIso === 'string' && returnDateIso.includes(' ')) {
-      returnDateIso = returnDateIso.replace(' ', 'T')
+    const finishedOrder = {
+      ...currentOrder.value,
+      RoundTripDistance: roundTrip,
+      DriveTime: drive,
+      ReturnDate: currentOrder.value.ReturnDate || localIso
     }
 
     // Call updateRental on backend with the invoiceNo; backend will recalculate amount server-side
-    await updateRental(currentOrder.value.InvoiceNo || currentOrder.value.invoiceNo, {
-      returnDate: returnDateIso,
+    await updateRental(finishedOrder.InvoiceNo || finishedOrder.invoiceNo, {
+      returnDate: finishedOrder.ReturnDate,
       roundTripDistance: roundTrip,
       driveTime: drive
       // do not rely on client-side amount; backend will compute according to the formula
