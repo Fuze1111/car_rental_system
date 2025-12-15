@@ -10,12 +10,12 @@
               <el-input v-model="searchForm.CarID" placeholder="搜索车牌号..." prefix-icon="Search" clearable class="search-input" />
             </el-form-item>
             <el-form-item>
-              <el-select v-model="searchForm.tNo" placeholder="选择车型" clearable filterable style="width: 180px">
-                <el-option
+              <el-select v-model="searchForm.TName" placeholder="选择车型" clearable filterable style="width: 180px">
+                <el-option 
                   v-for="type in carTypeOptions" 
                   :key="type.tNo + type.tName" 
                   :label="type.tName" 
-                  :value="type.tNo">
+                  :value="type.tName">
                    <span style="float: left">{{ type.tName }}</span>
                    <span style="float: right; color: #8492a6; font-size: 13px">{{ type.tNo }}</span>
                 </el-option>
@@ -72,11 +72,8 @@
         <el-table-column prop="TName" label="车型信息" min-width="200" align="left">
           <template #default="scope">
             <div class="car-info">
-              <div class="car-model">
-                <span v-if="scope.row.TName">{{ scope.row.TName }}</span>
-                <span v-else class="missing-type">未设置车型</span>
-              </div>
-              <div class="car-code">编号: {{ scope.row.TNo || '—' }}</div>
+              <div class="car-model">{{ scope.row.TName }}</div>
+              <div class="car-code">编号: {{ scope.row.TNo }}</div>
             </div>
           </template>
         </el-table-column>
@@ -86,7 +83,7 @@
           <template #default="scope">
             <div class="price-tag">
               <span class="currency">¥</span>
-              <span class="amount">{{ formatRent(scope.row.RentRate) }}</span>
+              <span class="amount">{{ scope.row.RentRate }}</span>
               <span class="unit">/小时</span>
             </div>
           </template>
@@ -287,7 +284,7 @@
           <el-input v-model="typeFormData.TNo" placeholder="例如: C1" class="custom-input" :disabled="isTypeEdit" />
         </el-form-item>
         <el-form-item label="车型名称" prop="TName">
-          <el-input v-model="typeFormData.TName" placeholder="例如: 丰田凯美瑞" class="custom-input" :disabled="isTypeEdit" />
+          <el-input v-model="typeFormData.TName" placeholder="例如: Toyota Camry" class="custom-input" :disabled="isTypeEdit" />
         </el-form-item>
         <el-form-item label="小时租金" prop="RentRate">
           <el-input-number 
@@ -303,29 +300,17 @@
           </el-input-number>
         </el-form-item>
         <el-form-item label="车型图片" prop="Image">
-          <div class="type-image-row">
-            <el-upload
-              class="avatar-uploader"
-              action="#"
-              :show-file-list="false"
-              :auto-upload="false"
-              :on-change="handleFileChange"
-              accept="image/jpeg,image/png"
-            >
-              <div class="preview-box">
-                <img v-if="typeFormData.Image" :src="typeFormData.Image" alt="车型图片预览" class="avatar" />
-                <div v-else class="upload-placeholder">
-                  <el-icon class="avatar-uploader-icon"><Plus /></el-icon>
-                  <div class="placeholder-text">点击上传</div>
-                </div>
-              </div>
-            </el-upload>
-
-            <div class="type-image-meta">
-              <div class="form-tip">支持 jpg/png，建议尺寸 800×600</div>
-              <div class="form-subtip">建议图片清晰、展示车头侧面视角，便于用户识别车型</div>
-            </div>
-          </div>
+          <el-upload
+            class="avatar-uploader"
+            action="#"
+            :show-file-list="false"
+            :auto-upload="false"
+            :on-change="handleFileChange"
+          >
+            <img v-if="typeFormData.Image" :src="typeFormData.Image" alt="车型图片预览" class="avatar" />
+            <el-icon v-else class="avatar-uploader-icon"><Plus /></el-icon>
+          </el-upload>
+          <div class="form-tip">支持 jpg/png，建议尺寸 800x600</div>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -339,7 +324,7 @@
     <!-- 新增/编辑弹窗 -->
     <CarEditDialog 
       v-model:visible="dialogVisible"
-      :edit-data="currentEditData && currentEditData.value ? currentEditData.value : currentEditData"
+      :edit-data="currentEditData"
       @submit="handleDialogSubmit"
     />
 
@@ -366,8 +351,7 @@ import {
   getCarTypes,
   createCarType,
   updateCarType,
-  deleteCarType,
-  getCarById // Import the new API function
+  deleteCarType
 } from '@/api/car'
 import request from '@/api/request'
 
@@ -390,8 +374,7 @@ const isTypeEdit = ref(false)
 // 搜索表单 (Cars)
 const searchForm = reactive({
   CarID: '',
-  // now store selected type as tNo (primary key)
-  tNo: '',
+  TName: '',
   CarStatus: '',
   minPrice: undefined,
   maxPrice: undefined
@@ -460,20 +443,6 @@ const formatDateTime = (dateString) => {
          String(date.getDate()).padStart(2, '0') + ' ' +
          String(date.getHours()).padStart(2, '0') + ':' +
          String(date.getMinutes()).padStart(2, '0')
-}
-
-// 新增：格式化小时租金显示
-const formatRent = (rate) => {
-  if (rate === undefined || rate === null || rate === '') return '-'
-  // 如果是对象（比如 BigDecimal 转为字符串），转字符串再处理
-  try {
-    const n = Number(rate)
-    if (Number.isNaN(n)) return String(rate)
-    // 如果是整数，显示无小数；否则保留两位
-    return Number.isInteger(n) ? n.toString() : n.toFixed(2)
-  } catch (e) {
-    return String(rate)
-  }
 }
 
 // 根据车型名称获取对应图片的辅助函数（放在 fetchCarTypes 之前，避免未定义）
@@ -572,10 +541,9 @@ const handleSearch = () => {
 }
 
 // 页面加载时获取车辆数据
-onMounted(async () => {
-  // 确保先加载车型（用于在fetchCars里做回填），再加载车辆列表
-  await fetchCarTypes()
+onMounted(() => {
   fetchCars()
+  fetchCarTypes()
 })
 
 // 获取车辆列表
@@ -592,9 +560,9 @@ const fetchCars = async () => {
     if (searchForm.CarID) {
       params.carId = searchForm.CarID
     }
-    if (searchForm.tNo) {
-      // 前端选择的是车型编号（tNo），后端 controller 支持 tNo
-      params.tNo = searchForm.tNo
+    if (searchForm.TName) {
+      // 前端选择的是车型名称（tName），后端 controller 支持 tName 和 tNo
+      params.tName = searchForm.TName
     }
     if (searchForm.CarStatus) {
       params.carStatus = searchForm.CarStatus
@@ -608,138 +576,22 @@ const fetchCars = async () => {
     }
 
     const response = await getCars(params)
-    // DEBUG: 打印后端原始响应，帮助排查字段名/结构
-    console.debug('GET /api/cars response raw:', response)
     const { content, totalElements } = response
 
     // 转换数据格式以适配前端显示（注意后端返回的是小写字段名）
-    tableData.value = content.map(car => {
-      // Accept multiple naming variants returned by backend
-      const tNo = car.tNo || car.TNo || car.tno || car.TNO || car.t_no || car.T_no || null
-      const tName = car.tName || car.TName || car.tname || car.TNAME || car.t_name || car.T_name || null
-      // try to find nested car type object under common keys
-      const nestedType = car.carType || car.car_type || car.type || car.carTypeDto || car._embedded?.carType || car.typeInfo || car.typeDto || car.carTypeDTO || null
-      let rentRate = car.rentRate || car.RentRate || (nestedType && (nestedType.rentRate || nestedType.RentRate)) || null
-
-      // If rentRate appears as an object (BigDecimal wrapper), unwrap common shapes
-      if (rentRate && typeof rentRate === 'object') {
-        // e.g., { value: '30.00' } or { amount: '30.00' }
-        if (rentRate.value !== undefined) rentRate = rentRate.value
-        else if (rentRate.amount !== undefined) rentRate = rentRate.amount
-      }
-
-      // coerce BigDecimal-like strings to number when possible
-      if (rentRate !== null && rentRate !== undefined) {
-        if (typeof rentRate === 'string' && rentRate.trim() !== '') {
-          const maybe = Number(rentRate)
-          if (!Number.isNaN(maybe)) rentRate = maybe
-        }
-      }
-
-      // Prefer canonical values from carTypeOptions when available (ensures type edits propagate)
-      let finalTName = tName
-      let finalRentRate = rentRate
-      let finalTNo = tNo
-
-      // If nestedType contains tNo/tName, prefer those
-      if (nestedType) {
-        finalTNo = finalTNo || nestedType.tNo || nestedType.TNo || nestedType.tno || nestedType.t_no || null
-        finalTName = finalTName || nestedType.tName || nestedType.TName || nestedType.tname || nestedType.name || null
-        if (finalRentRate === null || finalRentRate === undefined) {
-          finalRentRate = nestedType.rentRate || nestedType.RentRate || null
-        }
-      }
-
-      if (finalTNo) {
-        const found = carTypeOptions.value.find(t => (t.tNo || t.tno) === finalTNo || (t.tNo || t.tno) === (finalTNo && finalTNo.toString()))
-        if (found) {
-          finalTName = found.tName || found.tname || finalTName
-          finalRentRate = (found.rentRate !== undefined && found.rentRate !== null) ? found.rentRate : finalRentRate
-          finalTNo = found.tNo || found.tno || finalTNo
-        }
-      }
-
-      // Final fallback: try to lookup by name
-      if ((!finalTNo || finalTNo === '') && finalTName) {
-        const foundByName = carTypeOptions.value.find(t => (t.tName || t.tname) === finalTName || (t.tName || t.tname) === (finalTName && finalTName.toString()))
-        if (foundByName) {
-          finalTNo = foundByName.tNo || foundByName.tno
-          finalRentRate = finalRentRate || foundByName.rentRate
-        }
-      }
-
-      // If still missing, try to inspect raw payload for common nested shapes
-      if ((!finalTNo || finalTNo === '') && (!finalTName || finalTName === '')) {
-        const raw = car || {}
-        // common shapes
-        const alt = raw.carTypeDto || raw.carTypeDTO || raw.typeInfo || raw.type || raw.car_type || raw._embedded?.carType
-        if (alt) {
-          finalTNo = finalTNo || alt.tNo || alt.TNo || alt.tno || null
-          finalTName = finalTName || alt.tName || alt.TName || alt.tname || alt.name || null
-          finalRentRate = finalRentRate || alt.rentRate || alt.RentRate || null
-        }
-      }
-
-      // Final fallback logging for debugging
-      if ((!finalTNo || finalTNo === '') && (!finalTName || finalTName === '')) {
-        console.warn('Car row missing both tNo and tName:', car)
-        try {
-          console.debug('Car raw keys:', Object.keys(car || {}))
-        } catch (e) {
-          console.debug('Car raw (unable to list keys)', car)
-        }
-      }
-
-      const normalizedRent = (finalRentRate === null || finalRentRate === undefined) ? null : (typeof finalRentRate === 'number' ? finalRentRate : Number(finalRentRate))
-
-      return {
-        CarID: car.carId || car.CarID || car.carID || car.CarId,
-        TNo: finalTNo || null,
-        TName: finalTName || null,
-        RentRate: normalizedRent,
-        CarStatus: car.carStatus || car.CarStatus,
-        PurchaseDate: car.purchaseDate || car.PurchaseDate,
-        Price: car.price || car.Price,
-        LastRepairDate: car.lastRepairDate || car.LastRepairDate,
-        RUNKM: car.runKm || car.RUNKM || 0,
-        RunHour: car.runHour || car.RunHour || 0,
-        // include raw car for debugging
-        _raw: car
-      }
-    })
-    // DEBUG: 打印处理后的 tableData 中前几行以便调试
-    console.debug('Processed tableData (first rows):', tableData.value.slice(0, 5))
-
-    // 补救措施：对于仍然缺失车型信息的行，逐条向后端请求单车详情以回填（避免列表接口部分字段为 null 的情况）
-    const missingRows = tableData.value.filter(r => (!r.TNo && !r.TName) || r.TName === null)
-    if (missingRows.length > 0) {
-      console.debug(`Found ${missingRows.length} rows with missing tNo/tName, fetching individual car details...`)
-      await Promise.all(missingRows.map(async (row) => {
-        try {
-          const detail = await getCarById(row.CarID)
-          if (detail) {
-            // map backend DTO variants to our normalized fields
-            const detailTNo = detail.tNo || detail.TNo || detail.tno || null
-            const detailTName = detail.tName || detail.TName || detail.tname || null
-            const detailRent = detail.rentRate || detail.RentRate || (detail.carType && (detail.carType.rentRate || detail.carType.RentRate)) || null
-
-            // update the table row in-place
-            row.TNo = row.TNo || detailTNo || (detail.carType && (detail.carType.tNo || detail.carType.TNo)) || row.TNo
-            row.TName = row.TName || detailTName || (detail.carType && (detail.carType.tName || detail.carType.TName)) || row.TName
-            row.RentRate = row.RentRate || (detailRent ? (typeof detailRent === 'number' ? detailRent : Number(detailRent)) : row.RentRate)
-            row.RUNKM = row.RUNKM || detail.runKm || detail.RunKM || row.RUNKM
-            row.RunHour = row.RunHour || detail.runHour || detail.RunHour || row.RunHour
-            row.LastRepairDate = row.LastRepairDate || detail.lastRepairDate || detail.LastRepairDate || row.LastRepairDate
-            // store raw detail for debugging
-            row._detailFetched = detail
-          }
-        } catch (err) {
-          console.warn('Failed to fetch car detail for', row.CarID, err)
-        }
-      }))
-      console.debug('After detail backfill, tableData (first rows):', tableData.value.slice(0,5))
-    }
-
+    tableData.value = content.map(car => ({
+      CarID: car.carId,
+      TNo: car.tno,
+      TName: car.tname,
+      RentRate: car.rentRate,
+      CarStatus: car.carStatus,
+      PurchaseDate: car.purchaseDate,
+      Price: car.price,
+      LastRepairDate: car.lastRepairDate,
+      RUNKM: car.runKm || 0,
+      RunHour: car.runHour || 0
+    }))
+    
     pagination.total = totalElements
   } catch (error) {
     console.error('获取车辆列表失败:', error)
@@ -754,16 +606,13 @@ const fetchCarTypes = async () => {
   typeLoading.value = true
   try {
     const response = await getCarTypes()
-    console.debug('GET /api/car-types response raw:', response)
-    // backend may return an array directly or wrap it as { value: [...], Count: N }
-    const payload = Array.isArray(response) ? response : (response && response.value ? response.value : [])
-
-    // backend may use lowercase keys (tno/tname) or camelCase (tNo/tName)
-    const allTypes = (payload || []).map(type => ({
-      tno: type.tNo || type.tno || type.TNo || type.TNO || type.t_no || '',
-      tname: type.tName || type.tname || type.TName || type.TNAME || type.t_name || '',
-      rentRate: type.rentRate || type.RentRate || type.Rent || null,
-      imageUrl: normalizeImageUrl(type.imageUrl || type.Image || type.image || '')
+    // backend now returns CarTypeDTO { tNo, tName, rentRate, imageUrl }
+    const allTypes = (response || []).map(type => ({
+      tno: type.tNo || type.tno,
+      tname: type.tName || type.tname,
+      rentRate: type.rentRate,
+      // normalize any relative backend path to absolute URL so <img> can load it from the backend
+      imageUrl: normalizeImageUrl(type.imageUrl || type.Image || type.imageUrl)
     }))
 
     // 用于车辆搜索下拉的完整选项（保持原样）
@@ -772,8 +621,6 @@ const fetchCarTypes = async () => {
       tName: type.tname,
       rentRate: type.rentRate
     }))
-
-    console.debug('Processed carTypeOptions:', carTypeOptions.value)
 
     // 过滤（按关键字匹配 tno 或 tname，忽略大小写）
     const kw = (typeSearchForm.keyword || '').toString().trim().toLowerCase()
@@ -819,7 +666,7 @@ const handleTypeSearch = async () => {
 
 const resetSearch = () => {
   searchForm.CarID = ''
-  searchForm.tNo = ''
+  searchForm.TName = ''
   searchForm.CarStatus = ''
   searchForm.minPrice = undefined
   searchForm.maxPrice = undefined
@@ -831,41 +678,20 @@ const handleAdd = () => {
   dialogVisible.value = true
 }
 
-const handleEdit = async (row) => {
-  // Before opening the edit dialog, ensure we have the complete latest detail from backend
-  try {
-    loading.value = true
-    // attempt to fetch full detail for this car to avoid missing tNo/tName
-    const detail = await getCarById(row.CarID || row.CarId || row.carId)
-    if (detail) {
-      // normalize fields similar to fetchCars mapping
-      const tNo = detail.tNo || detail.TNo || detail.tno || null
-      const tName = detail.tName || detail.TName || detail.tname || null
-      const rentRate = detail.rentRate || detail.RentRate || (detail.carType && (detail.carType.rentRate || detail.carType.RentRate)) || null
-
-      currentEditData.value = {
-        CarID: detail.carId || detail.CarID || detail.carId || row.CarID,
-        TNo: tNo,
-        TName: tName,
-        RentRate: (rentRate !== undefined && rentRate !== null) ? Number(rentRate) : null,
-        Price: detail.price || detail.Price || row.Price,
-        PurchaseDate: detail.purchaseDate || detail.PurchaseDate || row.PurchaseDate,
-        RUNKM: detail.runKm || detail.RUNKM || row.RUNKM,
-        RunHour: detail.runHour || detail.RunHour || row.RunHour,
-        CarStatus: detail.carStatus || detail.CarStatus || row.CarStatus,
-        _raw: detail
-      }
-    } else {
-      // fallback to the row we had
-      currentEditData.value = row
-    }
-  } catch (err) {
-    console.warn('Failed to fetch car detail before edit, falling back to row:', err)
-    currentEditData.value = row
-  } finally {
-    loading.value = false
-    dialogVisible.value = true
+const handleEdit = (row) => {
+  // 直接设置编辑数据（无需额外中间变量）
+  currentEditData.value = {
+    CarID: row.CarID,
+    TNo: row.TNo,
+    TName: row.TName,
+    rentRate: row.rentRate,
+    Price: row.Price,
+    PurchaseDate: row.PurchaseDate,
+    CarStatus: row.CarStatus,
+    RUNKM: row.RUNKM,
+    RunHour: row.RunHour
   }
+  dialogVisible.value = true
 }
 
 const handleMaintenance = (row) => {
@@ -882,27 +708,15 @@ const handleMaintenanceSubmit = async (formData) => {
       runKm: formData.RunKM,
       runHour: formData.RunHour
     }
-
-    // Normalize rDate to LocalDateTime string (backend expects LocalDateTime)
-    // If date is 'YYYY-MM-DD', convert to 'YYYY-MM-DDT00:00:00'
-    if (repairData.rDate && typeof repairData.rDate === 'string' && !repairData.rDate.includes('T')) {
-      repairData.rDate = repairData.rDate + 'T00:00:00'
-    }
-
-    // Ensure numeric fields are numbers (BigDecimal on backend)
-    repairData.runKm = repairData.runKm !== undefined && repairData.runKm !== null ? Number(repairData.runKm) : 0
-    repairData.runHour = repairData.runHour !== undefined && repairData.runHour !== null ? Number(repairData.runHour) : 0
-
-    console.debug('Submitting repairData:', repairData)
-
+    
     // 创建维修记录
     await createRepair(repairData)
-
+    
     // 更新车辆状态为维修中
     await updateCarStatus(formData.CarID, { carStatus: '2' })
-
+    
     ElMessage.success('车辆已送修')
-
+    
     // 刷新车辆列表以显示最新的状态
     fetchCars()
   } catch (error) {
@@ -948,7 +762,7 @@ const handleTypeDelete = (row) => {
     cancelButtonText: '取消'
   }).then(async () => {
     try {
-      await deleteCarType(row.TNo || row.tno)
+      await deleteCarType(row.TNo || row.tno, row.TName || row.tname)
       ElMessage.success('删除成功')
       fetchCarTypes()
     } catch (error) {
@@ -976,52 +790,26 @@ const handleTypeSubmit = async () => {
   await typeFormRef.value.validate(async (valid) => {
     if (valid) {
       try {
-        let updatedType
         if (isTypeEdit.value) {
-          // 更新车型（现在以 tNo 作为主键）
-          updatedType = await updateCarType(typeFormData.TNo, {
-            tName: typeFormData.TName,
+          // 更新车型
+          await updateCarType(typeFormData.TNo, typeFormData.TName, {
+            tno: typeFormData.TNo,
+            tname: typeFormData.TName,
             rentRate: typeFormData.RentRate
           })
           ElMessage.success('修改成功')
         } else {
-           // 创建新车型
-           updatedType = await createCarType({
-             tno: typeFormData.TNo,
-             tname: typeFormData.TName,
-             rentRate: typeFormData.RentRate
-           })
-           ElMessage.success('新增成功')
-         }
-
+          // 创建新车型
+          await createCarType({
+            tno: typeFormData.TNo,
+            tname: typeFormData.TName,
+            rentRate: typeFormData.RentRate
+          })
+          ElMessage.success('新增成功')
+        }
+        
         typeDialogVisible.value = false
-        // 先刷新车型列表，确保下拉/本地缓存是最新的
-        await fetchCarTypes()
-        // 如果后端返回了 updatedType（create/update 响应），在本地 tableData 中立即同步匹配的车辆行，
-        // 以确保 UI 不依赖于后端分页缓存延迟
-        try {
-          if (updatedType) {
-            const canonicalTNo = updatedType.tNo || updatedType.TNo || typeFormData.TNo
-            const canonicalTName = updatedType.tName || updatedType.TName || typeFormData.TName
-            const canonicalRent = updatedType.rentRate || updatedType.RentRate || typeFormData.RentRate
-            tableData.value.forEach(row => {
-              if (row && (row.TNo === canonicalTNo || row.TName === canonicalTName)) {
-                row.TNo = canonicalTNo
-                row.TName = canonicalTName
-                row.RentRate = (canonicalRent !== undefined && canonicalRent !== null) ? Number(canonicalRent) : row.RentRate
-              }
-            })
-          }
-        } catch (syncErr) {
-          console.warn('Failed to sync local tableData after type change:', syncErr)
-        }
-
-        // 再刷新车辆列表，保证任何使用车型信息（TName/RentRate）的地方得到最新数据
-        try {
-          await fetchCars()
-        } catch (err) {
-          console.warn('Failed to refresh cars after type change:', err)
-        }
+        fetchCarTypes()
       } catch (error) {
         console.error('操作失败:', error)
         ElMessage.error('操作失败: ' + (error.message || '未知错误'))
@@ -1032,119 +820,32 @@ const handleTypeSubmit = async () => {
 
 const handleDialogSubmit = async (formData) => {
   try {
-    // support both uppercase and lowercase field names emitted by dialog
+    // 将前端表单数据转换为后端DTO格式
     const carDTO = {
-      carId: (formData.CarID !== undefined ? formData.CarID : formData.carId),
-      tNo: (formData.TNo !== undefined ? formData.TNo : formData.tNo),
-      tName: (formData.TName !== undefined ? formData.TName : formData.tName),
-      price: (formData.Price !== undefined ? formData.Price : formData.price),
-      purchaseDate: (formData.PurchaseDate !== undefined ? formData.PurchaseDate : formData.purchaseDate),
-      carStatus: (formData.CarStatus !== undefined ? formData.CarStatus : formData.carStatus),
-      runKm: (formData.RUNKM !== undefined ? formData.RUNKM : formData.runKm),
-      runHour: (formData.RunHour !== undefined ? formData.RunHour : formData.runHour)
+      carId: formData.CarID,
+      tNo: formData.TNo,
+      tName: formData.TName,
+      price: formData.Price,
+      purchaseDate: formData.PurchaseDate,
+      carStatus: formData.CarStatus
     }
-
-    // Ensure we always send a tNo (primary key) to backend when possible. If not provided,
-    // try to resolve from tName using loaded carTypeOptions; if still unresolved, load types from backend.
-    if ((!carDTO.tNo || carDTO.tNo === '') && carDTO.tName) {
-      let found = carTypeOptions.value.find(t => (t.tName || t.tname) === carDTO.tName || (t.tName || t.tname) === (carDTO.tName && carDTO.tName.toString()))
-      if (!found) {
-        // try to refresh car types once
-        try {
-          await fetchCarTypes()
-          found = carTypeOptions.value.find(t => (t.tName || t.tname) === carDTO.tName || (t.tName || t.tname) === (carDTO.tName && carDTO.tName.toString()))
-        } catch (e) { /* ignore */ }
-      }
-      if (found) carDTO.tNo = found.tNo || found.tno
-    }
-
-    // 前端校验：必填字段
-    if (!carDTO.carId || carDTO.carId.toString().trim() === '') {
-      ElMessage.error('车牌号为必填项')
-      return
-    }
-    // 要求车型至少提供 tNo 与 tName 中的一项；后端在同时提供两项时会进行严格校验
-    if ((!carDTO.tNo || carDTO.tNo === '') && (!carDTO.tName || carDTO.tName === '')) {
-      ElMessage.error('请选择车型或填写车型信息')
-      return
-    }
-
-    // 如果提供了 tNo，但 tName 为空或不可信，尝试从已加载的车型选项中填充标准 tName（避免后端严格校验失败）
-    if (carDTO.tNo && (!carDTO.tName || carDTO.tName === '')) {
-      const found = carTypeOptions.value.find(t => t.tNo === carDTO.tNo || t.tno === carDTO.tNo)
-      if (found) {
-        carDTO.tName = found.tName || found.tname || found.TName || found.tName
-      }
-    }
-
-    // 调试：打印要发送到后端的 payload
-    console.debug('Creating/updating car with payload (raw):', carDTO)
-
-    // 构建清洗过的 payload：去掉空字符串字段，确保日期/数值格式合适
-    const payload = {}
-    if (carDTO.carId && carDTO.carId.toString().trim() !== '') payload.carId = carDTO.carId.toString().trim()
-    if (carDTO.tNo && carDTO.tNo.toString().trim() !== '') payload.tNo = carDTO.tNo.toString().trim()
-    if (carDTO.tName && carDTO.tName.toString().trim() !== '') payload.tName = carDTO.tName.toString().trim()
-    if (carDTO.price !== undefined && carDTO.price !== null && carDTO.price !== '') payload.price = Number(carDTO.price)
-    if (carDTO.purchaseDate && carDTO.purchaseDate.toString().trim() !== '') payload.purchaseDate = carDTO.purchaseDate.toString().trim()
-    if (carDTO.carStatus && carDTO.carStatus.toString().trim() !== '') payload.carStatus = carDTO.carStatus.toString().trim()
-    if (carDTO.runKm !== undefined && carDTO.runKm !== null && carDTO.runKm !== '') payload.runKm = Number(carDTO.runKm)
-    if (carDTO.runHour !== undefined && carDTO.runHour !== null && carDTO.runHour !== '') payload.runHour = Number(carDTO.runHour)
-
-    console.debug('Creating/updating car with payload (clean):', payload)
 
     if (currentEditData.value) {
-      // 更新车辆：直接使用清洗后的 payload 提交给后端，确保包含 carId/tNo/tName
-      try {
-        const targetId = payload.carId || (currentEditData.value && (currentEditData.value.CarID || currentEditData.value.carId))
-        if (!targetId) {
-          ElMessage.error('无法确定要更新的车辆 ID')
-          return
-        }
-        console.debug('Updating car id:', targetId, 'with payload:', payload)
-        const resp = await updateCar(targetId, payload)
-        console.debug('updateCar response:', resp)
-        ElMessage.success('车辆信息更新成功')
-      } catch (err) {
-        console.error('updateCar failed:', err)
-        const msg = (err && err.response && err.response.data && (err.response.data.message || err.response.data.details)) || (err && err.message) || '更新车辆失败'
-        ElMessage.error('更新失败: ' + msg)
-        return
-      }
+      // 更新车辆
+      await updateCar(formData.CarID, carDTO)
+      ElMessage.success('车辆信息更新成功')
     } else {
-       // 创建车辆
-       try {
-         await createCar(payload)
-         ElMessage.success('车辆创建成功')
-       } catch (err) {
-         // 显示后端返回的详细错误信息（如果有）
-         let backendMsg = null
-         if (err && err.response && err.response.data) {
-           const data = err.response.data
-           // 后端 ErrorResponse 使用字段: timestamp, status, message, details
-           backendMsg = data.details || data.message || data.error || JSON.stringify(data)
-         }
-         if (backendMsg) {
-           ElMessage.error('创建失败: ' + backendMsg)
-         } else {
-           console.error('创建车辆时发生未知错误:', err)
-           ElMessage.error('创建失败: 服务器返回未知错误')
-         }
-         return
-       }
+      // 创建车辆
+      await createCar(carDTO)
+      ElMessage.success('车辆创建成功')
     }
-
+    
     // 关闭对话框并刷新数据
     dialogVisible.value = false
-    await fetchCars()
+    fetchCars()
   } catch (error) {
     console.error('操作失败:', error)
-    let backendMsg = null
-    if (error && error.response && error.response.data) {
-      const data = error.response.data
-      backendMsg = data.details || data.message || data.error || JSON.stringify(data)
-    }
-    ElMessage.error(backendMsg || (currentEditData.value ? '更新失败' : '创建失败'))
+    ElMessage.error(currentEditData.value ? '更新失败' : '创建失败')
   }
 }
 
@@ -1259,71 +960,62 @@ const handleTypeCurrentChange = (val) => {
 
 .avatar {
   width: 120px;
-  height: 90px;
+  height: 120px;
   display: block;
   object-fit: cover;
-  border-radius: 6px;
-  box-shadow: 0 6px 12px rgba(0,0,0,0.06);
 }
 
 .form-tip {
-  font-size: 13px;
-  color: #6b7280;
-}
-
-.form-subtip {
-  margin-top: 8px;
   font-size: 12px;
-  color: #9aa4b2;
+  color: #909399;
+  margin-top: 4px;
 }
 
-/* new layout for image row */
-.type-image-row {
-  display: flex;
-  align-items: center;
-  gap: 16px;
+.custom-input,
+.custom-input-number {
+  :deep(.el-input__wrapper) {
+    border-radius: 8px;
+    box-shadow: 0 0 0 1px #e2e8f0 inset;
+    padding: 4px 12px;
+    transition: all 0.2s;
+    
+    &:hover {
+      box-shadow: 0 0 0 1px #cbd5e1 inset;
+    }
+    
+    &.is-focus {
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2) !important;
+      border-color: #3b82f6;
+    }
+  }
 }
 
-.type-image-row .preview-box {
-  width: 120px;
-  height: 90px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #fff;
-  border-radius: 6px;
-  border: 1px solid #eef2f7;
-  overflow: hidden;
-}
-
-.upload-placeholder {
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  color:#9aa4b2;
-}
-
-.type-image-meta {
-  display:flex;
-  flex-direction:column;
-  justify-content:center;
-}
-
-/* smaller touchups */
-.type-thumb, .avatar {
-  border: 1px solid rgba(15,23,42,0.04);
+.footer-btn {
+  border-radius: 8px;
+  padding: 10px 24px;
+  font-weight: 500;
+  
+  &.submit-btn {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    border: none;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+    
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(37, 99, 235, 0.3);
+    }
+  }
 }
 
 .car-management {
   padding: 0;
-
+  
   .section-divider {
     height: 40px;
     margin: 20px 0;
     border-top: 1px dashed rgba(0,0,0,0.1);
     position: relative;
-
+    
     &::after {
       content: '•••';
       position: absolute;
@@ -1356,7 +1048,7 @@ const handleTypeCurrentChange = (val) => {
     backdrop-filter: blur(20px); /* Blur effect */
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.02);
     overflow: hidden;
-
+    
     :deep(.el-card__body) {
       padding: 32px; /* Increased padding to match others */
     }
@@ -1370,13 +1062,13 @@ const handleTypeCurrentChange = (val) => {
     flex-wrap: wrap;
     gap: 16px;
     padding: 8px 4px; /* Add some breathing room */
-
+    
     .search-form {
       display: flex;
       flex-wrap: wrap;
       gap: 16px; /* Increased gap */
       align-items: center;
-
+      
       :deep(.el-form-item) {
         margin-bottom: 0;
         margin-right: 0;
@@ -1384,7 +1076,7 @@ const handleTypeCurrentChange = (val) => {
 
       .search-input {
         width: 220px;
-
+        
         :deep(.el-input__wrapper) {
           border-radius: 50px; /* Pill shape */
           background: rgba(248, 250, 252, 0.8);
@@ -1392,12 +1084,12 @@ const handleTypeCurrentChange = (val) => {
           border: 1px solid transparent;
           transition: all 0.3s;
           padding-left: 16px;
-
+          
           &:hover {
             background: white;
             box-shadow: 0 4px 12px rgba(0,0,0,0.05);
           }
-
+          
           &.is-focus {
             background: white;
             box-shadow: 0 4px 12px rgba(64, 158, 255, 0.15);
@@ -1412,23 +1104,103 @@ const handleTypeCurrentChange = (val) => {
         background: rgba(248, 250, 252, 0.8);
         box-shadow: none;
         border: 1px solid transparent;
+        
+        &:hover {
+          background: white;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+        
+        &.is-focus {
+          box-shadow: 0 4px 12px rgba(64, 158, 255, 0.15);
+        }
       }
 
-    } /* end .search-form */
+      /* General Button Styling (Reset & Search) */
+      :deep(.el-button) {
+        border-radius: 50px;
+        padding: 8px 24px;
+        font-weight: 500;
+        transition: all 0.3s;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        
+        &:hover {
+          transform: translateY(-2px);
+        }
+      }
 
-  } /* end .search-bar */
+      .search-btn {
+        background: linear-gradient(135deg, #409eff 0%, #3b82f6 100%);
+        border: none;
+        box-shadow: 0 4px 12px rgba(64, 158, 255, 0.3);
+        letter-spacing: 1px;
+        color: white;
+        display: flex;
+        align-items: center;
+        gap: 6px;
 
+        &:hover {
+          box-shadow: 0 6px 16px rgba(64, 158, 255, 0.4);
+        }
+      }
+    }
 
-  /* Restored UI styles for car table and badges */
-  :deep(.el-table__row) {
-    transition: all 0.3s;
+    .add-btn {
+      border-radius: 50px;
+      padding: 10px 24px;
+      background: linear-gradient(135deg, #10b981, #059669); /* Green for Add action */
+      border: none;
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
 
-    &:hover {
-      background-color: rgba(255, 255, 255, 0.6) !important;
-      transform: scale(1.002);
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
+        background: linear-gradient(135deg, #34d399, #059669);
+      }
+    }
+  }
 
-      td.el-table__cell {
+  /* 现代表格样式优化 */
+  .modern-table {
+    background-color: transparent !important;
+    --el-table-border-color: transparent;
+    --el-table-header-bg-color: transparent;
+    --el-table-tr-bg-color: transparent;
+    
+    &::before { display: none; } /* 去除底部边框线 */
+
+    :deep(th.el-table__cell) {
+      background: transparent;
+      font-weight: 600;
+      color: #64748b;
+      height: 56px;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+      font-size: 13px;
+      letter-spacing: 0.5px;
+    }
+
+    :deep(td.el-table__cell) {
+      border-bottom: 1px solid rgba(0, 0, 0, 0.03);
+      padding: 16px 0;
+      transition: all 0.3s;
+    }
+
+    :deep(.el-table__row) {
+      transition: all 0.3s;
+      
+      &:hover {
         background-color: rgba(255, 255, 255, 0.6) !important;
+        transform: scale(1.002);
+        
+        td.el-table__cell {
+          background-color: rgba(255, 255, 255, 0.6) !important;
+        }
       }
     }
   }
@@ -1445,7 +1217,7 @@ const handleTypeCurrentChange = (val) => {
     font-family: 'Monaco', 'Consolas', monospace;
     font-weight: bold;
     font-size: 14px;
-
+    
     &.green-plate {
       background: #00b578; /* 新能源绿 */
     }
@@ -1494,7 +1266,7 @@ const handleTypeCurrentChange = (val) => {
     border-radius: 12px;
     font-size: 13px;
     font-weight: 500;
-
+    
     .dot {
       width: 6px;
       height: 6px;
@@ -1507,13 +1279,13 @@ const handleTypeCurrentChange = (val) => {
       color: #67c23a;
       .dot { background: #67c23a; }
     }
-
+    
     &.status-danger {
       background: #fef0f0;
       color: #f56c6c;
       .dot { background: #f56c6c; }
     }
-
+    
     &.status-warning {
       background: #fdf6ec;
       color: #e6a23c;
@@ -1526,6 +1298,5 @@ const handleTypeCurrentChange = (val) => {
     display: flex;
     justify-content: flex-end;
   }
-
-} /* end .car-management */
+}
 </style>

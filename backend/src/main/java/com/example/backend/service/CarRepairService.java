@@ -93,10 +93,6 @@ public class CarRepairService {
                 .orElseThrow(() -> new RuntimeException("车辆不存在: " + repairRequestDTO.getCarId()));
 
         CarRepair repair = convertToEntity(repairRequestDTO);
-        // ensure rDate parsed
-        if (repairRequestDTO.parseRDateToLocalDateTime() != null) {
-            repair.setRDate(repairRequestDTO.parseRDateToLocalDateTime());
-        }
         // 生成维修编号
         repair.setRNo(generateRepairNo());
         CarRepair savedRepair = carRepairRepository.save(repair);
@@ -121,9 +117,7 @@ public class CarRepairService {
 
         // 更新维修信息
         if (repairRequestDTO.getRDate() != null) {
-            // parse string to LocalDateTime
-            java.time.LocalDateTime parsed = repairRequestDTO.parseRDateToLocalDateTime();
-            if (parsed != null) existingRepair.setRDate(parsed);
+            existingRepair.setRDate(repairRequestDTO.getRDate());
         }
         if (repairRequestDTO.getRunKm() != null) {
             existingRepair.setRunKm(repairRequestDTO.getRunKm());
@@ -195,8 +189,7 @@ public class CarRepairService {
      */
     private CarRepair convertToEntity(CarRepairRequestDTO dto) {
         CarRepair repair = new CarRepair();
-        // parse rDate if possible (handled above too)
-        repair.setRDate(dto.parseRDateToLocalDateTime());
+        repair.setRDate(dto.getRDate());
         repair.setRunKm(dto.getRunKm());
         repair.setRunHour(dto.getRunHour());
         repair.setCarId(dto.getCarId());

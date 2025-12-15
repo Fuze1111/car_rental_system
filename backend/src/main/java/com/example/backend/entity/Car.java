@@ -75,6 +75,9 @@ public class Car {
      * 关联的汽车类型
      */
     @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "TNo", referencedColumnName = "TNo", insertable = false, updatable = false)
+    @JoinColumns({
+        @JoinColumn(name = "TNo", referencedColumnName = "TNo", insertable = false, updatable = false),
+        @JoinColumn(name = "TName", referencedColumnName = "TName", insertable = false, updatable = false)
+    })
     private CarType carType;
 }

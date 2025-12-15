@@ -35,16 +35,18 @@ public class CarTypeController {
     }
 
     /**
-     * 根据类型编号获取车型信息
-     * GET /api/car-types/{tNo}
+     * 根据类型编号和型号名称获取车型信息
+     * GET /api/car-types/{tNo}/{tName}
      *
      * @param tNo   类型编号
+     * @param tName 型号名称
      * @return 车型信息
      */
-    @GetMapping("/{tNo}")
+    @GetMapping("/{tNo}/{tName}")
     public ResponseEntity<CarType> getCarTypeById(
-            @PathVariable String tNo) {
-        return carTypeService.getCarTypeById(tNo)
+            @PathVariable String tNo,
+            @PathVariable String tName) {
+        return carTypeService.getCarTypeById(tNo, tName)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -64,31 +66,35 @@ public class CarTypeController {
 
     /**
      * 更新车型信息
-     * PUT /api/car-types/{tNo}
+     * PUT /api/car-types/{tNo}/{tName}
      *
      * @param tNo     类型编号
+     * @param tName   型号名称
      * @param carType 车型信息
      * @return 更新后的车型信息
      */
-    @PutMapping("/{tNo}")
+    @PutMapping("/{tNo}/{tName}")
     public ResponseEntity<CarType> updateCarType(
             @PathVariable String tNo,
+            @PathVariable String tName,
             @RequestBody CarType carType) {
-        CarType updatedCarType = carTypeService.updateCarType(tNo, carType);
+        CarType updatedCarType = carTypeService.updateCarType(tNo, tName, carType);
         return ResponseEntity.ok(updatedCarType);
     }
 
     /**
      * 删除车型
-     * DELETE /api/car-types/{tNo}
+     * DELETE /api/car-types/{tNo}/{tName}
      *
      * @param tNo   类型编号
+     * @param tName 型号名称
      * @return 无内容
      */
-    @DeleteMapping("/{tNo}")
+    @DeleteMapping("/{tNo}/{tName}")
     public ResponseEntity<Void> deleteCarType(
-            @PathVariable String tNo) {
-        carTypeService.deleteCarType(tNo);
+            @PathVariable String tNo,
+            @PathVariable String tName) {
+        carTypeService.deleteCarType(tNo, tName);
         return ResponseEntity.noContent().build();
     }
 
