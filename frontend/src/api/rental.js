@@ -72,18 +72,39 @@ export function searchRentalsByPlace(loanPlace) {
 
 // 根据日期范围查询
 export function getRentalsByDateRange(start, end) {
+  // controller provides /search which accepts startDate and endDate (ISO.DATE)
   return request({
-    url: '/rentals/date-range',
+    url: '/rentals/search',
     method: 'get',
-    params: { start, end }
+    params: { startDate: start, endDate: end },
+    quiet: true
   })
 }
 
-// 根据客户号查询租赁记录
-export function getCustomerRentals(cNo) {
+// 获取租赁统计信息
+export function getRentalStatistics() {
   return request({
-    url: `/rentals/customer/${cNo}`,
+    url: '/rentals/statistics',
     method: 'get'
   })
 }
 
+// 获取租赁趋势（按日/周/月/年）
+export function getRentalTrend(start, end, period = 'day') {
+  return request({
+    url: '/rentals/trend',
+    method: 'get',
+    params: { start, end, period },
+    quiet: true
+  })
+}
+
+// 计算指定日期范围内的收入
+export function calculateRevenue(start, end) {
+  return request({
+    url: '/rentals/revenue',
+    method: 'get',
+    params: { start, end },
+    quiet: true
+  })
+}

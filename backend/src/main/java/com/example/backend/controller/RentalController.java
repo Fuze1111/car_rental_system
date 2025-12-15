@@ -171,8 +171,8 @@ public class RentalController {
      */
     @GetMapping("/date-range")
     public ResponseEntity<List<RentalResponseDTO>> getRentalsByDateRange(
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end) {
+            @RequestParam(name = "start") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
+            @RequestParam(name = "end") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end) {
         List<RentalResponseDTO> rentals = rentalService.getRentalsByDateRange(start, end);
         return ResponseEntity.ok(rentals);
     }
@@ -245,9 +245,25 @@ public class RentalController {
      */
     @GetMapping("/revenue")
     public ResponseEntity<Map<String, BigDecimal>> calculateRevenue(
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end) {
+            @RequestParam(name = "start") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
+            @RequestParam(name = "end") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end) {
         BigDecimal revenue = rentalService.calculateRevenue(start, end);
         return ResponseEntity.ok(Map.of("revenue", revenue));
     }
+
+    /**
+     * 获取租赁趋势（按日/周/月/季度分组）
+     * GET /api/rentals/trend?start=yyyy-MM-dd&end=yyyy-MM-dd&period=week
+     * period: day | week | month | year
+     */
+    @GetMapping("/trend")
+    public ResponseEntity<?> getRentalTrend(
+            @RequestParam(name = "start") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
+            @RequestParam(name = "end") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end,
+            @RequestParam(name = "period", defaultValue = "day") String period
+    ) {
+        List<java.util.Map<String, Object>> trend = rentalService.getRentalTrend(start, end, period);
+        return ResponseEntity.ok(trend);
+    }
+
 }

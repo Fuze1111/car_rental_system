@@ -62,18 +62,21 @@
             </template>
           </el-table-column>
 
-          <el-table-column label="借车时间" width="240">
+          <el-table-column label="借还时间" width="320">
             <template #default="scope">
               <div class="date-range">
                 <span class="date">{{ scope.row.LoanDate }}</span>
+                <el-icon class="arrow"><Right /></el-icon>
+                <span class="date">{{ scope.row.ReturnDate || '未还' }}</span>
               </div>
             </template>
           </el-table-column>
 
-          <el-table-column label="借车地点" min-width="200" show-overflow-tooltip>
+          <el-table-column label="借还地点" min-width="200" show-overflow-tooltip>
              <template #default="scope">
                <div class="place-info">
                  <div class="place-row"><el-icon><Location /></el-icon> 借: {{ scope.row.LoanPlace }}</div>
+                 <div class="place-row"><el-icon><LocationFilled /></el-icon> 还: {{ scope.row.ReturnPlace || '未定' }}</div>
                </div>
              </template>
           </el-table-column>

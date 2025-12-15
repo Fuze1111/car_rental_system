@@ -7,7 +7,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -61,12 +61,12 @@ public interface RentalRepository extends JpaRepository<Rental, String> {
 
     /**
      * 根据日期范围查询租赁记录
-     * @param startDate 开始日期
-     * @param endDate 结束日期
+     * @param startDateTime 开始日期时间
+     * @param endDateTime 结束日期时间
      * @return 租赁记录列表
      */
-    @Query("SELECT r FROM Rental r WHERE r.loanDate BETWEEN :startDate AND :endDate")
-    List<Rental> findByDateBetween(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+    @Query("SELECT r FROM Rental r WHERE r.loanDate BETWEEN :startDateTime AND :endDateTime")
+    List<Rental> findByDateBetween(@Param("startDateTime") LocalDateTime startDateTime, @Param("endDateTime") LocalDateTime endDateTime);
 
     /**
      * 根据金额范围查询租赁记录
@@ -82,22 +82,22 @@ public interface RentalRepository extends JpaRepository<Rental, String> {
      * @param cNo 客户号
      * @param dNo 司机号
      * @param carId 车辆ID
-     * @param startDate 开始日期
-     * @param endDate 结束日期
+     * @param startDateTime 开始日期时间（可空）
+     * @param endDateTime 结束日期时间（可空）
      * @return 租赁记录列表
      */
     @Query("SELECT r FROM Rental r WHERE " +
            "(:cNo IS NULL OR r.cNo = :cNo) AND " +
            "(:dNo IS NULL OR r.dNo = :dNo) AND " +
            "(:carId IS NULL OR r.carId = :carId) AND " +
-           "(:startDate IS NULL OR r.loanDate >= :startDate) AND " +
-           "(:endDate IS NULL OR r.loanDate <= :endDate)")
+           "(:startDateTime IS NULL OR r.loanDate >= :startDateTime) AND " +
+           "(:endDateTime IS NULL OR r.loanDate <= :endDateTime)")
     List<Rental> findByMultipleConditions(
         @Param("cNo") String cNo,
         @Param("dNo") String dNo,
         @Param("carId") String carId,
-        @Param("startDate") LocalDate startDate,
-        @Param("endDate") LocalDate endDate
+        @Param("startDateTime") LocalDateTime startDateTime,
+        @Param("endDateTime") LocalDateTime endDateTime
     );
 
     /**
@@ -133,17 +133,10 @@ public interface RentalRepository extends JpaRepository<Rental, String> {
 
     /**
      * 计算指定日期范围内的收入
-     * @param startDate 开始日期
-     * @param endDate 结束日期
+     * @param startDateTime 开始日期时间
+     * @param endDateTime 结束日期时间
      * @return 收入金额
      */
-    @Query("SELECT COALESCE(SUM(r.amount), 0) FROM Rental r WHERE r.loanDate BETWEEN :startDate AND :endDate")
-    BigDecimal calculateRevenueByDateRange(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
-
-    /**
-     * 查询最大的发票号（用于自动生成新发票号）
-     * @return 最大的发票号
-     */
-    @Query("SELECT MAX(r.invoiceNo) FROM Rental r")
-    String findMaxInvoiceNo();
+    @Query("SELECT COALESCE(SUM(r.amount), 0) FROM Rental r WHERE r.loanDate BETWEEN :startDateTime AND :endDateTime")
+    BigDecimal calculateRevenueByDateRange(@Param("startDateTime") LocalDateTime startDateTime, @Param("endDateTime") LocalDateTime endDateTime);
 }

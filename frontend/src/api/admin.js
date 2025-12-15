@@ -94,14 +94,11 @@ export const adminAddDriver = (data) => {
 }
 
 /**
- * 管理员修改密码
- * @param {Object} data - 修改密码数据 { userId, currentPassword, newPassword }
- * @returns {Promise}
+ * 获取客户统计信息（管理端仪表盘）
  */
-export const changeAdminPassword = (data) => {
+export const getCustomerStatistics = () => {
   return request({
-    url: '/auth/change-password/admin',
-    method: 'post',
-    data
+    url: '/customers/statistics',
+    method: 'get'
   })
 }

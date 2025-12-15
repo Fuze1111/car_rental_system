@@ -24,28 +24,28 @@
             <div class="icon-box blue"><el-icon><List /></el-icon></div>
             <div class="pill-info">
               <span class="label">今日订单</span>
-              <span class="value">15</span>
+              <span class="value">{{ metrics.todayOrders }}</span>
             </div>
           </div>
           <div class="glass-stat-pill">
             <div class="icon-box purple"><el-icon><Timer /></el-icon></div>
             <div class="pill-info">
               <span class="label">平均租期</span>
-              <span class="value">3.5天</span>
+              <span class="value">{{ metrics.averageDurationDays }}天</span>
             </div>
           </div>
           <div class="glass-stat-pill">
             <div class="icon-box orange"><el-icon><Tools /></el-icon></div>
             <div class="pill-info">
               <span class="label">今日维修</span>
-              <span class="value">2辆</span>
+              <span class="value">{{ metrics.todayRepairs }}辆</span>
             </div>
           </div>
           <div class="glass-stat-pill">
             <div class="icon-box green"><el-icon><Trophy /></el-icon></div>
             <div class="pill-info">
               <span class="label">最多租赁</span>
-              <span class="value">舒适型</span>
+              <span class="value">{{ metrics.topType }}</span>
             </div>
           </div>
         </div>
@@ -68,7 +68,7 @@
             <span class="label">总车辆数</span>
             <span class="trend positive">+1.5% <el-icon><Top /></el-icon></span>
           </div>
-          <div class="stat-value">128</div>
+          <div class="stat-value">{{ metrics.totalCars }}</div>
           <div class="stat-footer">
             <div class="footer-item">
               <span class="dot"></span>
@@ -78,14 +78,13 @@
           </div>
         </div>
       </div>
-<!-- ... (rest of the template remains largely the same, but styles will update) ... -->
       <div class="stat-card green">
         <div class="card-content">
           <div class="stat-header">
             <span class="label">注册用户</span>
             <span class="trend positive">+5.2% <el-icon><Top /></el-icon></span>
           </div>
-          <div class="stat-value">3,502</div>
+          <div class="stat-value">{{ metrics.registeredUsers }}</div>
           <div class="stat-footer">
             <div class="footer-item">
               <span class="dot"></span>
@@ -102,7 +101,7 @@
             <span class="label">待处理订单</span>
             <span class="trend negative">-5.0% <el-icon><Bottom /></el-icon></span>
           </div>
-          <div class="stat-value">12</div>
+          <div class="stat-value">{{ metrics.pendingOrders }}</div>
           <div class="stat-footer">
             <div class="footer-item">
               <span class="dot warning"></span>
@@ -120,7 +119,7 @@
             <span class="trend positive">+8.4% <el-icon><Top /></el-icon></span>
           </div>
           <div class="stat-value">
-            <span class="currency">¥</span>12,580
+            <span class="currency">¥</span>{{ metrics.todayRevenue }}
           </div>
           <div class="stat-footer">
             <div class="footer-item">
@@ -245,20 +244,20 @@
             <div class="resource-item">
               <div class="res-header">
                 <span class="res-name">空闲车辆</span>
-                <span class="res-val blue">85/128</span>
+                <span class="res-val blue">{{ (metrics.totalCars !== null && metrics.totalCars !== undefined) ? (metrics.availableCars + '/' + metrics.totalCars) : '-' }}</span>
               </div>
               <div class="progress-bg">
-                <div class="progress-bar blue" style="width: 66%"></div>
+                <div class="progress-bar blue" :style="{ width: availableCarsPercent }"></div>
               </div>
             </div>
             
             <div class="resource-item">
               <div class="res-header">
                 <span class="res-name">空闲司机</span>
-                <span class="res-val orange">12/45</span>
+                <span class="res-val orange">{{ (metrics.totalDrivers !== null && metrics.totalDrivers !== undefined) ? (metrics.freeDrivers + '/' + metrics.totalDrivers) : '-' }}</span>
               </div>
               <div class="progress-bg">
-                <div class="progress-bar orange" style="width: 26%"></div>
+                <div class="progress-bar orange" :style="{ width: freeDriversPercent }"></div>
               </div>
             </div>
             
@@ -340,18 +339,23 @@
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Van, User, List, Money, Top, Bottom, Plus, UserFilled, Document, Warning, Setting, Monitor, Bell, DataLine, Timer, CircleCheck, Download, Select, Tools, Trophy } from '@element-plus/icons-vue'
+import { Van, User, List, Money, Top, Bottom, Plus, Document, Warning, Setting, Monitor, Bell, Timer, CircleCheck, Download, Select, Tools, Trophy } from '@element-plus/icons-vue'
+
+// new imports for API
+import { getCarStatistics as apiGetCarStatistics, getRepairs as apiGetRepairs } from '@/api/car'
+import { getRentalStatistics, calculateRevenue, getRentalsByDateRange, getRentals, getRentalTrend } from '@/api/rental'
+import { getCustomerStatistics } from '@/api/admin'
+import { getDriverStatistics as apiGetDriverStatistics } from '@/api/driver'
 
 const router = useRouter()
 const currentTime = ref(new Date())
 let timer = null
 
-// 报表相关状态
+// UI dialogs and controls (were referenced in template)
 const reportDialogVisible = ref(false)
 const reportType = ref('financial')
 const exportLoading = ref(false)
 
-// 快捷操作跳转
 const handleQuickAction = (action) => {
   switch (action) {
     case 'add-car':
@@ -361,7 +365,7 @@ const handleQuickAction = (action) => {
       router.push('/admin/orders')
       break
     case 'export-report':
-      reportType.value = 'financial' // 重置默认选中
+      reportType.value = 'financial'
       reportDialogVisible.value = true
       break
     case 'system-settings':
@@ -375,26 +379,285 @@ const handleExportConfirm = () => {
   setTimeout(() => {
     exportLoading.value = false
     reportDialogVisible.value = false
-    
-    const map = {
-      'financial': '财务营收报表',
-      'cars': '车辆库存清单',
-      'types': '车型配置清单'
-    }
+    const map = { financial: '财务营收报表', cars: '车辆库存清单', types: '车型配置清单' }
     ElMessage.success(`《${map[reportType.value]}》已导出成功`)
   }, 1000)
+}
+
+// KPI reactive state
+const loading = ref(false)
+const metrics = ref({
+  todayOrders: 0,
+  averageDurationDays: 0,
+  todayRepairs: 0,
+  topType: '-',
+  totalCars: null,
+  registeredUsers: null,
+  pendingOrders: null,
+  todayRevenue: null,
+  availableCars: null,
+  repairCars: null,
+  totalDrivers: null,
+  freeDrivers: null
+})
+
+// chart data state
+const chartData = ref([])
+const activeTimeRange = ref('week')
+const currentScale = computed(() => {
+  if (activeTimeRange.value === 'week') return { maxOrders: 50, maxRevenue: 15 }
+  if (activeTimeRange.value === 'month') return { maxOrders: 200, maxRevenue: 80 }
+  return { maxOrders: 800, maxRevenue: 300 }
+})
+
+// Y-axis ticks used in template
+const yAxisLeftTicks = computed(() => {
+  const max = currentScale.value.maxOrders
+  const step = max / 5
+  return [max, max - step, max - step * 2, max - step * 3, max - step * 4, 0]
+})
+const yAxisRightTicks = computed(() => {
+  const max = currentScale.value.maxRevenue
+  const step = max / 5
+  return [max, max - step, max - step * 2, max - step * 3, max - step * 4, 0]
+})
+
+const handleTimeSwitch = async (range) => {
+  activeTimeRange.value = range
+  await fetchChartData()
+}
+
+// helpers to get today's date strings
+const toDateString = (d) => {
+  const y = d.getFullYear(); const m = String(d.getMonth()+1).padStart(2,'0'); const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`
+}
+
+// fetch all metrics from backend
+const fetchMetrics = async () => {
+  loading.value = true
+  try {
+    // parallel calls where possible
+    const [carStats, rentalStats, customerStats, driverStats] = await Promise.all([
+      apiGetCarStatistics().catch(e => { console.error('carStats err', e); return {} }),
+      getRentalStatistics().catch(e => { console.error('rentalStats err', e); return {} }),
+      getCustomerStatistics().catch(e => { console.error('customerStats err', e); return {} }),
+      apiGetDriverStatistics().catch(e => { console.error('driverStats err', e); return {} })
+    ])
+
+    // map car stats
+    if (carStats) {
+      const total = carStats.total ?? carStats.totalCount
+      const avail = carStats.available ?? carStats.availableCount
+      const repair = carStats.repair ?? carStats.repairCount
+      const rented = carStats.rented
+
+      metrics.value.totalCars = total !== undefined && total !== null ? Number(total) : 0
+      metrics.value.availableCars = avail !== undefined && avail !== null ? Number(avail) : null
+      metrics.value.repairCars = repair !== undefined && repair !== null ? Number(repair) : 0
+
+      // if available missing but rented provided, compute available = total - rented
+      // try compute available using rented and repair when available not provided
+      if ((metrics.value.availableCars === null || isNaN(metrics.value.availableCars))) {
+        const t = Number(metrics.value.totalCars) || 0
+        const r = rented !== undefined && rented !== null ? Number(rented) : 0
+        const rep = repair !== undefined && repair !== null ? Number(repair) : 0
+        const computed = Math.max(0, t - r - rep)
+        // only assign if we have at least total and (rented or repair)
+        if (t > 0 && (rented !== undefined || repair !== undefined)) {
+          metrics.value.availableCars = computed
+        } else {
+          // fallback to 0 to avoid null display
+          metrics.value.availableCars = 0
+        }
+      }
+    }
+
+    // customer stats -> registered users
+    if (customerStats) {
+      metrics.value.registeredUsers = customerStats.total !== undefined && customerStats.total !== null ? Number(customerStats.total) : null
+    }
+
+    // rentals overall stats
+    if (rentalStats && rentalStats.pending !== undefined && rentalStats.pending !== null) {
+      metrics.value.pendingOrders = Number(rentalStats.pending)
+    } else {
+      // no server-side pending value: compute from rentals list (filter by missing returnDate)
+      try {
+        const allRentalsResp = await getRentals({ page: -1, size: -1 }).catch(() => null)
+        const allRentals = Array.isArray(allRentalsResp) ? allRentalsResp : (allRentalsResp && allRentalsResp.content ? allRentalsResp.content : [])
+        metrics.value.pendingOrders = Array.isArray(allRentals) ? allRentals.filter(r => !r.returnDate).length : 0
+      } catch (e) {
+        metrics.value.pendingOrders = 0
+      }
+    }
+
+    // driver stats used for free drivers metric
+    if (driverStats) {
+      metrics.value.totalDrivers = driverStats.total !== undefined && driverStats.total !== null ? Number(driverStats.total) : 0
+      const freeVal = driverStats.free ?? driverStats.freeCount
+      metrics.value.freeDrivers = freeVal !== undefined && freeVal !== null ? Number(freeVal) : null
+      // if free missing but onDuty present, compute free = total - onDuty
+      if ((metrics.value.freeDrivers === null || isNaN(metrics.value.freeDrivers)) && driverStats.onDuty !== undefined && driverStats.onDuty !== null) {
+        const onDuty = Number(driverStats.onDuty) || 0
+        const totalD = Number(metrics.value.totalDrivers) || 0
+        metrics.value.freeDrivers = Math.max(0, totalD - onDuty)
+      }
+      // if still null, fallback to 0
+      if (metrics.value.freeDrivers === null || isNaN(metrics.value.freeDrivers)) metrics.value.freeDrivers = 0
+    }
+
+    // fetch today's orders and revenue by querying rentals between today 00:00 and today 23:59
+    const today = new Date()
+    const start = toDateString(today)
+    const end = toDateString(today)
+
+    // get rentals for today (silent fallback on error)
+    const rentalsToday = await getRentalsByDateRange(start, end).catch(() => [])
+    metrics.value.todayOrders = Array.isArray(rentalsToday) ? rentalsToday.length : (rentalsToday.content ? rentalsToday.content.length : 0)
+
+    // calculate revenue for today
+    const revenueResp = await calculateRevenue(start, end).catch(() => ({ revenue: 0 }))
+    metrics.value.todayRevenue = revenueResp && revenueResp.revenue ? Number(revenueResp.revenue) : 0
+
+    // get today's repairs count using API helper (CarRepairController expects startDate/endDate)
+    try {
+      const repairsResp = await apiGetRepairs({ startDate: start, endDate: end }).catch(() => [])
+      metrics.value.todayRepairs = Array.isArray(repairsResp) ? repairsResp.length : (repairsResp && repairsResp.content ? repairsResp.content.length : 0)
+    } catch (e) {
+       metrics.value.todayRepairs = 0
+     }
+
+    // where earlier fetch('/api/rentals') was used, replace with getRentals (no params) or getRentals({ page: -1, size: -1 })
+// for computing avg durations and pending if needed:
+try {
+  const allRentalsResp = await getRentals({ page: -1, size: -1 }).catch(() => null)
+  const allRentals = Array.isArray(allRentalsResp) ? allRentalsResp : (allRentalsResp && allRentalsResp.content ? allRentalsResp.content : [])
+  if (Array.isArray(allRentals) && allRentals.length) {
+    const durations = allRentals.map(r => {
+      if (!r.loanDate || !r.returnDate) return 0
+      return (new Date(r.returnDate) - new Date(r.loanDate)) / (1000*60*60*24)
+    }).filter(Boolean)
+    if (durations.length) {
+      const avg = durations.reduce((a,b)=>a+b,0)/durations.length
+      metrics.value.averageDurationDays = Math.round(avg*10)/10
+    }
+  }
+} catch (err) { console.error(err) }
+
+// for topType calculation replace fetch('/api/rentals') similarly
+try {
+  if (!carStats || !carStats.mostRentedType) {
+    const rentalsResp = await getRentals({ page: -1, size: -1 }).catch(() => [])
+    const rentals = Array.isArray(rentalsResp) ? rentalsResp : (rentalsResp && rentalsResp.content ? rentalsResp.content : [])
+    const typeCount = {}
+    if (Array.isArray(rentals)) {
+      rentals.forEach(r => { if (r.carType) typeCount[r.carType] = (typeCount[r.carType] || 0) + 1 })
+      const sorted = Object.entries(typeCount).sort((a,b)=>b[1]-a[1])
+      metrics.value.topType = sorted.length ? sorted[0][0] : '-'
+    }
+  } else {
+    metrics.value.topType = carStats.mostRentedType
+  }
+} catch (e) { console.error(e) }
+
+  } catch (err) {
+    console.error('fetchMetrics error', err)
+    ElMessage.error('加载统计数据失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+// fetch chart data for the selected time range (week/month/year)
+const fetchChartData = async () => {
+  try {
+    const now = new Date()
+    let startDate, endDate, periodParam
+
+    if (activeTimeRange.value === 'week') {
+      periodParam = 'day'
+      endDate = new Date(now)
+      startDate = new Date(now)
+      startDate.setDate(now.getDate() - 6) // last 7 days
+    } else if (activeTimeRange.value === 'month') {
+      periodParam = 'month'
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1)
+      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+    } else { // year
+      periodParam = 'year'
+      startDate = new Date(now.getFullYear(), 0, 1)
+      endDate = new Date(now.getFullYear(), 11, 31)
+    }
+
+    const start = toDateString(startDate)
+    const end = toDateString(endDate)
+
+    const trend = await getRentalTrend(start, end, periodParam).catch(() => [])
+    // trend is array of { label, orders, revenue }
+    const arr = []
+    if (Array.isArray(trend) && trend.length) {
+      for (const item of trend) {
+        const orders = Number(item.orders) || 0
+        const revenue = Number(item.revenue) || 0
+        let label = String(item.label || '')
+        if (periodParam === 'day') {
+          // label is ISO date string; show localized weekday
+          try { label = new Date(label).toLocaleDateString('zh-CN', { weekday: 'short' }) } catch(e) { /* keep original */ }
+        }
+        arr.push({ label, orders, revenue: Math.round(revenue/1000*10)/10 })
+      }
+    } else {
+      // empty or error -> build fallback buckets with zeros
+      if (periodParam === 'day') {
+        const d = new Date(startDate)
+        while (d <= endDate) {
+          const lab = d.toLocaleDateString('zh-CN', { weekday: 'short' })
+          arr.push({ label: lab, orders: 0, revenue: 0 })
+          d.setDate(d.getDate() + 1)
+        }
+      } else if (periodParam === 'month') {
+        arr.push({ label: 'W1', orders: 0, revenue: 0 })
+        arr.push({ label: 'W2', orders: 0, revenue: 0 })
+        arr.push({ label: 'W3', orders: 0, revenue: 0 })
+        arr.push({ label: 'W4', orders: 0, revenue: 0 })
+      } else {
+        arr.push({ label: 'Q1', orders: 0, revenue: 0 })
+        arr.push({ label: 'Q2', orders: 0, revenue: 0 })
+        arr.push({ label: 'Q3', orders: 0, revenue: 0 })
+        arr.push({ label: 'Q4', orders: 0, revenue: 0 })
+      }
+    }
+
+    chartData.value = arr
+  } catch (e) {
+    // on unexpected error, fallback to zeros
+    console.error('fetchChartData error', e)
+    if (activeTimeRange.value === 'month') {
+      chartData.value = [ { label: 'W1', orders: 0, revenue: 0 }, { label: 'W2', orders: 0, revenue: 0 }, { label: 'W3', orders: 0, revenue: 0 }, { label: 'W4', orders: 0, revenue: 0 } ]
+    } else if (activeTimeRange.value === 'year') {
+      chartData.value = [ { label: 'Q1', orders: 0, revenue: 0 }, { label: 'Q2', orders: 0, revenue: 0 }, { label: 'Q3', orders: 0, revenue: 0 }, { label: 'Q4', orders: 0, revenue: 0 } ]
+    } else {
+      chartData.value = Array.from({ length: 7 }).map((_, i) => ({ label: '-', orders: 0, revenue: 0 }))
+    }
+  }
 }
 
 onMounted(() => {
   timer = setInterval(() => {
     currentTime.value = new Date()
-  }, 1000) // 每秒更新一次，显示秒
+  }, 1000)
+
+  // initial data load
+  fetchMetrics()
+  fetchChartData()
 })
 
 onUnmounted(() => {
   if (timer) clearInterval(timer)
 })
 
+// remaining computed helpers (currentTimeStr, currentDateStr, timeGreeting, greetingText) kept from existing file
 const currentTimeStr = computed(() => {
   return currentTime.value.toLocaleTimeString('zh-CN', {
     hour: '2-digit',
@@ -432,72 +695,33 @@ const greetingText = computed(() => {
   return '愿您有个美好的夜晚'
 })
 
-// 时间范围切换
-const activeTimeRange = ref('week')
-
-// 刻度配置
-const chartScales = {
-  week: { maxOrders: 50, maxRevenue: 15 },
-  month: { maxOrders: 200, maxRevenue: 80 },
-  year: { maxOrders: 800, maxRevenue: 300 }
+// percent helpers for progress bars
+const formatPct = (num) => {
+  // clamp and format to one decimal (drop .0 for integer)
+  const n = Math.min(Math.max(num, 0), 100)
+  const fixed = Math.round(n * 10) / 10
+  return (Number.isInteger(fixed) ? fixed.toString() : fixed.toFixed(1)) + '%'
 }
 
-const currentScale = computed(() => chartScales[activeTimeRange.value])
-
-// 计算左侧Y轴刻度 (分5段)
-const yAxisLeftTicks = computed(() => {
-  const max = currentScale.value.maxOrders
-  const step = max / 5
-  return [max, max - step, max - step * 2, max - step * 3, max - step * 4, 0]
+const availableCarsPercent = computed(() => {
+  const total = metrics.value.totalCars
+  const avail = metrics.value.availableCars
+  if (!total || total === 0) return '0%'
+  const a = (avail === null || avail === undefined || isNaN(avail)) ? 0 : Number(avail)
+  const pct = (a / Number(total)) * 100
+  return formatPct(pct)
 })
 
-// 计算右侧Y轴刻度 (分5段)
-const yAxisRightTicks = computed(() => {
-  const max = currentScale.value.maxRevenue
-  const step = max / 5
-  return [max, max - step, max - step * 2, max - step * 3, max - step * 4, 0]
+const freeDriversPercent = computed(() => {
+  const total = metrics.value.totalDrivers
+  const free = metrics.value.freeDrivers
+  if (!total || total === 0) return '0%'
+  const f = (free === null || free === undefined || isNaN(free)) ? 0 : Number(free)
+  const pct = (f / Number(total)) * 100
+  return formatPct(pct)
 })
 
-const handleTimeSwitch = (range) => {
-  activeTimeRange.value = range
-  // 切换模拟数据
-  if (range === 'week') {
-    chartData.value = [
-      { label: 'Mon', orders: 18, revenue: 6.3 },
-      { label: 'Tue', orders: 25, revenue: 8.9 },
-      { label: 'Wed', orders: 15, revenue: 5.2 },
-      { label: 'Thu', orders: 32, revenue: 11.5 },
-      { label: 'Fri', orders: 28, revenue: 9.8 },
-      { label: 'Sat', orders: 45, revenue: 14.2 },
-      { label: 'Sun', orders: 38, revenue: 12.6 }
-    ]
-  } else if (range === 'month') {
-    chartData.value = [
-      { label: 'W1', orders: 120, revenue: 45.2 },
-      { label: 'W2', orders: 150, revenue: 58.6 },
-      { label: 'W3', orders: 180, revenue: 62.4 },
-      { label: 'W4', orders: 140, revenue: 51.0 }
-    ]
-  } else {
-    chartData.value = [
-      { label: 'Q1', orders: 450, revenue: 150.5 },
-      { label: 'Q2', orders: 520, revenue: 180.2 },
-      { label: 'Q3', orders: 480, revenue: 165.8 },
-      { label: 'Q4', orders: 600, revenue: 210.5 }
-    ]
-  }
-}
-
-// 图表数据 (默认周数据)
-const chartData = ref([
-  { label: 'Mon', orders: 18, revenue: 6.3 },
-  { label: 'Tue', orders: 25, revenue: 8.9 },
-  { label: 'Wed', orders: 15, revenue: 5.2 },
-  { label: 'Thu', orders: 32, revenue: 11.5 },
-  { label: 'Fri', orders: 28, revenue: 9.8 },
-  { label: 'Sat', orders: 45, revenue: 14.2 },
-  { label: 'Sun', orders: 38, revenue: 12.6 }
-])
+// expose things to template via refs already defined earlier (note: template uses original variable names like chartData, activeTimeRange etc.)
 </script>
 
 <style scoped lang="scss">
@@ -553,6 +777,7 @@ const chartData = ref([
 
           .user-name {
             background: linear-gradient(45deg, #3b82f6, #8b5cf6);
+            background-clip: text; /* standard property for compatibility */
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
           }
@@ -1137,30 +1362,37 @@ const chartData = ref([
       }
     }
     .progress-bg {
+      position: relative; /* ensure absolute child positions correctly */
+      width: 100%;
       height: 8px;
       background: rgba(241, 245, 249, 0.6);
       border-radius: 4px;
       overflow: hidden;
       .progress-bar {
-        height: 100%;
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 0; /* numeric width will be set inline as e.g. '60%' */
         border-radius: 4px;
+        transition: width 420ms cubic-bezier(.2,.8,.2,1);
         &.blue { background: #3b82f6; }
         &.orange { background: #f59e0b; }
       }
     }
-  }
 
-  .info-alert {
-    background: rgba(255, 251, 235, 0.6);
-    border: 1px solid #fef3c7;
-    border-radius: 12px;
-    padding: 16px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    color: #b45309;
-    font-size: 13px;
-    font-weight: 500;
+    .info-alert {
+      background: rgba(255, 251, 235, 0.6);
+      border: 1px solid #fef3c7;
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: #b45309;
+      font-size: 13px;
+      font-weight: 500;
+    }
   }
 }
 

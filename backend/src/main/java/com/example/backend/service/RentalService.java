@@ -3,13 +3,12 @@ package com.example.backend.service;
 import com.example.backend.dto.RentalRequestDTO;
 import com.example.backend.dto.RentalResponseDTO;
 import com.example.backend.entity.Car;
-import com.example.backend.entity.Customer;
 import com.example.backend.entity.Driver;
 import com.example.backend.entity.Rental;
 import com.example.backend.repository.CarRepository;
-import com.example.backend.repository.CustomerRepository;
 import com.example.backend.repository.DriverRepository;
 import com.example.backend.repository.RentalRepository;
+import com.example.backend.repository.CustomerRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -19,6 +18,8 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -339,7 +340,10 @@ public class RentalService {
      * @return 租赁记录列表
      */
     public List<RentalResponseDTO> getRentalsByDateRange(LocalDate startDate, LocalDate endDate) {
-        List<Rental> rentals = rentalRepository.findByDateBetween(startDate, endDate);
+        // convert LocalDate to LocalDateTime covering the full day to match entity fields
+        java.time.LocalDateTime startDateTime = startDate.atStartOfDay();
+        java.time.LocalDateTime endDateTime = endDate.atTime(java.time.LocalTime.MAX);
+        List<Rental> rentals = rentalRepository.findByDateBetween(startDateTime, endDateTime);
         return rentals.stream()
                 .map(this::convertToResponseDTO)
                 .collect(Collectors.toList());
@@ -368,8 +372,13 @@ public class RentalService {
      * @return 租赁记录列表
      */
     public List<RentalResponseDTO> searchRentals(String cNo, String dNo, String carId,
-                                                   LocalDate startDate, LocalDate endDate) {
-        List<Rental> rentals = rentalRepository.findByMultipleConditions(cNo, dNo, carId, startDate, endDate);
+                                                    LocalDate startDate, LocalDate endDate) {
+        // convert optional LocalDate to LocalDateTime range (startOfDay / endOfDay) for repository
+        LocalDateTime startDateTime = null;
+        LocalDateTime endDateTime = null;
+        if (startDate != null) startDateTime = startDate.atStartOfDay();
+        if (endDate != null) endDateTime = endDate.atTime(LocalTime.MAX);
+        List<Rental> rentals = rentalRepository.findByMultipleConditions(cNo, dNo, carId, startDateTime, endDateTime);
         return rentals.stream()
                 .map(this::convertToResponseDTO)
                 .collect(Collectors.toList());
@@ -412,7 +421,114 @@ public class RentalService {
      * @return 收入金额
      */
     public BigDecimal calculateRevenue(LocalDate startDate, LocalDate endDate) {
-        return rentalRepository.calculateRevenueByDateRange(startDate, endDate);
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
+        return rentalRepository.calculateRevenueByDateRange(startDateTime, endDateTime);
+    }
+
+    /**
+     * 获取租赁趋势数据（按 period 分组）
+     * period: day | week | month | year
+     * 返回列表，每项为 map 包含: label (String), orders (int), revenue (BigDecimal)
+     */
+    public List<java.util.Map<String, Object>> getRentalTrend(LocalDate startDate, LocalDate endDate, String period) {
+        // normalize
+        if (startDate == null || endDate == null) return java.util.Collections.emptyList();
+        if (startDate.isAfter(endDate)) {
+            LocalDate tmp = startDate; startDate = endDate; endDate = tmp;
+        }
+
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
+
+        List<Rental> rentals = rentalRepository.findByDateBetween(startDateTime, endDateTime);
+
+        List<java.util.Map<String, Object>> buckets = new java.util.ArrayList<>();
+
+        String p = period == null ? "day" : period.toLowerCase();
+
+        switch (p) {
+            case "month": {
+                // 4 weekly buckets: W1..W4
+                for (int i = 1; i <= 4; i++) {
+                    java.util.Map<String, Object> m = new java.util.HashMap<>();
+                    m.put("label", "W" + i);
+                    m.put("orders", 0);
+                    m.put("revenue", BigDecimal.ZERO);
+                    buckets.add(m);
+                }
+                // assign by day-of-month to buckets
+                for (Rental r : rentals) {
+                    if (r.getLoanDate() == null) continue;
+                    LocalDate d = r.getLoanDate().toLocalDate();
+                    if (d.isBefore(startDate) || d.isAfter(endDate)) continue;
+                    int day = d.getDayOfMonth();
+                    int idx = Math.min(3, (day - 1) / 7); // 0..3
+                    java.util.Map<String, Object> m = buckets.get(idx);
+                    int cnt = (int) m.get("orders") + 1;
+                    BigDecimal rev = (BigDecimal) m.get("revenue");
+                    rev = rev.add(r.getAmount() == null ? BigDecimal.ZERO : r.getAmount());
+                    m.put("orders", cnt);
+                    m.put("revenue", rev);
+                }
+                break;
+            }
+            case "year": {
+                // quarters Q1..Q4
+                for (int i = 1; i <= 4; i++) {
+                    java.util.Map<String, Object> m = new java.util.HashMap<>();
+                    m.put("label", "Q" + i);
+                    m.put("orders", 0);
+                    m.put("revenue", BigDecimal.ZERO);
+                    buckets.add(m);
+                }
+                for (Rental r : rentals) {
+                    if (r.getLoanDate() == null) continue;
+                    LocalDate d = r.getLoanDate().toLocalDate();
+                    if (d.isBefore(startDate) || d.isAfter(endDate)) continue;
+                    int month = d.getMonthValue();
+                    int idx = (month - 1) / 3; // 0..3
+                    java.util.Map<String, Object> m = buckets.get(idx);
+                    int cnt = (int) m.get("orders") + 1;
+                    BigDecimal rev = (BigDecimal) m.get("revenue");
+                    rev = rev.add(r.getAmount() == null ? BigDecimal.ZERO : r.getAmount());
+                    m.put("orders", cnt);
+                    m.put("revenue", rev);
+                }
+                break;
+            }
+            default: {
+                // day/week -> per day buckets
+                java.time.LocalDate d = startDate;
+                java.util.Map<String, java.util.Map<String, Object>> map = new java.util.LinkedHashMap<>();
+                while (!d.isAfter(endDate)) {
+                    java.util.Map<String, Object> m = new java.util.HashMap<>();
+                    m.put("label", d.toString());
+                    m.put("orders", 0);
+                    m.put("revenue", BigDecimal.ZERO);
+                    map.put(d.toString(), m);
+                    d = d.plusDays(1);
+                }
+                // assign rentals
+                for (Rental r : rentals) {
+                    if (r.getLoanDate() == null) continue;
+                    LocalDate ld = r.getLoanDate().toLocalDate();
+                    if (ld.isBefore(startDate) || ld.isAfter(endDate)) continue;
+                    String key = ld.toString();
+                    java.util.Map<String, Object> m = map.get(key);
+                    if (m == null) continue;
+                    int cnt = (int) m.get("orders") + 1;
+                    BigDecimal rev = (BigDecimal) m.get("revenue");
+                    rev = rev.add(r.getAmount() == null ? BigDecimal.ZERO : r.getAmount());
+                    m.put("orders", cnt);
+                    m.put("revenue", rev);
+                }
+                buckets.addAll(map.values());
+                break;
+            }
+        }
+
+        return buckets;
     }
     
     /**
@@ -547,3 +663,4 @@ public class RentalService {
         return rental;
     }
 }
+
