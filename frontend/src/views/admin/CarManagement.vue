@@ -579,6 +579,7 @@ const fetchCars = async () => {
     const { content, totalElements } = response
 
     // 转换数据格式以适配前端显示（注意后端返回的是小写字段名）
+<<<<<<< HEAD
     tableData.value = content.map(car => ({
       CarID: car.carId,
       TNo: car.tno,
@@ -592,6 +593,105 @@ const fetchCars = async () => {
       RunHour: car.runHour || 0
     }))
     
+=======
+    tableData.value = content.map(car => {
+      // Accept multiple naming variants returned by backend
+      const tNo = car.tNo || car.TNo || car.tno || car.TNO || car.t_no || null
+      const tName = car.tName || car.TName || car.tname || car.TNAME || car.t_name || null
+      // try to find nested car type object under common keys
+      const nestedType = car.carType || car.car_type || car.type || car.carTypeDto || car._embedded?.carType || car.typeInfo || null
+      let rentRate = car.rentRate || (nestedType && (nestedType.rentRate || nestedType.RentRate)) || null
+
+      // coerce BigDecimal-like strings to number when possible
+      if (rentRate !== null && rentRate !== undefined) {
+        // leave as-is if already a number
+        if (typeof rentRate === 'object' && rentRate.hasOwnProperty('value')) {
+          // some serializers wrap BigDecimal as { value: "30.00" }
+          rentRate = rentRate.value
+        }
+      }
+
+      // Prefer canonical values from carTypeOptions when available (ensures type edits propagate)
+      let finalTName = tName
+      let finalRentRate = rentRate
+      if (tNo) {
+        const found = carTypeOptions.value.find(t => t.tNo === tNo || t.tno === tNo)
+        if (found) {
+          // Always prefer the centralized tName/rentRate from carTypeOptions for consistency
+          finalTName = found.tName || found.tname || finalTName
+          finalRentRate = found.rentRate !== undefined && found.rentRate !== null ? found.rentRate : finalRentRate
+        }
+      }
+
+      // If still missing, try to pull from nestedType's tNo/tName
+      if ((!finalTName || finalTName === '') && nestedType) {
+        finalTName = finalTName || nestedType.tName || nestedType.TName || nestedType.tname || nestedType.name || null
+        if (!finalRentRate) finalRentRate = nestedType.rentRate || nestedType.RentRate || null
+      }
+
+      // Final fallback: if both tNo and tName missing, log this row for debugging
+      if ((!tNo || tNo === '') && (!finalTName || finalTName === '')) {
+        console.warn('Car row missing both tNo and tName:', car)
+      }
+
+      // If rentRate still missing, as a fallback try lookup by tName
+      if ((finalRentRate === null || finalRentRate === undefined) && finalTName) {
+         const foundByName = carTypeOptions.value.find(t => t.tName === finalTName || t.tname === finalTName)
+         if (foundByName) finalRentRate = foundByName.rentRate
+       }
+
+      // normalize numeric/text fields
+      const normalizedRent = (finalRentRate === null || finalRentRate === undefined) ? null : (typeof finalRentRate === 'number' ? finalRentRate : Number(finalRentRate))
+
+      return {
+        CarID: car.carId || car.CarID || car.carID || car.CarId,
+        TNo: tNo || (nestedType && (nestedType.tNo || nestedType.TNo || nestedType.tno)) || null,
+        TName: finalTName || null,
+        RentRate: normalizedRent,
+        CarStatus: car.carStatus || car.CarStatus,
+        PurchaseDate: car.purchaseDate || car.PurchaseDate,
+        Price: car.price || car.Price,
+        LastRepairDate: car.lastRepairDate || car.LastRepairDate,
+        RUNKM: car.runKm || car.RUNKM || 0,
+        RunHour: car.runHour || car.RunHour || 0,
+        // include raw car for debugging
+        _raw: car
+      }
+    })
+    // DEBUG: 打印处理后的 tableData 中前几行以便调试
+    console.debug('Processed tableData (first rows):', tableData.value.slice(0, 5))
+
+    // 补救措施：对于仍然缺失车型信息的行，逐条向后端请求单车详情以回填（避免列表接口部分字段为 null 的情况）
+    const missingRows = tableData.value.filter(r => (!r.TNo && !r.TName) || r.TName === null)
+    if (missingRows.length > 0) {
+      console.debug(`Found ${missingRows.length} rows with missing tNo/tName, fetching individual car details...`)
+      await Promise.all(missingRows.map(async (row) => {
+        try {
+          const detail = await getCarById(row.CarID)
+          if (detail) {
+            // map backend DTO variants to our normalized fields
+            const detailTNo = detail.tNo || detail.TNo || detail.tno || null
+            const detailTName = detail.tName || detail.TName || detail.tname || null
+            const detailRent = detail.rentRate || detail.RentRate || (detail.carType && (detail.carType.rentRate || detail.carType.RentRate)) || null
+
+            // update the table row in-place
+            row.TNo = row.TNo || detailTNo || (detail.carType && (detail.carType.tNo || detail.carType.TNo)) || row.TNo
+            row.TName = row.TName || detailTName || (detail.carType && (detail.carType.tName || detail.carType.TName)) || row.TName
+            row.RentRate = row.RentRate || (detailRent ? (typeof detailRent === 'number' ? detailRent : Number(detailRent)) : row.RentRate)
+            row.RUNKM = row.RUNKM || detail.runKm || detail.RunKM || row.RUNKM
+            row.RunHour = row.RunHour || detail.runHour || detail.RunHour || row.RunHour
+            row.LastRepairDate = row.LastRepairDate || detail.lastRepairDate || detail.LastRepairDate || row.LastRepairDate
+            // store raw detail for debugging
+            row._detailFetched = detail
+          }
+        } catch (err) {
+          console.warn('Failed to fetch car detail for', row.CarID, err)
+        }
+      }))
+      console.debug('After detail backfill, tableData (first rows):', tableData.value.slice(0,5))
+    }
+
+>>>>>>> parent of c083572 (编辑按钮实现 与 新增车辆)
     pagination.total = totalElements
   } catch (error) {
     console.error('获取车辆列表失败:', error)
@@ -606,6 +706,10 @@ const fetchCarTypes = async () => {
   typeLoading.value = true
   try {
     const response = await getCarTypes()
+<<<<<<< HEAD
+=======
+    console.debug('GET /api/car-types response raw:', response)
+>>>>>>> parent of c083572 (编辑按钮实现 与 新增车辆)
     // backend now returns CarTypeDTO { tNo, tName, rentRate, imageUrl }
     const allTypes = (response || []).map(type => ({
       tno: type.tNo || type.tno,
@@ -820,6 +924,7 @@ const handleTypeSubmit = async () => {
 
 const handleDialogSubmit = async (formData) => {
   try {
+<<<<<<< HEAD
     // 子组件emit的数据字段已经是后端DTO格式（小写）
     // formData = { carId, tNo, tName, price, purchaseDate, carStatus }
     
@@ -827,6 +932,86 @@ const handleDialogSubmit = async (formData) => {
       // 更新车辆
       await updateCar(formData.carId, formData)
       ElMessage.success('车辆信息更新成功')
+=======
+    // support both uppercase and lowercase field names emitted by dialog
+    const carDTO = {
+      carId: (formData.CarID !== undefined ? formData.CarID : formData.carId),
+      tNo: (formData.TNo !== undefined ? formData.TNo : formData.tNo),
+      tName: (formData.TName !== undefined ? formData.TName : formData.tName),
+      price: (formData.Price !== undefined ? formData.Price : formData.price),
+      purchaseDate: (formData.PurchaseDate !== undefined ? formData.PurchaseDate : formData.purchaseDate),
+      carStatus: (formData.CarStatus !== undefined ? formData.CarStatus : formData.carStatus),
+      runKm: (formData.RUNKM !== undefined ? formData.RUNKM : formData.runKm),
+      runHour: (formData.RunHour !== undefined ? formData.RunHour : formData.runHour)
+    }
+
+    // 前端校验：必填字段
+    if (!carDTO.carId || carDTO.carId.toString().trim() === '') {
+      ElMessage.error('车牌号为必填项')
+      return
+    }
+    // 要求车型至少提供 tNo 与 tName 中的一项；后端在同时提供两项时会进行严格校验
+    if ((!carDTO.tNo || carDTO.tNo === '') && (!carDTO.tName || carDTO.tName === '')) {
+      ElMessage.error('请选择车型或填写车型信息')
+      return
+    }
+
+    // 如果提供了 tNo，但 tName 为空或不可信，尝试从已加载的车型选项中填充标准 tName（避免后端严格校验失败）
+    if (carDTO.tNo && (!carDTO.tName || carDTO.tName === '')) {
+      const found = carTypeOptions.value.find(t => t.tNo === carDTO.tNo)
+      if (found) {
+        carDTO.tName = found.tName || found.tname || found.TName || found.tName
+      }
+    }
+
+    // 调试：打印要发送到后端的 payload
+    console.debug('Creating/updating car with payload (raw):', carDTO)
+
+    // 构建清洗过的 payload：去掉空字符串字段，确保日期/数值格式合适
+    const payload = {}
+    if (carDTO.carId && carDTO.carId.toString().trim() !== '') payload.carId = carDTO.carId.toString().trim()
+    if (carDTO.tNo && carDTO.tNo.toString().trim() !== '') payload.tNo = carDTO.tNo.toString().trim()
+    if (carDTO.tName && carDTO.tName.toString().trim() !== '') payload.tName = carDTO.tName.toString().trim()
+    if (carDTO.price !== undefined && carDTO.price !== null && carDTO.price !== '') payload.price = Number(carDTO.price)
+    if (carDTO.purchaseDate && carDTO.purchaseDate.toString().trim() !== '') payload.purchaseDate = carDTO.purchaseDate.toString().trim()
+    if (carDTO.carStatus && carDTO.carStatus.toString().trim() !== '') payload.carStatus = carDTO.carStatus.toString().trim()
+    if (carDTO.runKm !== undefined && carDTO.runKm !== null && carDTO.runKm !== '') payload.runKm = Number(carDTO.runKm)
+    if (carDTO.runHour !== undefined && carDTO.runHour !== null && carDTO.runHour !== '') payload.runHour = Number(carDTO.runHour)
+
+    console.debug('Creating/updating car with payload (clean):', payload)
+
+    if (currentEditData.value) {
+      // 更新车辆：构建完整的更新对象，由原始记录（currentEditData）开始，payload 覆盖其中的字段，保证 tNo/tName 等不会被遗漏
+      try {
+        const original = (currentEditData.value && (currentEditData.value._raw || currentEditData.value)) || currentEditData.value
+
+        const fullUpdate = {
+          carId: (original.CarID || original.carId || payload.carId || formData.CarID || formData.carId),
+          tNo: original.TNo || original.tNo || original.tno || payload.tNo || null,
+          tName: original.TName || original.tName || original.tname || payload.tName || null,
+          price: (original.Price !== undefined && original.Price !== null) ? original.Price : (original.price || payload.price || null),
+          purchaseDate: original.PurchaseDate || original.purchaseDate || payload.purchaseDate || null,
+          carStatus: (original.CarStatus || original.carStatus) || payload.carStatus || null,
+          runKm: (original.RUNKM !== undefined && original.RUNKM !== null) ? original.RUNKM : (original.runKm || payload.runKm || null),
+          runHour: (original.RunHour !== undefined && original.RunHour !== null) ? original.RunHour : (original.runHour || payload.runHour || null)
+        }
+
+        // 覆盖任何来自表单的新值
+        Object.assign(fullUpdate, payload)
+
+        const targetId = fullUpdate.carId || payload.carId || (currentEditData.value && (currentEditData.value.CarID || currentEditData.value.carId)) || formData.CarID || formData.carId
+        console.debug('Updating car id:', targetId, 'with merged payload:', fullUpdate)
+        const resp = await updateCar(targetId, fullUpdate)
+        console.debug('updateCar response:', resp)
+        ElMessage.success('车辆信息更新成功')
+      } catch (err) {
+        console.error('updateCar failed:', err)
+        // 友好地在 UI 中显示错误并返回
+        const msg = (err && err.response && err.response.data && (err.response.data.message || err.response.data.details)) || err.message || '更新车辆失败'
+        ElMessage.error(msg)
+        return
+      }
+>>>>>>> parent of c083572 (编辑按钮实现 与 新增车辆)
     } else {
       // 创建车辆
       await createCar(formData)

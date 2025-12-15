@@ -156,6 +156,7 @@ const rules = {
 // 获取车型列表
 const fetchCarTypes = async () => {
   try {
+<<<<<<< HEAD
     const { getCarTypes } = await import('@/api/car')
     const data = await getCarTypes()
     // 统一字段格式
@@ -163,6 +164,16 @@ const fetchCarTypes = async () => {
       TNo: item.tNo || item.TNo,
       TName: item.tName || item.TName,
       RentRate: item.rentRate || item.RentRate || 0
+=======
+    // 从后端获取车型列表，兼容后端返回字段大小写（TNo/TName 或 tNo/tName）
+    const resp = await getCarTypes()
+    // 后端可能返回数组或封装对象（如 content）
+    const list = Array.isArray(resp) ? resp : (resp && resp.content) ? resp.content : []
+    carTypes.value = list.map(item => ({
+      TNo: item.TNo || item.tNo || item.tno || '',
+      TName: item.TName || item.tName || item.tname || '',
+      RentRate: item.rentRate || item.RentRate || null
+>>>>>>> parent of c083572 (编辑按钮实现 与 新增车辆)
     }))
   } catch (error) {
     console.error('获取车型列表失败:', error)
@@ -259,6 +270,7 @@ const handleSubmit = async () => {
           runKm: formData.RUNKM,
           runHour: formData.RunHour
         }
+<<<<<<< HEAD
         console.log('提交的数据:', submitData)
         console.log('========================================')
         
@@ -267,6 +279,14 @@ const handleSubmit = async () => {
       }, 500)
     }
   })
+=======
+        console.debug('CarDialog final submitData:', submitData)
+         emit('submit', submitData)
+         handleClose()
+       }, 500)
+     }
+   })
+>>>>>>> parent of c083572 (编辑按钮实现 与 新增车辆)
 }
 </script>
 

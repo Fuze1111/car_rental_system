@@ -81,10 +81,29 @@ public class CarService {
             throw new RuntimeException("车牌号已存在: " + carRequestDTO.getCarId());
         }
 
+<<<<<<< HEAD
         // 验证车型是否存在
         if (carRequestDTO.getTNo() != null && carRequestDTO.getTName() != null) {
             carTypeRepository.findByTNoAndTName(carRequestDTO.getTNo(), carRequestDTO.getTName())
                     .orElseThrow(() -> new RuntimeException("车型不存在"));
+=======
+        // 验证并回填车型信息：如果只提供了 tNo 或 tName，尝试回填另一项
+        String tNo = carRequestDTO.getTNo();
+        String tName = carRequestDTO.getTName();
+        if (tNo != null && tName != null) {
+            carTypeRepository.findByTNoAndTName(tNo, tName)
+                    .orElseThrow(() -> new RuntimeException("车型不存在: " + tNo + "/" + tName));
+        } else if (tNo != null && (tName == null || tName.isBlank())) {
+            List<com.example.backend.entity.CarType> found = carTypeRepository.findByTNoQuery(tNo);
+            if (found == null || found.isEmpty()) throw new RuntimeException("车型不存在: tNo=" + tNo);
+            carRequestDTO.setTName(found.get(0).getTName());
+        } else if (tName != null && (tNo == null || tNo.isBlank())) {
+            // 尝试按 tName 查找所有匹配的车型并回填 tNo（取第一个匹配项）
+            List<com.example.backend.entity.CarType> matches = carTypeRepository.findByTNameQuery(tName);
+            if (matches != null && !matches.isEmpty()) {
+                carRequestDTO.setTNo(matches.get(0).getTNo());
+            }
+>>>>>>> parent of c083572 (编辑按钮实现 与 新增车辆)
         }
 
         Car car = convertToEntity(carRequestDTO);
@@ -99,6 +118,7 @@ public class CarService {
      * @return 更新后的车辆信息
      */
     public CarResponseDTO updateCar(String carId, CarRequestDTO carRequestDTO) {
+<<<<<<< HEAD
         System.out.println("========== CarService.updateCar ==========");
         System.out.println("carId: " + carId);
         System.out.println("carRequestDTO: " + carRequestDTO);
@@ -112,6 +132,27 @@ public class CarService {
         if (carRequestDTO.getTNo() != null && carRequestDTO.getTName() != null) {
             carTypeRepository.findByTNoAndTName(carRequestDTO.getTNo(), carRequestDTO.getTName())
                     .orElseThrow(() -> new RuntimeException("车型不存在"));
+=======
+        Car existingCar = carRepository.findById(carId)
+                .orElseThrow(() -> new RuntimeException("车辆不存在: " + carId));
+
+        // 验证车型是否存在并回填缺失字段
+        String tNo = carRequestDTO.getTNo();
+        String tName = carRequestDTO.getTName();
+        if (tNo != null && tName != null) {
+            carTypeRepository.findByTNoAndTName(tNo, tName)
+                    .orElseThrow(() -> new RuntimeException("车型不存在: " + tNo + "/" + tName));
+        } else if (tNo != null && (tName == null || tName.isBlank())) {
+            List<com.example.backend.entity.CarType> found = carTypeRepository.findByTNoQuery(tNo);
+            if (found != null && !found.isEmpty()) {
+                carRequestDTO.setTName(found.get(0).getTName());
+            }
+        } else if (tName != null && (tNo == null || tNo.isBlank())) {
+            List<com.example.backend.entity.CarType> matches = carTypeRepository.findByTNameQuery(tName);
+            if (matches != null && !matches.isEmpty()) {
+                carRequestDTO.setTNo(matches.get(0).getTNo());
+            }
+>>>>>>> parent of c083572 (编辑按钮实现 与 新增车辆)
         }
 
         // 更新车辆信息
@@ -128,11 +169,17 @@ public class CarService {
             existingCar.setCarStatus(carRequestDTO.getCarStatus());
         }
         if (carRequestDTO.getTNo() != null) {
+<<<<<<< HEAD
             System.out.println("更新车型编号: " + carRequestDTO.getTNo());
             existingCar.setTNo(carRequestDTO.getTNo());
         }
         if (carRequestDTO.getTName() != null) {
             System.out.println("更新车型名称: " + carRequestDTO.getTName());
+=======
+            existingCar.setTNo(carRequestDTO.getTNo());
+        }
+        if (carRequestDTO.getTName() != null) {
+>>>>>>> parent of c083572 (编辑按钮实现 与 新增车辆)
             existingCar.setTName(carRequestDTO.getTName());
         }
         if (carRequestDTO.getRunKm() != null) {
@@ -146,9 +193,12 @@ public class CarService {
 
         System.out.println("更新后车辆信息: " + existingCar);
         Car updatedCar = carRepository.save(existingCar);
+<<<<<<< HEAD
         System.out.println("保存后车辆信息: " + updatedCar);
         System.out.println("==========================================");
 
+=======
+>>>>>>> parent of c083572 (编辑按钮实现 与 新增车辆)
         return convertToResponseDTO(updatedCar);
     }
 
