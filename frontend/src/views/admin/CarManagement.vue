@@ -870,15 +870,27 @@ const handleMaintenanceSubmit = async (formData) => {
       runKm: formData.RunKM,
       runHour: formData.RunHour
     }
-    
+
+    // Normalize rDate to LocalDateTime string (backend expects LocalDateTime)
+    // If date is 'YYYY-MM-DD', convert to 'YYYY-MM-DDT00:00:00'
+    if (repairData.rDate && typeof repairData.rDate === 'string' && !repairData.rDate.includes('T')) {
+      repairData.rDate = repairData.rDate + 'T00:00:00'
+    }
+
+    // Ensure numeric fields are numbers (BigDecimal on backend)
+    repairData.runKm = repairData.runKm !== undefined && repairData.runKm !== null ? Number(repairData.runKm) : 0
+    repairData.runHour = repairData.runHour !== undefined && repairData.runHour !== null ? Number(repairData.runHour) : 0
+
+    console.debug('Submitting repairData:', repairData)
+
     // 创建维修记录
     await createRepair(repairData)
-    
+
     // 更新车辆状态为维修中
     await updateCarStatus(formData.CarID, { carStatus: '2' })
-    
+
     ElMessage.success('车辆已送修')
-    
+
     // 刷新车辆列表以显示最新的状态
     fetchCars()
   } catch (error) {
