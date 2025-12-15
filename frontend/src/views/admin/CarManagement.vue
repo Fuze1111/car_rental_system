@@ -303,17 +303,29 @@
           </el-input-number>
         </el-form-item>
         <el-form-item label="车型图片" prop="Image">
-          <el-upload
-            class="avatar-uploader"
-            action="#"
-            :show-file-list="false"
-            :auto-upload="false"
-            :on-change="handleFileChange"
-          >
-            <img v-if="typeFormData.Image" :src="typeFormData.Image" alt="车型图片预览" class="avatar" />
-            <el-icon v-else class="avatar-uploader-icon"><Plus /></el-icon>
-          </el-upload>
-          <div class="form-tip">支持 jpg/png，建议尺寸 800x600</div>
+          <div class="type-image-row">
+            <el-upload
+              class="avatar-uploader"
+              action="#"
+              :show-file-list="false"
+              :auto-upload="false"
+              :on-change="handleFileChange"
+              accept="image/jpeg,image/png"
+            >
+              <div class="preview-box">
+                <img v-if="typeFormData.Image" :src="typeFormData.Image" alt="车型图片预览" class="avatar" />
+                <div v-else class="upload-placeholder">
+                  <el-icon class="avatar-uploader-icon"><Plus /></el-icon>
+                  <div class="placeholder-text">点击上传</div>
+                </div>
+              </div>
+            </el-upload>
+
+            <div class="type-image-meta">
+              <div class="form-tip">支持 jpg/png，建议尺寸 800×600</div>
+              <div class="form-subtip">建议图片清晰、展示车头侧面视角，便于用户识别车型</div>
+            </div>
+          </div>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -1247,51 +1259,60 @@ const handleTypeCurrentChange = (val) => {
 
 .avatar {
   width: 120px;
-  height: 120px;
+  height: 90px;
   display: block;
   object-fit: cover;
+  border-radius: 6px;
+  box-shadow: 0 6px 12px rgba(0,0,0,0.06);
 }
 
 .form-tip {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.form-subtip {
+  margin-top: 8px;
   font-size: 12px;
-  color: #909399;
-  margin-top: 4px;
+  color: #9aa4b2;
 }
 
-.custom-input,
-.custom-input-number {
-  :deep(.el-input__wrapper) {
-    border-radius: 8px;
-    box-shadow: 0 0 0 1px #e2e8f0 inset;
-    padding: 4px 12px;
-    transition: all 0.2s;
-    
-    &:hover {
-      box-shadow: 0 0 0 1px #cbd5e1 inset;
-    }
-    
-    &.is-focus {
-      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2) !important;
-      border-color: #3b82f6;
-    }
-  }
+/* new layout for image row */
+.type-image-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 
-.footer-btn {
-  border-radius: 8px;
-  padding: 10px 24px;
-  font-weight: 500;
-  
-  &.submit-btn {
-    background: linear-gradient(135deg, #3b82f6, #2563eb);
-    border: none;
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
-    
-    &:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 6px 16px rgba(37, 99, 235, 0.3);
-    }
-  }
+.type-image-row .preview-box {
+  width: 120px;
+  height: 90px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border-radius: 6px;
+  border: 1px solid #eef2f7;
+  overflow: hidden;
+}
+
+.upload-placeholder {
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  color:#9aa4b2;
+}
+
+.type-image-meta {
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+}
+
+/* smaller touchups */
+.type-thumb, .avatar {
+  border: 1px solid rgba(15,23,42,0.04);
 }
 
 .car-management {
