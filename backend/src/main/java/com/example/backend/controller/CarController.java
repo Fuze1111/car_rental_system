@@ -118,6 +118,17 @@ public class CarController {
     public ResponseEntity<CarResponseDTO> updateCar(
             @PathVariable String carId,
             @RequestBody CarRequestDTO carRequestDTO) {
+        System.out.println("========== 更新车辆信息 ==========");
+        System.out.println("PathVariable carId: " + carId);
+        System.out.println("RequestBody DTO: " + carRequestDTO);
+        System.out.println("DTO.getCarId(): " + carRequestDTO.getCarId());
+        System.out.println("DTO.getTNo(): " + carRequestDTO.getTNo());
+        System.out.println("DTO.getTName(): " + carRequestDTO.getTName());
+        System.out.println("DTO.getPrice(): " + carRequestDTO.getPrice());
+        System.out.println("DTO.getPurchaseDate(): " + carRequestDTO.getPurchaseDate());
+        System.out.println("DTO.getCarStatus(): " + carRequestDTO.getCarStatus());
+        System.out.println("====================================");
+
         CarResponseDTO updatedCar = carService.updateCar(carId, carRequestDTO);
         return ResponseEntity.ok(updatedCar);
     }

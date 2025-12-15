@@ -180,9 +180,9 @@
                     >
                       <el-option 
                         v-for="store in loanStores" 
-                        :key="store.StoreNo" 
-                        :label="store.StoreName" 
-                        :value="store.StoreName" 
+                        :key="store.storeNo" 
+                        :label="store.storeName" 
+                        :value="store.storeName" 
                       />
                     </el-select>
                   </div>
@@ -217,9 +217,9 @@
                     >
                       <el-option 
                         v-for="store in returnStores" 
-                        :key="store.StoreNo" 
-                        :label="store.StoreName" 
-                        :value="store.StoreName" 
+                        :key="store.storeNo" 
+                        :label="store.storeName" 
+                        :value="store.storeName" 
                       />
                     </el-select>
                   </div>
@@ -341,23 +341,17 @@ const rentForm = reactive({
   needDriver: false
 })
 
-// Mock Store Data
-const stores = [
-  { StoreNo: 'S001', City: '北京市', StoreName: '北京首都国际机场', Address: '北京市顺义区首都国际机场T3航站楼停车楼' },
-  { StoreNo: 'S002', City: '北京市', StoreName: '北京大兴国际机场', Address: '北京市大兴区大兴国际机场停车楼' },
-  { StoreNo: 'S003', City: '上海市', StoreName: '上海虹桥国际机场', Address: '上海市长宁区虹桥国际机场T2航站楼' },
-  { StoreNo: 'S004', City: '上海市', StoreName: '上海浦东国际机场', Address: '上海市浦东新区浦东国际机场P1停车库' },
-  { StoreNo: 'S005', City: '广州市', StoreName: '广州白云国际机场', Address: '广州市白云区白云国际机场T2航站楼' }
-]
+// 门店数据从API获取
+const stores = ref([])
 
-const availableCities = computed(() => [...new Set(stores.map(s => s.City))])
+const availableCities = computed(() => [...new Set(stores.value.map(s => s.city))])
 
 const loanStores = computed(() => {
-  return stores.filter(s => s.City === loanCity.value)
+  return stores.value.filter(s => s.city === loanCity.value)
 })
 
 const returnStores = computed(() => {
-  return stores.filter(s => s.City === returnCity.value)
+  return stores.value.filter(s => s.city === returnCity.value)
 })
 
 // Car Data from API
@@ -496,9 +490,21 @@ const loadCars = async () => {
   }
 }
 
+const fetchStores = async () => {
+  try {
+    const { getAllStores } = await import('@/api/store')
+    const response = await getAllStores()
+    stores.value = response.data || response || []
+  } catch (error) {
+    console.error('加载门店数据失败:', error)
+    ElMessage.error('加载门店数据失败，请稍后重试')
+  }
+}
+
 // Load cars when component mounted
 onMounted(() => {
   loadCars()
+  fetchStores()
 })
 
 // Filtering
@@ -605,8 +611,8 @@ const initMap = () => {
   }
   hasMapKey.value = true
   
-  const startStore = stores.find(s => s.StoreName === rentForm.loanPlace)
-  const endStore = stores.find(s => s.StoreName === rentForm.returnPlace)
+  const startStore = stores.value.find(s => s.storeName === rentForm.loanPlace)
+  const endStore = stores.value.find(s => s.storeName === rentForm.returnPlace)
   
   if (!startStore || !endStore) return
 

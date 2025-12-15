@@ -99,8 +99,14 @@ public class CarService {
      * @return 更新后的车辆信息
      */
     public CarResponseDTO updateCar(String carId, CarRequestDTO carRequestDTO) {
+        System.out.println("========== CarService.updateCar ==========");
+        System.out.println("carId: " + carId);
+        System.out.println("carRequestDTO: " + carRequestDTO);
+
         Car existingCar = carRepository.findById(carId)
                 .orElseThrow(() -> new RuntimeException("车辆不存在: " + carId));
+
+        System.out.println("原始车辆信息: " + existingCar);
 
         // 验证车型是否存在
         if (carRequestDTO.getTNo() != null && carRequestDTO.getTName() != null) {
@@ -110,22 +116,39 @@ public class CarService {
 
         // 更新车辆信息
         if (carRequestDTO.getPurchaseDate() != null) {
+            System.out.println("更新购入日期: " + carRequestDTO.getPurchaseDate());
             existingCar.setPurchaseDate(carRequestDTO.getPurchaseDate());
         }
         if (carRequestDTO.getPrice() != null) {
+            System.out.println("更新价格: " + carRequestDTO.getPrice());
             existingCar.setPrice(carRequestDTO.getPrice());
         }
         if (carRequestDTO.getCarStatus() != null) {
+            System.out.println("更新状态: " + carRequestDTO.getCarStatus());
             existingCar.setCarStatus(carRequestDTO.getCarStatus());
         }
         if (carRequestDTO.getTNo() != null) {
+            System.out.println("更新车型编号: " + carRequestDTO.getTNo());
             existingCar.setTNo(carRequestDTO.getTNo());
         }
         if (carRequestDTO.getTName() != null) {
+            System.out.println("更新车型名称: " + carRequestDTO.getTName());
             existingCar.setTName(carRequestDTO.getTName());
         }
+        if (carRequestDTO.getRunKm() != null) {
+            System.out.println("更新运行公里: " + carRequestDTO.getRunKm());
+            existingCar.setRunKm(carRequestDTO.getRunKm());
+        }
+        if (carRequestDTO.getRunHour() != null) {
+            System.out.println("更新运行小时: " + carRequestDTO.getRunHour());
+            existingCar.setRunHour(carRequestDTO.getRunHour());
+        }
 
+        System.out.println("更新后车辆信息: " + existingCar);
         Car updatedCar = carRepository.save(existingCar);
+        System.out.println("保存后车辆信息: " + updatedCar);
+        System.out.println("==========================================");
+
         return convertToResponseDTO(updatedCar);
     }
 
@@ -137,7 +160,7 @@ public class CarService {
         if (!carRepository.existsById(carId)) {
             throw new RuntimeException("车辆不存在: " + carId);
         }
-        
+
         try {
             carRepository.deleteById(carId);
         } catch (org.springframework.dao.DataIntegrityViolationException e) {
