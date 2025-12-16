@@ -218,21 +218,33 @@
     <el-dialog
       v-model="dialogVisible"
       title="还车结算确认"
-      width="420px"
-      class="custom-dialog"
+      width="460px"
+      class="custom-dialog settlement-dialog"
       destroy-on-close
       append-to-body
     >
       <div class="dialog-content">
         <p class="dialog-tip">请录入车辆返回时的实际行驶数据</p>
-        <el-form :model="completeForm" label-width="100px" size="large">
+        <el-form :model="completeForm" label-width="100px" size="large" class="settlement-form">
           <el-form-item label="往返里程">
-            <el-input-number v-model="completeForm.RoundTripDistance" :min="0" :step="10" controls-position="right">
+            <el-input-number
+              v-model="completeForm.RoundTripDistance"
+              :min="0"
+              :step="10"
+              controls-position="right"
+              class="number-input"
+            >
               <template #append>km</template>
             </el-input-number>
           </el-form-item>
           <el-form-item label="行驶时间">
-            <el-input-number v-model="completeForm.DriveTime" :min="0" :step="1" controls-position="right">
+            <el-input-number
+              v-model="completeForm.DriveTime"
+              :min="0"
+              :step="1"
+              controls-position="right"
+              class="number-input"
+            >
               <template #append>h</template>
             </el-input-number>
           </el-form-item>
@@ -241,36 +253,48 @@
           <div class="fee-summary-card">
             <div class="fee-summary-header">
               <span class="title">费用明细</span>
-              <span class="total">合计：<span class="amount">¥{{ computedEstimatedAmount }}</span></span>
+              <span class="total">
+                合计：
+                <span class="amount dynamic">¥{{ computedEstimatedAmount }}</span>
+              </span>
             </div>
 
             <div class="fee-details">
+              <!-- 里程费 -->
               <div class="fee-row">
                 <div class="fee-main">
                   <span class="fee-label">里程费</span>
-                  <span class="fee-amount">¥{{ distanceFee }}</span>
+                  <span class="fee-amount dynamic">¥{{ distanceFee }}</span>
                 </div>
                 <div class="fee-formula">
                   <span class="formula-label">计算：</span>
                   <span class="formula-text">
-                    {{ completeForm.RoundTripDistance || 0 }} km × {{ pricePerKmDisplay }} 元/km
+                    <span class="highlight-number">{{ completeForm.RoundTripDistance || 0 }}</span>
+                    <span class="unit"> km × </span>
+                    <span class="highlight-number">{{ pricePerKmDisplay }}</span>
+                    <span class="unit"> 元/km</span>
                   </span>
                 </div>
               </div>
 
+              <!-- 司机服务费 -->
               <div class="fee-row" v-if="currentOrder && currentOrder.DNo">
                 <div class="fee-main">
                   <span class="fee-label">司机服务费</span>
-                  <span class="fee-amount">¥{{ driverFee }}</span>
+                  <span class="fee-amount dynamic">¥{{ driverFee }}</span>
                 </div>
                 <div class="fee-formula">
                   <span class="formula-label">计算：</span>
                   <span class="formula-text">
-                    {{ driverDaysDisplay }} 天 × 200 元/天
+                    <span class="highlight-number">{{ driverDaysDisplay }}</span>
+                    <span class="unit"> 天 × </span>
+                    <span class="highlight-number">200</span>
+                    <span class="unit"> 元/天</span>
                   </span>
                 </div>
               </div>
 
+              <!-- 固定服务费 -->
               <div class="fee-row">
                 <div class="fee-main">
                   <span class="fee-label">固定服务费</span>
@@ -282,15 +306,19 @@
                 </div>
               </div>
 
+              <!-- 时间费 -->
               <div class="fee-row">
                 <div class="fee-main">
                   <span class="fee-label">时间费</span>
-                  <span class="fee-amount">¥{{ timeFee }}</span>
+                  <span class="fee-amount dynamic">¥{{ timeFee }}</span>
                 </div>
                 <div class="fee-formula">
                   <span class="formula-label">计算：</span>
                   <span class="formula-text">
-                    {{ completeForm.DriveTime || 0 }} h × {{ currentOrder.RentRate || currentOrder.rentRate }} 元/h
+                    <span class="highlight-number">{{ completeForm.DriveTime || 0 }}</span>
+                    <span class="unit"> h × </span>
+                    <span class="highlight-number">{{ currentOrder.RentRate || currentOrder.rentRate }}</span>
+                    <span class="unit"> 元/h</span>
                   </span>
                 </div>
               </div>
@@ -402,7 +430,8 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { Right, Location, LocationFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { getRentals, updateRental, deleteRental } from '@/api/rental'
-import { getCarById } from '@/api/car'
+import { getCarById, updateCarStatus } from '@/api/car'
+import { updateDriverStatus } from '@/api/driver'
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -865,18 +894,54 @@ const handleCompleteSubmit = async () => {
   try {
     const distance = Number(completeForm.RoundTripDistance) || 0
     const driveTime = Number(completeForm.DriveTime) || 0
+
+    if (distance < 0 || driveTime < 0) {
+      ElMessage.error('行驶里程和时间不能为负数')
+      submitting.value = false
+      return
+    }
+
     const amount = computedEstimatedAmount.value
     const now = new Date()
     const pad = (n) => String(n).padStart(2, '0')
     const returnDateIso = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
     const order = currentOrder.value
+
     const payload = {
-      returnDate: order.ReturnDate || returnDateIso,
+      // update only completion related fields; backend merges with existing entity
+      // Always send a proper ISO local datetime so backend's LocalDateTime deserialization works.
+      // Use current time to represent actual return time when admin confirms settlement.
+      returnDate: returnDateIso,
       roundTripDistance: distance,
       driveTime,
       amount,
     }
+
+    // 1. 更新租赁记录（结算订单）
     await updateRental(order.InvoiceNo || order.invoiceNo, payload)
+
+    // 2. 更新车辆状态为可租(0) —— 如果有 carId
+    const carId = order.CarID || order.carId
+    if (carId) {
+      try {
+        await updateCarStatus(carId, { carStatus: '0' })
+      } catch (e) {
+        console.error('更新车辆状态失败', e)
+        ElMessage.warning('订单已结算，但车辆状态更新失败，请在车辆管理中检查')
+      }
+    }
+
+    // 3. 如有司机，更新司机状态为空闲
+    const dNo = order.DNo || order.dNo
+    if (dNo) {
+      try {
+        await updateDriverStatus(dNo, '空闲')
+      } catch (e) {
+        console.error('更新司机状态失败', e)
+        ElMessage.warning('订单已结算，但司机状态更新失败，请在司机管理中检查')
+      }
+    }
+
     await fetchActive()
     await fetchHistory()
     ElMessage.success('订单已结算归档')
@@ -1260,64 +1325,76 @@ const handleView = (row) => {
     .value { font-size: 24px; font-weight: 700; color: #ef4444; }
   }
 
-  .fee-summary-card {
-    margin-top: 16px;
-    padding: 16px;
-    border-radius: 12px;
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  /* 结算弹窗专用样式（放在最外层，配合 :deep 提升优先级） */
+  :deep(.settlement-dialog) {
+    .el-dialog__header {
+      border-bottom: 1px solid #e5e7eb;
+      margin-right: 0;
+      padding-bottom: 12px;
+    }
 
-    .fee-summary-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 16px;
+    .el-dialog__body {
+      padding-top: 12px;
+    }
 
-      .title {
-        font-size: 16px;
-        font-weight: 700;
-        color: #334155;
-      }
-      .total {
-        font-size: 16px;
-        font-weight: 600;
-        color: #10b981;
+    .settlement-form {
+      .number-input {
+        width: 220px;
+
+        .el-input-number__decrease,
+        .el-input-number__increase {
+          border-left: none;
+        }
       }
     }
 
-    .fee-details {
-      .fee-row {
-        margin-bottom: 12px;
+    .fee-summary-card {
+      margin-top: 18px;
+      padding: 16px 18px;
+      border-radius: 12px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
 
-        &.total {
-          margin-top: 8px;
-          border-top: 1px solid #e2e8f0;
-          padding-top: 12px;
-        }
+      .fee-summary-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
 
-        .fee-main {
-          display: flex;
-          justify-content: space-between;
+        .title {
           font-size: 14px;
-          color: #334155;
-          position: relative;
-
-          .fee-label {
-            color: #64748b;
-          }
-          .fee-amount {
-            font-weight: 600;
-            color: #10b981;
+        }
+        .total {
+          font-size: 14px;
+          .amount.dynamic {
+            font-size: 18px;
+            font-weight: 700;
+            color: #16a34a;
           }
         }
+      }
 
-        .fee-formula {
-          font-size: 12px;
-          color: #94a3b8;
-          margin-top: 4px;
-          padding-left: 10px;
-          border-left: 2px solid #3b82f6;
+      .fee-details {
+        margin-top: 10px;
+
+        .fee-row {
+          padding: 8px 0;
+
+          .fee-main {
+            .fee-amount.dynamic {
+              color: #f97316;
+            }
+          }
+
+          .fee-formula {
+            .highlight-number {
+              color: #2563eb;
+              font-weight: 600;
+            }
+            .unit {
+              color: #9ca3af;
+            }
+          }
         }
       }
     }

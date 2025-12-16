@@ -3,11 +3,9 @@ package com.example.backend.service;
 import com.example.backend.dto.RentalRequestDTO;
 import com.example.backend.dto.RentalResponseDTO;
 import com.example.backend.entity.Car;
-import com.example.backend.entity.CarType;
 import com.example.backend.entity.Driver;
 import com.example.backend.entity.Rental;
 import com.example.backend.repository.CarRepository;
-import com.example.backend.repository.CarTypeRepository;
 import com.example.backend.repository.DriverRepository;
 import com.example.backend.repository.RentalRepository;
 import com.example.backend.repository.CustomerRepository;
@@ -46,8 +44,6 @@ public class RentalService {
     @Autowired
     private CarRepository carRepository;
 
-    @Autowired
-    private CarTypeRepository carTypeRepository;
 
     /**
      * 获取所有租赁记录
@@ -252,8 +248,12 @@ public class RentalService {
             existingRental.setDriveTime(rentalRequestDTO.getDriveTime());
         }
         
-        // 自动计算金额
-        existingRental.setAmount(calculateRentalAmount(existingRental));
+        // 如果前端显式传入了 amount，则以前端计算的金额为准；否则使用后端自动计算逻辑
+        if (rentalRequestDTO.getAmount() != null) {
+            existingRental.setAmount(rentalRequestDTO.getAmount());
+        } else {
+            existingRental.setAmount(calculateRentalAmount(existingRental));
+        }
 
         // 如果更新了行驶里程和时间，则更新车辆的累计数据
         if (rentalRequestDTO.getRoundTripDistance() != null || rentalRequestDTO.getDriveTime() != null) {
@@ -691,4 +691,3 @@ public class RentalService {
         return rental;
     }
 }
-
