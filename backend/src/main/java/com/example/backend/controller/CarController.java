@@ -103,6 +103,16 @@ public class CarController {
      */
     @PostMapping
     public ResponseEntity<CarResponseDTO> createCar(@RequestBody CarRequestDTO carRequestDTO) {
+        // Debug log to trace incoming payload mapping issues
+        String tno = carRequestDTO.getTNo();
+        System.out.println("[DEBUG] createCar received DTO: carId=" + carRequestDTO.getCarId() + ", tNoRaw='" + tno + "'");
+        if (tno != null) {
+            System.out.print("[DEBUG] tNo chars:");
+            for (char c : tno.toCharArray()) {
+                System.out.print(" " + (int) c);
+            }
+            System.out.println();
+        }
         CarResponseDTO createdCar = carService.createCar(carRequestDTO);
         return ResponseEntity.status(HttpStatus.CREATED).body(createdCar);
     }
@@ -223,5 +233,23 @@ public class CarController {
     public ResponseEntity<Map<String, Long>> getCarStatistics() {
         Map<String, Long> statistics = carService.getCarStatistics();
         return ResponseEntity.ok(statistics);
+    }
+
+    /**
+     * Debug endpoint to echo received DTO for mapping verification
+     */
+    @PostMapping("/debug")
+    public ResponseEntity<CarRequestDTO> echoCar(@RequestBody CarRequestDTO carRequestDTO) {
+        System.out.println("[DEBUG] echoCar received DTO: carId=" + carRequestDTO.getCarId() + ", tNo=" + carRequestDTO.getTNo() + ", tName=" + carRequestDTO.getTName());
+        return ResponseEntity.ok(carRequestDTO);
+    }
+
+    /**
+     * Debug endpoint to echo raw request body for investigation
+     */
+    @PostMapping("/raw")
+    public ResponseEntity<String> echoRaw(@RequestBody String raw) {
+        System.out.println("[DEBUG] /raw body: " + raw);
+        return ResponseEntity.ok(raw);
     }
 }

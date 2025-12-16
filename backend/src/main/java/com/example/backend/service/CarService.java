@@ -82,10 +82,15 @@ public class CarService {
             throw new RuntimeException("车牌号已存在: " + carRequestDTO.getCarId());
         }
 
-        // 验证车型是否存在
+        // 验证车型是否存在（支持前端传入带空白字符的情况）
         if (carRequestDTO.getTNo() != null) {
-            carTypeRepository.findById(carRequestDTO.getTNo())
-                    .orElseThrow(() -> new RuntimeException("车型不存在: " + carRequestDTO.getTNo()));
+            String tnoTrim = carRequestDTO.getTNo().trim();
+            boolean exists = carTypeRepository.findById(tnoTrim).isPresent();
+            if (!exists) {
+                System.out.println("[WARN] createCar: provided tNo not found after trim: '" + tnoTrim + "' (original='" + carRequestDTO.getTNo() + "')");
+                // 继续：允许创建但不关联车型，或者抛错取决于业务；这里保持原有行为：抛出异常
+                throw new RuntimeException("车型不存在: " + tnoTrim);
+            }
         }
 
         Car car = convertToEntity(carRequestDTO);
@@ -108,8 +113,12 @@ public class CarService {
 
         // 验证车型是否存在
         if (carRequestDTO.getTNo() != null) {
-            carTypeRepository.findById(carRequestDTO.getTNo())
-                    .orElseThrow(() -> new RuntimeException("车型不存在: " + carRequestDTO.getTNo()));
+            String tnoTrim = carRequestDTO.getTNo().trim();
+            boolean exists = carTypeRepository.findById(tnoTrim).isPresent();
+            if (!exists) {
+                System.out.println("[WARN] updateCar: provided tNo not found after trim: '" + tnoTrim + "' (original='" + carRequestDTO.getTNo() + "')");
+                throw new RuntimeException("车型不存在: " + tnoTrim);
+            }
         }
 
         // 更新车辆信息
@@ -123,8 +132,12 @@ public class CarService {
             existingCar.setCarStatus(carRequestDTO.getCarStatus());
         }
         if (carRequestDTO.getTNo() != null) {
-            CarType carType = carTypeRepository.findById(carRequestDTO.getTNo())
+            String tnoTrim = carRequestDTO.getTNo().trim();
+            CarType carType = carTypeRepository.findById(tnoTrim)
                     .orElse(null);
+            if (carType == null) {
+                System.out.println("[WARN] updateCar while setting carType: not found tNo='" + tnoTrim + "'");
+            }
             existingCar.setCarType(carType);
         }
         if (carRequestDTO.getRunKm() != null) {
@@ -327,10 +340,14 @@ public class CarService {
         car.setRunKm(dto.getRunKm());
         car.setRunHour(dto.getRunHour());
         
-        // 设置CarType关联
+        // 设置CarType关联（支持前端传入带空白字符）
         if (dto.getTNo() != null) {
-            CarType carType = carTypeRepository.findById(dto.getTNo())
+            String tnoTrim = dto.getTNo().trim();
+            CarType carType = carTypeRepository.findById(tnoTrim)
                     .orElse(null);
+            if (carType == null) {
+                System.out.println("[WARN] convertToEntity: carType not found for tNo='" + tnoTrim + "' (original='" + dto.getTNo() + "')");
+            }
             car.setCarType(carType);
         }
         

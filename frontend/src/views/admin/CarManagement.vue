@@ -576,20 +576,33 @@ const fetchCars = async () => {
     }
 
     const response = await getCars(params)
-    const { content, totalElements } = response
+    // 兼容后端返回 Page 对象或直接 List
+    let content = []
+    let totalElements = 0
+    if (response && response.content !== undefined) {
+      content = response.content
+      totalElements = response.totalElements || 0
+    } else if (Array.isArray(response)) {
+      content = response
+      totalElements = response.length
+    } else if (response) {
+      // sometimes axios wrapper returns data directly; try to read common keys
+      content = response || []
+      totalElements = (response && response.length) || 0
+    }
 
     // 转换数据格式以适配前端显示（注意后端返回的是小写字段名）
     tableData.value = content.map(car => ({
-      CarID: car.carId,
-      TNo: car.tno,
-      TName: car.tname,
-      RentRate: car.rentRate,
-      CarStatus: car.carStatus,
-      PurchaseDate: car.purchaseDate,
-      Price: car.price,
-      LastRepairDate: car.lastRepairDate,
-      RUNKM: car.runKm || 0,
-      RunHour: car.runHour || 0
+      CarID: car.carId || car.CarID || car.carID,
+      TNo: car.tNo || car.tNo || car.tno || car.TNo || car.TNO,
+      TName: car.tName || car.tname || car.TName || '',
+      RentRate: car.rentRate || car.RentRate || 0,
+      CarStatus: car.carStatus || car.CarStatus || '0',
+      PurchaseDate: car.purchaseDate || car.PurchaseDate || '',
+      Price: car.price || car.Price || 0,
+      LastRepairDate: car.lastRepairDate || car.LastRepairDate || null,
+      RUNKM: car.runKm || car.RUNKM || car.runKm || 0,
+      RunHour: car.runHour || car.RunHour || 0
     }))
     
     pagination.total = totalElements
@@ -822,25 +835,25 @@ const handleDialogSubmit = async (formData) => {
   try {
     console.log('收到的formData:', formData)
     console.log('是否编辑模式:', !!currentEditData.value)
-    
-    // formData已经是CarDialog转换好的格式，字段名为小写驼峰
+
+    // Normalize incoming formData to backend DTO shape (camelCase)
     const carDTO = {
-      carId: formData.carId,
-      tNo: formData.tNo,
-      tName: formData.tName,
-      price: formData.price,
-      purchaseDate: formData.purchaseDate,
-      carStatus: formData.carStatus,
-      runKm: formData.runKm,
-      runHour: formData.runHour
+      carId: formData.carId || formData.CarID,
+      tNo: formData.tNo || formData.TNo,
+      tName: formData.tName || formData.TName,
+      price: formData.price || formData.Price || 0,
+      purchaseDate: formData.purchaseDate || formData.PurchaseDate || null,
+      carStatus: formData.carStatus || formData.CarStatus || '0',
+      runKm: formData.runKm || formData.RUNKM || 0,
+      runHour: formData.runHour || formData.RunHour || 0
     }
-    
+
     console.log('准备提交的carDTO:', carDTO)
 
     if (currentEditData.value) {
       // 更新车辆
       console.log('执行更新操作')
-      await updateCar(formData.carId, carDTO)
+      await updateCar(carDTO.carId || currentEditData.value.CarID, carDTO)
       ElMessage.success('车辆信息更新成功')
     } else {
       // 创建车辆
@@ -849,7 +862,7 @@ const handleDialogSubmit = async (formData) => {
       console.log('创建结果:', result)
       ElMessage.success('车辆创建成功')
     }
-    
+
     // 关闭对话框并刷新数据
     dialogVisible.value = false
     fetchCars()

@@ -119,7 +119,6 @@
 <script setup>
 import { ref, reactive, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getAllCars } from '@/api/car'
 
 const props = defineProps({
   visible: {
@@ -160,19 +159,30 @@ const rules = {
 const fetchCarTypes = async () => {
   try {
     const { getCarTypes } = await import('@/api/car')
-    const response = await getCarTypes()
-    console.log('车型API响应:', response)
-    const types = response.data || response || []
-    console.log('车型数据:', types)
-    // 转换为大写字段名以匹配表单数据格式
-    carTypes.value = types.map(type => {
-      console.log('处理车型:', type)
-      return {
-        TNo: type.tno || type.TNo,
-        TName: type.tname || type.TName
+    // getCarTypes() 返回的已经是经过 axios 拦截器处理过的 data
+    const resp = await getCarTypes()
+    const typesRaw = resp || []
+    // 容错地从后端返回的对象中读取 tNo/tName（可能是 tNo/tName 或 TNo/TName 或 tno/tname）
+    const pick = (obj, ...keys) => {
+      for (const k of keys) {
+        if (obj && Object.prototype.hasOwnProperty.call(obj, k)) return obj[k]
       }
-    })
-    console.log('最终车型列表:', carTypes.value)
+      // case-insensitive fallback
+      if (!obj) return undefined
+      const lower = Object.keys(obj).reduce((acc, cur) => { acc[cur.toLowerCase()] = obj[cur]; return acc }, {})
+      for (const k of keys) {
+        const low = k.toString().toLowerCase()
+        if (Object.prototype.hasOwnProperty.call(lower, low)) return lower[low]
+      }
+      return undefined
+    }
+
+    carTypes.value = typesRaw.map(type => {
+      return {
+        TNo: pick(type, 'tNo', 'TNo', 'tno', 'TNO'),
+        TName: pick(type, 'tName', 'TName', 'tname', 'TNAME')
+      }
+    }).filter(t => t.TNo && t.TName)
   } catch (error) {
     console.error('获取车型列表失败:', error)
     ElMessage.error('获取车型列表失败')
