@@ -710,10 +710,55 @@ const submitOrder = async () => {
     const selectedVehicle = matchingCars[0]
 
     // 将日期格式转换为ISO 8601格式（yyyy-MM-ddTHH:mm:ss）
-    const formatDateToISO = (dateStr) => {
-      if (!dateStr) return null
-      // 将 "2025-12-23 00:00:00" 转换为 "2025-12-23T00:00:00"
-      return dateStr.replace(' ', 'T')
+    const formatDateToISO = (dateVal) => {
+      if (!dateVal) return null
+      // 如果是 Date 对象，按本地时间格式化为 yyyy-MM-ddTHH:mm:ss
+      if (dateVal instanceof Date) {
+        const pad = (n) => n.toString().padStart(2, '0')
+        const y = dateVal.getFullYear()
+        const m = pad(dateVal.getMonth() + 1)
+        const d = pad(dateVal.getDate())
+        const hh = pad(dateVal.getHours())
+        const mm = pad(dateVal.getMinutes())
+        const ss = pad(dateVal.getSeconds())
+        return `${y}-${m}-${d}T${hh}:${mm}:${ss}`
+      }
+
+      // 如果是字符串
+      if (typeof dateVal === 'string') {
+        let s = dateVal.trim()
+        // 如果是像 "2025-12-23 00:00:00" 的格式，替换空格为 T
+        if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(s)) {
+          return s.replace(' ', 'T')
+        }
+        // 如果是仅日期字符串 yyyy-MM-dd，则附加时间部分
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+          return `${s}T00:00:00`
+        }
+        // 如果是标准带T的 ISO 且有时区 (Z 或 +08:00)，去掉时区以匹配 LocalDateTime
+        if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}([.,]\d+)?(Z|[+-].+)?$/.test(s)) {
+          // 移除毫秒和时区
+          const noMs = s.replace(/(\.\d+)?(Z|[+-].+)?$/, '')
+          return noMs
+        }
+        // 如果是其他可解析格式，尝试用 Date 解析再格式化为本地时间
+        const parsed = new Date(s)
+        if (!isNaN(parsed.getTime())) {
+          const pad = (n) => n.toString().padStart(2, '0')
+          const y = parsed.getFullYear()
+          const m = pad(parsed.getMonth() + 1)
+          const d = pad(parsed.getDate())
+          const hh = pad(parsed.getHours())
+          const mm = pad(parsed.getMinutes())
+          const ss = pad(parsed.getSeconds())
+          return `${y}-${m}-${d}T${hh}:${mm}:${ss}`
+        }
+
+        // 最后兜底，替换空格为T
+        return s.replace(' ', 'T')
+      }
+
+      return null
     }
 
     // 构建租赁请求数据（不包含invoiceNo，由后端自动生成）
