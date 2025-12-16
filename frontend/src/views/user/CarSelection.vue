@@ -123,7 +123,7 @@
                   <el-tag size="small" type="info" effect="plain">{{ selectedCar.transmission }}</el-tag>
                 </div>
                 <div class="price-display">
-                  <span class="label">日租金</span>
+                  <span class="label">小时租金</span>
                   <span class="price">¥{{ selectedCar.price }}</span>
                 </div>
               </div>
@@ -252,20 +252,20 @@
           </div>
 
           <!-- 费用明细块 -->
-          <div class="info-block" v-if="totalDays > 0">
+          <div class="info-block" v-if="totalHours > 0">
             <h4 class="block-title">费用明细</h4>
             <div class="cost-details">
               <div class="cost-row">
                 <span class="label">租期天数</span>
-                <span class="value">{{ totalDays }} 天</span>
+                <span class="value">{{ rentalDurationDisplay }}</span>
               </div>
               <div class="cost-row">
                 <span class="label">车辆租金</span>
-                <span class="value">¥{{ selectedCar.price }} × {{ totalDays }} = ¥{{ totalRent }}</span>
+                <span class="value">¥{{ selectedCar.price }} × {{ Math.max(1, Math.ceil(totalHours)) }} 小时 = ¥{{ totalRent }}</span>
               </div>
               <div class="cost-row" v-if="rentForm.needDriver">
                 <span class="label">司机服务费</span>
-                <span class="value">¥200 × {{ totalDays }} = ¥{{ driverFee }}</span>
+                <span class="value">¥200 × {{ chargedDays }} = ¥{{ driverFee }}</span>
               </div>
               <div class="cost-row">
                 <span class="label">服务费</span>
@@ -541,21 +541,43 @@ const disablePastDate = (time) => {
   return time.getTime() < Date.now() - 8.64e7
 }
 
-const totalDays = computed(() => {
+// 精确总小时数（用于展示和计费）
+const totalHours = computed(() => {
   if (!rentForm.dateRange || rentForm.dateRange.length < 2) return 0
-  const start = new Date(rentForm.dateRange[0])
-  const end = new Date(rentForm.dateRange[1])
-  const diffTime = Math.abs(end - start)
-  const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-  return days // Precise days might be fractional if we care about hours, but usually daily rate ceil
+  const start = parseLocalDateTime(rentForm.dateRange[0])
+  const end = parseLocalDateTime(rentForm.dateRange[1])
+  if (!start || !end) return 0
+  const diffMs = Math.abs(end.getTime() - start.getTime())
+  const hours = diffMs / (1000 * 60 * 60)
+  return hours
 })
 
+// 租期拆分显示为 X天Y小时（不再向上取整为整数天）
+const rentalDurationDisplay = computed(() => {
+  const hours = totalHours.value
+  if (!hours || hours <= 0) return '0天0小时'
+  const days = Math.floor(hours / 24)
+  const remainHours = Math.round(hours - days * 24)
+  return `${days}天${remainHours}小时`
+})
+
+// 司机服务按天收费：向上取整天数
+const chargedDays = computed(() => {
+  const hours = totalHours.value
+  if (!hours || hours <= 0) return 0
+  return Math.ceil(hours / 24)
+})
+
+// 按小时计费（最少 1 小时）：车辆租金
 const totalRent = computed(() => {
-  return selectedCar.value ? Math.ceil(selectedCar.value.price * totalDays.value) : 0
+  if (!selectedCar.value) return 0
+  const rate = Number(selectedCar.value.price || 0)
+  const billableHours = Math.max(1, Math.ceil(totalHours.value || 0))
+  return rate * billableHours
 })
 
 const driverFee = computed(() => {
-  return rentForm.needDriver ? 200 * totalDays.value : 0
+  return rentForm.needDriver ? 200 * chargedDays.value : 0
 })
 
 const totalAmount = computed(() => {
@@ -790,6 +812,37 @@ const submitOrder = async () => {
     ElMessage.error(error.response?.data?.message || '提交订单失败，请稍后重试')
     submitting.value = false
   }
+}
+
+// 工具函数：将表单中的日期值解析为本地时间的 Date 对象
+const parseLocalDateTime = (val) => {
+  if (!val) return null
+  if (val instanceof Date) return val
+  if (typeof val === 'string') {
+    const s = val.trim()
+    // 匹配 "yyyy-MM-dd HH:mm:ss" 或 "yyyy-MM-ddTHH:mm:ss"
+    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})$/)
+    if (m) {
+      const y = Number(m[1])
+      const mo = Number(m[2]) - 1
+      const d = Number(m[3])
+      const hh = Number(m[4])
+      const mm = Number(m[5])
+      const ss = Number(m[6])
+      return new Date(y, mo, d, hh, mm, ss)
+    }
+    // 仅日期 "yyyy-MM-dd" -> 当天 00:00:00
+    const dOnly = s.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+    if (dOnly) {
+      const y = Number(dOnly[1])
+      const mo = Number(dOnly[2]) - 1
+      const d = Number(dOnly[3])
+      return new Date(y, mo, d, 0, 0, 0)
+    }
+    const parsed = new Date(s)
+    return isNaN(parsed.getTime()) ? null : parsed
+  }
+  return null
 }
 </script>
 

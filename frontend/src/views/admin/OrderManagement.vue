@@ -236,10 +236,65 @@
               <template #append>h</template>
             </el-input-number>
           </el-form-item>
-          
-          <div class="calculated-amount">
-            <span class="label">预计金额:</span>
-            <span class="value">¥{{ calculateAmount }}</span>
+
+          <!-- 费用明细展示（含公式） -->
+          <div class="fee-summary-card">
+            <div class="fee-summary-header">
+              <span class="title">费用明细</span>
+              <span class="total">合计：<span class="amount">¥{{ computedEstimatedAmount }}</span></span>
+            </div>
+
+            <div class="fee-details">
+              <div class="fee-row">
+                <div class="fee-main">
+                  <span class="fee-label">里程费</span>
+                  <span class="fee-amount">¥{{ distanceFee }}</span>
+                </div>
+                <div class="fee-formula">
+                  <span class="formula-label">计算：</span>
+                  <span class="formula-text">
+                    {{ completeForm.RoundTripDistance || 0 }} km × {{ pricePerKmDisplay }} 元/km
+                  </span>
+                </div>
+              </div>
+
+              <div class="fee-row" v-if="currentOrder && currentOrder.DNo">
+                <div class="fee-main">
+                  <span class="fee-label">司机服务费</span>
+                  <span class="fee-amount">¥{{ driverFee }}</span>
+                </div>
+                <div class="fee-formula">
+                  <span class="formula-label">计算：</span>
+                  <span class="formula-text">
+                    {{ driverDaysDisplay }} 天 × 200 元/天
+                  </span>
+                </div>
+              </div>
+
+              <div class="fee-row">
+                <div class="fee-main">
+                  <span class="fee-label">固定服务费</span>
+                  <span class="fee-amount">¥{{ serviceFee }}</span>
+                </div>
+                <div class="fee-formula">
+                  <span class="formula-label">说明：</span>
+                  <span class="formula-text">订单处理与平台服务固定费用 50 元</span>
+                </div>
+              </div>
+
+              <div class="fee-row">
+                <div class="fee-main">
+                  <span class="fee-label">时间费</span>
+                  <span class="fee-amount">¥{{ timeFee }}</span>
+                </div>
+                <div class="fee-formula">
+                  <span class="formula-label">计算：</span>
+                  <span class="formula-text">
+                    {{ completeForm.DriveTime || 0 }} h × {{ currentOrder.RentRate || currentOrder.rentRate }} 元/h
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
         </el-form>
       </div>
@@ -346,11 +401,8 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { Right, Location, LocationFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import {
-  getRentals,
-  updateRental,
-  deleteRental
-} from '@/api/rental'
+import { getRentals, updateRental, deleteRental } from '@/api/rental'
+import { getCarById } from '@/api/car'
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -377,7 +429,63 @@ const activePagination = reactive({ currentPage: 1, pageSize: 10, total: 0 })
 
 const completeForm = reactive({
   RoundTripDistance: 0,
-  DriveTime: 0
+  DriveTime: 0,
+})
+
+// 根据租金率推导每公里单价的简单系数
+const getPricePerKmFromRentRate = (rentRate) => {
+  const rate = Number(rentRate || 0)
+  if (!rate || rate <= 0) return 0
+  // 每公里单价 = 小时租金率 / 50
+  return rate / 50
+}
+
+// 当前订单的每公里单价（仅用于展示公式）
+const pricePerKmDisplay = computed(() => {
+  if (!currentOrder.value) return 0
+  const rate = Number(currentOrder.value.RentRate || currentOrder.value.rentRate || 0)
+  const price = getPricePerKmFromRentRate(rate)
+  return Number(price.toFixed(2))
+})
+
+// 单独计算各项费用，便于在 UI 中展示明细
+const distanceFee = computed(() => {
+  if (!currentOrder.value) return 0
+  const distance = Number(completeForm.RoundTripDistance) || 0
+  const pricePerKm = pricePerKmDisplay.value
+  return Number((distance * pricePerKm).toFixed(2))
+})
+
+// 按行驶时间计算的费用：行驶小时数 × 小时租金率
+const timeFee = computed(() => {
+  if (!currentOrder.value) return 0
+  const driveTime = Number(completeForm.DriveTime) || 0
+  const rentRate = Number(currentOrder.value.RentRate || currentOrder.value.rentRate || 0)
+  if (!rentRate || driveTime <= 0) return 0
+  return Number((driveTime * rentRate).toFixed(2))
+})
+
+// 司机按天计费时的天数（仅展示用）
+const driverDaysDisplay = computed(() => {
+  if (!currentOrder.value || !currentOrder.value.DNo) return 0
+  const driveTime = Number(completeForm.DriveTime) || 0
+  const hours = driveTime > 0 ? driveTime : 0
+  if (hours <= 0) return 1
+  return Math.ceil(hours / 24)
+})
+
+const driverFee = computed(() => {
+  if (!currentOrder.value || !currentOrder.value.DNo) return 0
+  const days = driverDaysDisplay.value
+  return days * 200
+})
+
+const serviceFee = computed(() => 50)
+
+// 计算预计金额：里程*每Km的钱 + 司机服务费(如有) + 固定服务费50
+const computedEstimatedAmount = computed(() => {
+  const total = distanceFee.value + timeFee.value + driverFee.value + serviceFee.value
+  return Number(total.toFixed(2))
 })
 
 const activeOrders = ref([])
@@ -726,50 +834,51 @@ const handlePageChange = (val) => {
 // but ensure page-change handlers are in sync with pagination events.
 
 // Dialog Logic
-const openCompleteDialog = (row) => {
-  currentOrder.value = row
+const openCompleteDialog = async (row) => {
+  // 先设置基础订单信息
+  currentOrder.value = { ...row }
+
+  // 根据 CarID 从后端获取最新的车型租金率
+  try {
+    const carId = row.CarID || row.carId
+    if (carId) {
+      const resp = await getCarById(carId)
+      const car = resp.data || resp
+      const rate = car.rentRate || car.RentRate
+      if (rate !== undefined && rate !== null) {
+        currentOrder.value.rentRate = Number(rate)
+      }
+    }
+  } catch (e) {
+    console.error('获取车辆租金率失败，将按 0 处理', e)
+    currentOrder.value.rentRate = 0
+  }
+
   completeForm.RoundTripDistance = 0
   completeForm.DriveTime = 0
   dialogVisible.value = true
 }
 
-const calculateAmount = computed(() => {
-  // Simple Mock Calculation: Base 200 + 2 * km + 50 * hour
-  return 200 + (completeForm.RoundTripDistance * 2) + (completeForm.DriveTime * 50)
-})
-
 const handleCompleteSubmit = async () => {
   if (!currentOrder.value) return
   submitting.value = true
   try {
-    // Ensure numeric values
-    const roundTrip = Number(completeForm.RoundTripDistance) || 0
-    const drive = Number(completeForm.DriveTime) || 0
-
-    // If the order has no return date, set returnDate to now so backend can compute amount
+    const distance = Number(completeForm.RoundTripDistance) || 0
+    const driveTime = Number(completeForm.DriveTime) || 0
+    const amount = computedEstimatedAmount.value
     const now = new Date()
     const pad = (n) => String(n).padStart(2, '0')
-    const localIso = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
-
-    // 确保日期格式为ISO格式（带T）
-    let returnDateIso = currentOrder.value.ReturnDate || localIso
-    // 如果是空格格式，转换为T格式
-    if (typeof returnDateIso === 'string' && returnDateIso.includes(' ')) {
-      returnDateIso = returnDateIso.replace(' ', 'T')
+    const returnDateIso = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
+    const order = currentOrder.value
+    const payload = {
+      returnDate: order.ReturnDate || returnDateIso,
+      roundTripDistance: distance,
+      driveTime,
+      amount,
     }
-
-    // Call updateRental on backend with the invoiceNo; backend will recalculate amount server-side
-    await updateRental(currentOrder.value.InvoiceNo || currentOrder.value.invoiceNo, {
-      returnDate: returnDateIso,
-      roundTripDistance: roundTrip,
-      driveTime: drive
-      // do not rely on client-side amount; backend will compute according to the formula
-    })
-
-    // Refresh lists
+    await updateRental(order.InvoiceNo || order.invoiceNo, payload)
     await fetchActive()
     await fetchHistory()
-
     ElMessage.success('订单已结算归档')
     dialogVisible.value = false
   } catch (error) {
@@ -1149,6 +1258,69 @@ const handleView = (row) => {
     
     .label { color: #64748b; margin-right: 8px; }
     .value { font-size: 24px; font-weight: 700; color: #ef4444; }
+  }
+
+  .fee-summary-card {
+    margin-top: 16px;
+    padding: 16px;
+    border-radius: 12px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+
+    .fee-summary-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+
+      .title {
+        font-size: 16px;
+        font-weight: 700;
+        color: #334155;
+      }
+      .total {
+        font-size: 16px;
+        font-weight: 600;
+        color: #10b981;
+      }
+    }
+
+    .fee-details {
+      .fee-row {
+        margin-bottom: 12px;
+
+        &.total {
+          margin-top: 8px;
+          border-top: 1px solid #e2e8f0;
+          padding-top: 12px;
+        }
+
+        .fee-main {
+          display: flex;
+          justify-content: space-between;
+          font-size: 14px;
+          color: #334155;
+          position: relative;
+
+          .fee-label {
+            color: #64748b;
+          }
+          .fee-amount {
+            font-weight: 600;
+            color: #10b981;
+          }
+        }
+
+        .fee-formula {
+          font-size: 12px;
+          color: #94a3b8;
+          margin-top: 4px;
+          padding-left: 10px;
+          border-left: 2px solid #3b82f6;
+        }
+      }
+    }
   }
 
   .pagination-container {
