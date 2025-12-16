@@ -250,18 +250,22 @@
           </el-form-item>
 
           <!-- 费用明细展示（含公式） -->
-          <div class="fee-summary-card">
+          <div class="fee-summary-card modern">
             <div class="fee-summary-header">
-              <span class="title">费用明细</span>
-              <span class="total">
-                合计：
+              <div class="title-group">
+                <span class="title">费用明细</span>
+                <span class="subtitle">结算依据（管理员录入）</span>
+              </div>
+              <div class="total">
+                <span class="label">合计</span>
                 <span class="amount dynamic">¥{{ computedEstimatedAmount }}</span>
-              </span>
+                <span class="unit small">（含服务费）</span>
+              </div>
             </div>
 
             <div class="fee-details">
               <!-- 里程费 -->
-              <div class="fee-row">
+              <div class="fee-row distance">
                 <div class="fee-main">
                   <span class="fee-label">里程费</span>
                   <span class="fee-amount dynamic">¥{{ distanceFee }}</span>
@@ -277,8 +281,25 @@
                 </div>
               </div>
 
+              <!-- 时间费 -->
+              <div class="fee-row time">
+                <div class="fee-main">
+                  <span class="fee-label">时间费</span>
+                  <span class="fee-amount dynamic">¥{{ timeFee }}</span>
+                </div>
+                <div class="fee-formula">
+                  <span class="formula-label">计算：</span>
+                  <span class="formula-text">
+                    <span class="highlight-number">{{ completeForm.DriveTime || 0 }}</span>
+                    <span class="unit"> h × </span>
+                    <span class="highlight-number">{{ currentOrder.RentRate || currentOrder.rentRate }}</span>
+                    <span class="unit"> 元/h</span>
+                  </span>
+                </div>
+              </div>
+
               <!-- 司机服务费 -->
-              <div class="fee-row" v-if="currentOrder && currentOrder.DNo">
+              <div class="fee-row driver" v-if="currentOrder && currentOrder.DNo">
                 <div class="fee-main">
                   <span class="fee-label">司机服务费</span>
                   <span class="fee-amount dynamic">¥{{ driverFee }}</span>
@@ -295,7 +316,7 @@
               </div>
 
               <!-- 固定服务费 -->
-              <div class="fee-row">
+              <div class="fee-row service">
                 <div class="fee-main">
                   <span class="fee-label">固定服务费</span>
                   <span class="fee-amount">¥{{ serviceFee }}</span>
@@ -303,23 +324,6 @@
                 <div class="fee-formula">
                   <span class="formula-label">说明：</span>
                   <span class="formula-text">订单处理与平台服务固定费用 50 元</span>
-                </div>
-              </div>
-
-              <!-- 时间费 -->
-              <div class="fee-row">
-                <div class="fee-main">
-                  <span class="fee-label">时间费</span>
-                  <span class="fee-amount dynamic">¥{{ timeFee }}</span>
-                </div>
-                <div class="fee-formula">
-                  <span class="formula-label">计算：</span>
-                  <span class="formula-text">
-                    <span class="highlight-number">{{ completeForm.DriveTime || 0 }}</span>
-                    <span class="unit"> h × </span>
-                    <span class="highlight-number">{{ currentOrder.RentRate || currentOrder.rentRate }}</span>
-                    <span class="unit"> 元/h</span>
-                  </span>
                 </div>
               </div>
             </div>
@@ -1350,50 +1354,92 @@ const handleView = (row) => {
 
     .fee-summary-card {
       margin-top: 18px;
-      padding: 16px 18px;
+      padding: 20px;
       border-radius: 12px;
-      background: #f9fafb;
-      border: 1px solid #e5e7eb;
+      background: #ffffff;
+      border: 1px solid #e6eef6;
+      box-shadow: 0 6px 18px rgba(15,23,42,0.06);
+      font-family: inherit;
 
       .fee-summary-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 16px;
+        margin-bottom: 12px;
 
         .title {
-          font-size: 14px;
+          font-size: 16px;
+          font-weight: 700;
+          color: #334155;
+        }
+        .subtitle {
+          display: block;
+          margin-top: 4px;
+          font-size: 12px;
+          color: #94a3b8;
+          font-weight: 500;
         }
         .total {
-          font-size: 14px;
+          text-align: right;
+
+          .label {
+            display: block;
+            font-size: 12px;
+            color: #64748b;
+          }
           .amount.dynamic {
-            font-size: 18px;
-            font-weight: 700;
-            color: #16a34a;
+            display: block;
+            font-size: 22px;
+            font-weight: 800;
+            color: #059669; /* green */
+            margin-top: 4px;
           }
         }
       }
 
-      .fee-details {
-        margin-top: 10px;
+      .fee-row {
+        display: block;
+        padding: 10px 0;
+        border-top: 1px dashed #f1f5f9;
 
-        .fee-row {
-          padding: 8px 0;
+        .fee-main {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
 
-          .fee-main {
-            .fee-amount.dynamic {
-              color: #f97316;
-            }
+          .fee-label {
+            font-size: 14px;
+            color: #475569;
+            font-weight: 700;
           }
+          .fee-amount {
+            font-size: 16px;
+            font-weight: 700;
+            color: #475569;
+          }
+        }
 
-          .fee-formula {
-            .highlight-number {
-              color: #2563eb;
-              font-weight: 600;
-            }
-            .unit {
-              color: #9ca3af;
-            }
+        /* Per-item color accents */
+        &.distance .fee-amount { color: #f97316; } /* orange */
+        &.time .fee-amount     { color: #ef4444; } /* red */
+        &.driver .fee-amount   { color: #2563eb; } /* blue */
+        &.service .fee-amount  { color: #6b7280; } /* gray */
+
+        .fee-formula {
+          display: block;
+          margin-top: 6px;
+          font-size: 13px;
+          color: #6b7280;
+
+          .highlight-number {
+            color: #111827;
+            font-weight: 700;
+            font-size: 14px;
+          }
+          .unit.small {
+            font-size: 12px;
+            color: #94a3b8;
+            margin-left: 6px;
           }
         }
       }
@@ -1409,5 +1455,80 @@ const handleView = (row) => {
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
+}
+</style>
+
+<!-- Global styles for elements appended to <body> (el-dialog with append-to-body) -->
+<style lang="scss">
+/* More specific selectors to ensure they override Element Plus defaults */
+.el-dialog.settlement-dialog .fee-summary-card,
+.el-dialog__wrapper.settlement-dialog .fee-summary-card,
+.settlement-dialog .fee-summary-card {
+  margin-top: 18px;
+  padding: 20px !important;
+  border-radius: 12px !important;
+  background: #ffffff !important;
+  border: 1px solid #e6eef6 !important;
+  box-shadow: 0 6px 18px rgba(15,23,42,0.06) !important;
+  font-family: inherit !important;
+}
+
+.el-dialog.settlement-dialog .fee-summary-header,
+.el-dialog__wrapper.settlement-dialog .fee-summary-header,
+.settlement-dialog .fee-summary-header {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  margin-bottom: 12px !important;
+}
+
+.el-dialog.settlement-dialog .fee-summary-header .title,
+.settlement-dialog .fee-summary-header .title {
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  color: #334155 !important;
+}
+
+.el-dialog.settlement-dialog .fee-summary-header .subtitle,
+.settlement-dialog .fee-summary-header .subtitle {
+  display: block !important;
+  margin-top: 4px !important;
+  font-size: 12px !important;
+  color: #94a3b8 !important;
+  font-weight: 500 !important;
+}
+
+.el-dialog.settlement-dialog .fee-summary-header .total .amount.dynamic,
+.settlement-dialog .fee-summary-header .total .amount.dynamic {
+  display: block !important;
+  font-size: 22px !important;
+  font-weight: 800 !important;
+  color: #059669 !important; /* green */
+  margin-top: 4px !important;
+}
+
+/* keep other rules (per-item accents) with higher specificity */
+.el-dialog.settlement-dialog .fee-row.distance .fee-amount,
+.settlement-dialog .fee-row.distance .fee-amount { color: #f97316 !important; }
+.el-dialog.settlement-dialog .fee-row.time .fee-amount,
+.settlement-dialog .fee-row.time .fee-amount     { color: #ef4444 !important; }
+.el-dialog.settlement-dialog .fee-row.driver .fee-amount,
+.settlement-dialog .fee-row.driver .fee-amount   { color: #2563eb !important; }
+.el-dialog.settlement-dialog .fee-row.service .fee-amount,
+.settlement-dialog .fee-row.service .fee-amount  { color: #6b7280 !important; }
+
+/* Footer layout specificity */
+.el-dialog.settlement-dialog .el-dialog__footer,
+.settlement-dialog .el-dialog__footer {
+  display: flex !important;
+  justify-content: flex-end !important;
+  gap: 12px !important;
+}
+
+@media (max-width: 480px) {
+  .el-dialog.settlement-dialog .fee-summary-header .total .amount.dynamic,
+  .settlement-dialog .fee-summary-header .total .amount.dynamic { font-size: 18px !important; }
+  .el-dialog.settlement-dialog .fee-row .fee-amount,
+  .settlement-dialog .fee-row .fee-amount { font-size: 15px !important; }
 }
 </style>
