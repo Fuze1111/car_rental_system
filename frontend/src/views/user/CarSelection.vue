@@ -45,21 +45,21 @@
                 :class="{ active: filterType === 'economic' }"
                 @click="filterType = 'economic'"
               >
-                经济型 (≤300)
+                经济型 (≤30/小时)
               </div>
               <div 
                 class="type-chip" 
                 :class="{ active: filterType === 'comfort' }"
                 @click="filterType = 'comfort'"
               >
-                舒适型 (300-500)
+                舒适型 (30-50/小时)
               </div>
               <div 
                 class="type-chip" 
                 :class="{ active: filterType === 'luxury' }"
                 @click="filterType = 'luxury'"
               >
-                豪华型 (>500)
+                豪华型 (>50/小时)
               </div>
             </div>
           </div>
@@ -517,11 +517,11 @@ const filteredCars = computed(() => {
     // Price Level Filtering
     if (filterType.value) {
       if (filterType.value === 'economic') {
-        if (car.price > 300) return false
+        if (car.price > 30) return false
       } else if (filterType.value === 'comfort') {
-        if (car.price <= 300 || car.price > 500) return false
+        if (car.price <= 30 || car.price > 50) return false
       } else if (filterType.value === 'luxury') {
-        if (car.price <= 500) return false
+        if (car.price <= 50) return false
       }
     }
     return matchKeyword
