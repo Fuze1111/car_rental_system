@@ -130,12 +130,27 @@ public class RentalService {
         Driver driver = null;
         if (rentalRequestDTO.getDNo() != null && !rentalRequestDTO.getDNo().trim().isEmpty()) {
             String trimmedDNo = rentalRequestDTO.getDNo().trim();
-            driver = driverRepository.findById(trimmedDNo)
-                    .orElseThrow(() -> new RuntimeException("司机不存在: " + trimmedDNo));
 
-            // 检查司机状态是否为空闲
-            if (!"空闲".equals(driver.getDStatus())) {
-                throw new RuntimeException("司机状态不是空闲状态: " + driver.getDStatus());
+            // 自动分配司机逻辑
+            if ("AUTO_ASSIGN".equals(trimmedDNo)) {
+                // 查找第一个空闲状态的司机
+                List<Driver> freeDrivers = driverRepository.findByDStatus("空闲");
+                if (freeDrivers.isEmpty()) {
+                    throw new RuntimeException("暂无空闲司机可分配");
+                }
+                driver = freeDrivers.get(0);
+                // 将分配到的司机号回填到DTO，以便后续保存
+                rentalRequestDTO.setDNo(driver.getDNo());
+                System.out.println("自动分配司机: " + driver.getDNo() + " (" + driver.getDName() + ")");
+            } else {
+                // 指定司机逻辑
+                driver = driverRepository.findById(trimmedDNo)
+                        .orElseThrow(() -> new RuntimeException("司机不存在: " + trimmedDNo));
+
+                // 检查司机状态是否为空闲
+                if (!"空闲".equals(driver.getDStatus())) {
+                    throw new RuntimeException("司机状态不是空闲状态: " + driver.getDStatus());
+                }
             }
         }
 

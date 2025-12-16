@@ -784,7 +784,7 @@ const submitOrder = async () => {
     }
 
     // 构建租赁请求数据（不包含invoiceNo，由后端自动生成）
-    // 注意：roundTripDistance、driveTime、amount 都不传递，由管理员还车时填写和计算
+    // 注意：roundTripDistance、driveTime、amount 都不传递，保持为 null
     console.log('构建订单前 - userInfo:', userInfo)
     console.log('构建订单前 - userInfo.userId:', userInfo.userId)
     
@@ -794,8 +794,11 @@ const submitOrder = async () => {
       loanPlace: rentForm.loanPlace,
       returnPlace: rentForm.returnPlace,
       carId: selectedVehicle.carId, // 使用找到的可用车辆ID
-      cNo: userInfo.userId // 客户号
-      // dNo、roundTripDistance、driveTime、amount 都不传递，保持为 null
+      cNo: userInfo.userId, // 客户号
+      // 如果需要司机，传递一个特殊标记或空字符串，让后端自动分配
+      // 这里我们约定：如果 needDriver 为 true，但 dNo 为空，后端应自动分配
+      dNo: rentForm.needDriver ? 'AUTO_ASSIGN' : null
+      // roundTripDistance、driveTime、amount 都不传递，保持为 null
     }
 
     console.log('提交的订单数据:', rentalData)
