@@ -58,7 +58,7 @@ DROP TABLE IF EXISTS car_type;
 CREATE TABLE IF NOT EXISTS car_type (
     TNo             CHAR(4)         NOT NULL COMMENT '类型编号',
     TName           CHAR(20)        NOT NULL COMMENT '汽车型号',
-    RentRate        NUMERIC(4,2)    NULL COMMENT '租金率',
+    RentRate        NUMERIC(6,2)    NULL COMMENT '租金率',
 
     PRIMARY KEY (TNo),
     UNIQUE KEY (TName)

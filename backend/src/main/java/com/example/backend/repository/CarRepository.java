@@ -112,4 +112,16 @@ public interface CarRepository extends JpaRepository<Car, String> {
      * @return 车辆数量
      */
     long countByCarStatus(String carStatus);
+
+    /**
+     * 统计某车型下车辆数量
+     */
+    @Query("SELECT COUNT(c) FROM Car c LEFT JOIN c.carType ct WHERE ct.tNo = :tNo")
+    long countByTNo(@Param("tNo") String tNo);
+
+    /**
+     * 获取指定车型下的车牌号列表（用于在其他表中做关联检查）
+     */
+    @Query("SELECT c.carId FROM Car c LEFT JOIN c.carType ct WHERE ct.tNo = :tNo")
+    List<String> findCarIdsByTNo(@Param("tNo") String tNo);
 }

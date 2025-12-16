@@ -5,6 +5,8 @@ import com.example.backend.entity.Car;
 import com.example.backend.entity.CarType;
 import com.example.backend.repository.CarRepository;
 import com.example.backend.repository.CarTypeRepository;
+import com.example.backend.repository.CarRepairRepository;
+import com.example.backend.repository.RentalRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -26,6 +28,12 @@ public class CarTypeService {
 
     @Autowired
     private CarRepository carRepository;
+
+    @Autowired
+    private CarRepairRepository carRepairRepository;
+
+    @Autowired
+    private RentalRepository rentalRepository;
 
     /**
      * 获取所有车型信息（包含图片URL）
@@ -203,12 +211,49 @@ public class CarTypeService {
             throw new RuntimeException("车型不存在: " + tNo);
         }
 
+        // 先检查车型下是否存在车辆
+        long carCount = carRepository.countByTNo(tNo);
+        if (carCount > 0) {
+            // 如果车型下仍有车辆，进一步检查这些车辆是否有未结算订单或维修记录
+            List<String> carIds = carRepository.findCarIdsByTNo(tNo);
+            long ongoingRentals = 0L;
+            long totalRentals = 0L;
+            long repairCount = 0L;
+            if (carIds != null && !carIds.isEmpty()) {
+                try {
+                    ongoingRentals = rentalRepository.countOngoingByCarIdIn(carIds);
+                    totalRentals = rentalRepository.countByCarIdIn(carIds);
+                } catch (Exception ex) {
+                    // ignore query problems, we still want to block deletion because cars exist
+                }
+                try {
+                    repairCount = carRepairRepository.countByCarIdIn(carIds);
+                } catch (Exception ex) {
+                    // ignore
+                }
+            }
+
+            StringBuilder reason = new StringBuilder();
+            reason.append("无法删除车型: 共有 ").append(carCount).append(" 辆车辆使用此车型。");
+            if (ongoingRentals > 0) {
+                reason.append(" 检测到 ").append(ongoingRentals).append(" 个未结算订单，请先处理这些订单。");
+            } else if (totalRentals > 0) {
+                reason.append(" 历史租赁记录 ").append(totalRentals).append(" 条，若要删除请先清理或转移相关租赁数据。");
+            }
+            if (repairCount > 0) {
+                reason.append(" 同时检测到 ").append(repairCount).append(" 条维修记录关联，请先删除维修记录或更新车辆信息。");
+            }
+
+            throw new com.example.backend.exception.DeleteConflictException(reason.toString());
+        }
+
+        // 若没有车辆，则安全删除
         try {
             carTypeRepository.deleteById(tNo);
         } catch (org.springframework.dao.DataIntegrityViolationException e) {
             // 检查是否有外键约束导致删除失败
-            if (e.getMessage().contains("foreign key constraint")) {
-                throw new RuntimeException("无法删除车型: 存在关联的车辆信息", e);
+            if (e.getMessage() != null && e.getMessage().contains("foreign key constraint")) {
+                throw new com.example.backend.exception.DeleteConflictException("无法删除车型: 存在关联的记录，例如车辆或租赁/维修记录。", e);
             } else {
                 throw new RuntimeException("删除失败: " + e.getMessage(), e);
             }

@@ -73,4 +73,10 @@ public interface CarRepairRepository extends JpaRepository<CarRepair, String> {
             @Param("start") java.time.LocalDateTime start,
             @Param("end") java.time.LocalDateTime end
     );
+
+    /**
+     * 统计指定车牌集合的维修记录数量
+     */
+    @Query("SELECT COUNT(cr) FROM CarRepair cr WHERE cr.carId IN :carIds")
+    long countByCarIdIn(@Param("carIds") List<String> carIds);
 }

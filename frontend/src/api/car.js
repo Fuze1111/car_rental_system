@@ -47,7 +47,8 @@ export function updateCar(carId, data) {
 export function deleteCar(carId) {
   return request({
     url: `/cars/${carId}`,
-    method: 'delete'
+    method: 'delete',
+    quiet: true
   })
 }
 
@@ -183,7 +184,8 @@ export function updateCarType(tNo, tName, data) {
 export function deleteCarType(tNo, tName) {
   return request({
     url: `/car-types/${tNo}/${tName}`,
-    method: 'delete'
+    method: 'delete',
+    quiet: true
   })
 }
 

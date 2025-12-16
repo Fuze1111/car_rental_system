@@ -5,7 +5,6 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.io.Serializable;
 import java.math.BigDecimal;
 
 /**
@@ -35,7 +34,6 @@ public class CarType {
     /**
      * 租金率（元/小时）
      */
-    @Column(name = "RentRate", precision = 4, scale = 2)
+    @Column(name = "RentRate", precision = 6, scale = 2)
     private BigDecimal rentRate;
 }
-

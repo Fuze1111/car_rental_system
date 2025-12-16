@@ -125,6 +125,18 @@ public interface RentalRepository extends JpaRepository<Rental, String> {
     long countByCarId(@Param("carId") String carId);
 
     /**
+     * 统计给定车牌号集合的租赁记录数量
+     */
+    @Query("SELECT COUNT(r) FROM Rental r WHERE r.carId IN :carIds")
+    long countByCarIdIn(@Param("carIds") List<String> carIds);
+
+    /**
+     * 统计给定车牌号集合中未结算（amount IS NULL）的租赁记录数量
+     */
+    @Query("SELECT COUNT(r) FROM Rental r WHERE r.carId IN :carIds AND r.amount IS NULL")
+    long countOngoingByCarIdIn(@Param("carIds") List<String> carIds);
+
+    /**
      * 计算总收入
      * @return 总收入
      */

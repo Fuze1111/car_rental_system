@@ -38,24 +38,30 @@ request.interceptors.response.use(
         switch (status) {
           case 400:
             ElMessage.error(data.message || '请求参数错误')
+            window.__lastGlobalMessage = { text: data.message || '请求参数错误', ts: Date.now() }
             break
           case 401:
             ElMessage.error(data.message || '未授权，请登录')
+            window.__lastGlobalMessage = { text: data.message || '未授权，请登录', ts: Date.now() }
             // 可以在这里清除token并跳转到登录页
             localStorage.removeItem('token')
             localStorage.removeItem('userInfo')
             break
           case 403:
             ElMessage.error('拒绝访问')
+            window.__lastGlobalMessage = { text: '拒绝访问', ts: Date.now() }
             break
           case 404:
             ElMessage.error('请求的资源不存在')
+            window.__lastGlobalMessage = { text: '请求的资源不存在', ts: Date.now() }
             break
           case 500:
             ElMessage.error(data.message || '服务器错误')
+            window.__lastGlobalMessage = { text: data.message || '服务器错误', ts: Date.now() }
             break
           default:
             ElMessage.error(data.message || '请求失败')
+            window.__lastGlobalMessage = { text: data.message || '请求失败', ts: Date.now() }
         }
       } else if (error.request) {
         ElMessage.error('网络错误，请检查您的网络连接')

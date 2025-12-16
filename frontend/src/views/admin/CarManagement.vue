@@ -300,17 +300,21 @@
           </el-input-number>
         </el-form-item>
         <el-form-item label="车型图片" prop="Image">
-          <el-upload
-            class="avatar-uploader"
-            action="#"
-            :show-file-list="false"
-            :auto-upload="false"
-            :on-change="handleFileChange"
-          >
-            <img v-if="typeFormData.Image" :src="typeFormData.Image" alt="车型图片预览" class="avatar" />
-            <el-icon v-else class="avatar-uploader-icon"><Plus /></el-icon>
-          </el-upload>
-          <div class="form-tip">支持 jpg/png，建议尺寸 800x600</div>
+          <div style="display:flex;align-items:flex-start;gap:16px">
+            <div style="flex: 0 0 140px;">
+              <el-upload
+                class="avatar-uploader"
+                action="#"
+                :show-file-list="false"
+                :auto-upload="false"
+                :on-change="handleFileChange"
+              >
+                <img v-if="typeFormData.Image" :src="typeFormData.Image" alt="车型图片预览" class="avatar" />
+                <el-icon v-else class="avatar-uploader-icon"><Plus /></el-icon>
+              </el-upload>
+            </div>
+            <div style="flex:1; display:flex; align-items:center; color:#6b7280;">支持 jpg/png，建议尺寸 800x600</div>
+          </div>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -408,7 +412,20 @@ const typeFormData = reactive({
 const typeRules = {
   TNo: [{ required: true, message: '请输入类型编号', trigger: 'blur' }],
   TName: [{ required: true, message: '请输入车型名称', trigger: 'blur' }],
-  RentRate: [{ required: true, message: '请输入小时租金', trigger: 'blur' }]
+  RentRate: [
+    { required: true, message: '请输入小时租金', trigger: 'blur' },
+    { validator: (rule, value, callback) => {
+        if (value === null || value === undefined || value === '') { return callback(new Error('请输入小时租金')) }
+        const num = Number(value)
+        if (isNaN(num) || num < 0) return callback(new Error('小时租金需为非负数'))
+        if (num > 9999.99) return callback(new Error('小时租金不能超过 9999.99'))
+        // 小数位数校验，允许两位小数
+        const s = String(value)
+        const parts = s.split('.')
+        if (parts.length === 2 && parts[1].length > 2) return callback(new Error('小时租金最多保留两位小数'))
+        return callback()
+      }, trigger: ['blur','change'] }
+  ]
 }
 
 // 车辆数据
@@ -777,10 +794,18 @@ const handleTypeDelete = (row) => {
     try {
       await deleteCarType(row.TNo || row.tno, row.TName || row.tname)
       ElMessage.success('删除成功')
+      // refresh types and vehicles after deletion (single call)
       fetchCarTypes()
+      fetchCars()
     } catch (error) {
       console.error('删除失败:', error)
-      ElMessage.error('删除失败: ' + (error.message || '未知错误'))
+      // 尝试解析后端返回的结构化错误信息
+      const serverMsg = error?.response?.data?.message || error?.response?.data?.details || error?.response?.data?.error || error?.response?.data || error.message
+      const combined = '删除失败: ' + (serverMsg || '未知错误')
+      // 先关闭已有提示，确保只显示一次（避免重复多条）
+      ElMessage.closeAll()
+      ElMessage.error(combined)
+      window.__lastGlobalMessage = { text: combined, ts: Date.now() }
     }
   }).catch(() => {})
 }
@@ -823,6 +848,8 @@ const handleTypeSubmit = async () => {
         
         typeDialogVisible.value = false
         fetchCarTypes()
+        // also refresh car list so RentRate in the vehicle table updates immediately
+        fetchCars()
       } catch (error) {
         console.error('操作失败:', error)
         ElMessage.error('操作失败: ' + (error.message || '未知错误'))
@@ -886,7 +913,13 @@ const handleDelete = (row) => {
       fetchCars()
     } catch (error) {
       console.error('删除失败:', error)
-      ElMessage.error('删除失败')
+      // 尝试解析后端返回的结构化错误信息
+      const serverMsg = error?.response?.data?.message || error?.response?.data?.details || error?.response?.data?.error || error?.response?.data || error.message
+      const combined = '删除失败: ' + (serverMsg || '未知错误')
+      // 先关闭已有提示，确保只显示一次（避免重复多条）
+      ElMessage.closeAll()
+      ElMessage.error(combined)
+      window.__lastGlobalMessage = { text: combined, ts: Date.now() }
     }
   }).catch(() => {})
 }

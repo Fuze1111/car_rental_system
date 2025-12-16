@@ -8,6 +8,7 @@ import com.example.backend.entity.CarType;
 import com.example.backend.repository.CarRepairRepository;
 import com.example.backend.repository.CarRepository;
 import com.example.backend.repository.CarTypeRepository;
+import com.example.backend.repository.RentalRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -36,6 +37,9 @@ public class CarService {
 
     @Autowired
     private CarRepairRepository carRepairRepository;
+
+    @Autowired
+    private RentalRepository rentalRepository;
 
     /**
      * 获取所有车辆信息
@@ -159,13 +163,43 @@ public class CarService {
         if (!carRepository.existsById(carId)) {
             throw new RuntimeException("车辆不存在: " + carId);
         }
-        
+
+        // 检查与租赁/维修的关联情况，给出更明确的拒绝删除原因
+        try {
+            // 统计历史租赁与未结算订单
+            long totalRentals = rentalRepository.countByCarId(carId);
+            long ongoingRentals = 0L;
+            try {
+                // reuse list-based method for single car
+                ongoingRentals = rentalRepository.countOngoingByCarIdIn(java.util.List.of(carId));
+            } catch (Exception ex) {
+                // ignore
+            }
+
+            long repairCount = carRepairRepository.countByCarId(carId);
+
+            if (ongoingRentals > 0) {
+                throw new com.example.backend.exception.DeleteConflictException("无法删除车辆: 存在 " + ongoingRentals + " 个未结算订单，请先处理结算或撤销订单。");
+            }
+            if (totalRentals > 0) {
+                throw new com.example.backend.exception.DeleteConflictException("无法删除车辆: 该车辆有 " + totalRentals + " 条租赁历史记录，若需删除请先清理或转移相关租赁数据。");
+            }
+            if (repairCount > 0) {
+                throw new com.example.backend.exception.DeleteConflictException("无法删除车辆: 存在 " + repairCount + " 条维修记录关联，无法删除。");
+            }
+        } catch (com.example.backend.exception.DeleteConflictException e) {
+            throw e; // 直接抛出给上层处理
+        } catch (Exception e) {
+            // 若检查过程出错，记录并允许数据库的完整性异常处理走默认流程
+            System.out.println("[WARN] deleteCar: 关联检查异常: " + e.getMessage());
+        }
+
         try {
             carRepository.deleteById(carId);
         } catch (org.springframework.dao.DataIntegrityViolationException e) {
             // 检查是否有外键约束导致删除失败
-            if (e.getMessage().contains("foreign key constraint")) {
-                throw new RuntimeException("无法删除车辆: 存在关联的租赁记录或维修记录", e);
+            if (e.getMessage() != null && e.getMessage().contains("foreign key constraint")) {
+                throw new com.example.backend.exception.DeleteConflictException("无法删除车辆: 存在关联的租赁记录或维修记录", e);
             } else {
                 throw new RuntimeException("删除失败: " + e.getMessage(), e);
             }
@@ -354,3 +388,4 @@ public class CarService {
         return car;
     }
 }
+
