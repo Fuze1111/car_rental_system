@@ -452,36 +452,42 @@ const loadCustomerOrders = async () => {
   }
 }
 
-// 计算基本费用（租金率 × 租期小时数）
+// 计算现有订单显示用的“基本费用”（力求与租车大厅的预计总额保持一致，不含里程费）
 const calculateBasicFee = (order) => {
-  if (!order.LoanDate || !order.rentRate) {
+  // 订单还没有预计/实际还车时间，无法给出基础费用
+  if (!order.LoanDate || !order.ReturnDate) {
     return '待定'
   }
-  
-  const startDate = new Date(order.LoanDate)
-  let endDate
-  
-  // 对于进行中的订单，如果有预计还车时间则使用，否则显示待定
-  if (order.status === '进行中') {
-    if (!order.ReturnDate) {
-      return '待定'
-    }
-    endDate = new Date(order.ReturnDate)
-  } else {
-    // 已完成订单使用实际还车时间
-    if (!order.ReturnDate) {
-      return '待定'
-    }
-    endDate = new Date(order.ReturnDate)
+
+  const start = new Date(order.LoanDate)
+  const end = new Date(order.ReturnDate)
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
+    return '待定'
   }
-  
-  // 计算租期小时数
-  const diffMs = endDate - startDate
-  const diffHours = diffMs / (1000 * 60 * 60)
-  
-  // 基本费用 = 租金率（元/小时）× 租期小时数
-  const basicFee = order.rentRate * diffHours
-  return basicFee.toFixed(2)
+
+  // 按天数计算租期：与 CarSelection.vue 中 totalDays 的算法保持一致
+  const diffMs = Math.abs(end.getTime() - start.getTime())
+  const days = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)))
+
+  // 如果后端提供了租金率（元/小时），则使用：日租金 = 每小时单价 × 24
+  const hourlyRate = Number(order.rentRate) || 0
+  if (!hourlyRate) {
+    return '待定'
+  }
+  const dailyRate = hourlyRate * 24
+
+  const baseRent = dailyRate * days
+  const serviceFee = 50
+
+  // 司机服务费：只要有 DNo 或 driverName，就视为带司机，按 200 元/天计算
+  let driverFee = 0
+  if (order.DNo || order.driverName) {
+    driverFee = 200 * days
+  }
+
+  const total = baseRent + serviceFee + driverFee
+  // 返回两位小数的数值，确保展示为正常金额
+  return Number(total.toFixed(2))
 }
 
 const openDetail = (order) => {
@@ -816,7 +822,7 @@ onMounted(() => {
     &.is-active {
       background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
       color: white;
-      box-shadow: 0 6px 20px rgba(59, 130, 246, 0.35), 0 2px 8px rgba(59, 130, 246, 0.2);
+      box-shadow: 0 6px 20px rgba(59, 130,246, 0.35), 0 2px 8px rgba(59, 130, 246, 0.2);
       transform: translateY(-2px);
       
       &::before {
