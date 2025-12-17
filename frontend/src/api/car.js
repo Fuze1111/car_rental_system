@@ -154,10 +154,18 @@ export function getRepairCountByCarId(carId) {
   })
 }
 
-// 获取所有车型
+// 获取所有可租车型（仅包含存在可用车辆的车型），主要用于前台租车大厅
 export function getCarTypes() {
   return request({
     url: '/car-types',
+    method: 'get'
+  })
+}
+
+// 管理端：获取数据库中全部车型（包含没有车辆的车型）
+export function getCarTypesAdmin() {
+  return request({
+    url: '/car-types/all',
     method: 'get'
   })
 }
@@ -168,6 +176,20 @@ export function createCarType(data) {
     url: '/car-types',
     method: 'post',
     data
+  })
+}
+
+// 上传车型图片
+export function uploadCarTypeImage(file) {
+  const formData = new FormData()
+  formData.append('file', file)
+  return request({
+    url: '/car-types/upload-image',
+    method: 'post',
+    data: formData,
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
   })
 }
 

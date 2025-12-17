@@ -1,5 +1,7 @@
 package com.example.backend.entity;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -23,12 +25,16 @@ public class CarType {
      */
     @Id
     @Column(name = "TNo", length = 4, nullable = false)
+    @JsonProperty("tNo")
+    @JsonAlias({"TNo", "tno", "TNO"})
     private String tNo;
 
     /**
      * 汽车型号 - 唯一索引
      */
     @Column(name = "TName", length = 20, nullable = false, unique = true)
+    @JsonProperty("tName")
+    @JsonAlias({"TName", "tname", "TNAME"})
     private String tName;
 
     /**

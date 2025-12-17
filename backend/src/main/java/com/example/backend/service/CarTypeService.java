@@ -37,13 +37,28 @@ public class CarTypeService {
 
     /**
      * 获取所有车型信息（包含图片URL）
-     * 只返回有可用车辆（carStatus='0'）的车型
+     * 仅返回有可用车辆（carStatus='0'）的车型
+     *
+     * 主要用于前台租车大厅等只关心可租车型的场景
      *
      * @return 车型DTO列表
      */
     public List<CarTypeDTO> getAllCarTypes() {
         return carTypeRepository.findAll().stream()
                 .filter(carType -> hasAvailableCars(carType.getTNo()))
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 获取所有车型信息（包含图片URL，不过滤是否有可用车辆）
+     *
+     * 主要用于后台管理端，需看到数据库中全部车型
+     *
+     * @return 车型DTO列表
+     */
+    public List<CarTypeDTO> getAllCarTypesIncludingEmpty() {
+        return carTypeRepository.findAll().stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }
@@ -140,6 +155,12 @@ public class CarTypeService {
      * @return 创建的车型信息
      */
     public CarType createCarType(CarType carType) {
+        if (carType == null || carType.getTNo() == null || carType.getTNo().isBlank()) {
+            throw new IllegalArgumentException("创建车型时类型编号(TNo)不能为空");
+        }
+        if (carType.getTName() == null || carType.getTName().isBlank()) {
+            throw new IllegalArgumentException("创建车型时车型名称(TName)不能为空");
+        }
         // 检查车型是否已存在
         if (carTypeRepository.existsById(carType.getTNo())) {
             throw new RuntimeException("车型已存在: " + carType.getTNo());

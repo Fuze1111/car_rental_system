@@ -320,6 +320,19 @@
               </el-image>
               <div style="flex:1;color:#6b7280">填写后端可访问的静态资源路径，示例：/images/car-types/xxx.jpg</div>
             </div>
+            <div style="display:flex;align-items:center;gap:12px;margin-top:8px">
+              <input
+                type="file"
+                accept="image/*"
+                ref="typeImageFileInput"
+                style="display:none"
+                @change="handleTypeImageFileChange"
+              />
+              <el-button size="small" @click="triggerTypeImageChoose" :loading="uploadingTypeImage">
+                选择图片并上传
+              </el-button>
+              <span style="font-size:12px;color:#9ca3af">上传后将自动填入图片路径</span>
+            </div>
           </div>
         </el-form-item>
       </el-form>
@@ -358,10 +371,11 @@ import {
   deleteCar, 
   createRepair,
   updateCarStatus,
-  getCarTypes,
+  getCarTypesAdmin,
   createCarType,
   updateCarType,
-  deleteCarType
+  deleteCarType,
+  uploadCarTypeImage
 } from '@/api/car'
 import request from '@/api/request'
 
@@ -415,6 +429,9 @@ const typeFormData = reactive({
   ImagePath: ''
 })
 
+const typeImageFileInput = ref(null)
+const uploadingTypeImage = ref(false)
+
 const previewImageUrl = computed(() => {
   if (typeFormData.ImagePath && typeFormData.ImagePath.trim()) {
     const normalized = normalizeImageUrl(typeFormData.ImagePath)
@@ -422,6 +439,37 @@ const previewImageUrl = computed(() => {
   }
   return getImageForCarType(typeFormData.TName)
 })
+
+const handleTypeImageFileChange = async (event) => {
+  const files = event?.target?.files || event?.dataTransfer?.files
+  if (!files || !files[0]) return
+  const file = files[0]
+  uploadingTypeImage.value = true
+  try {
+    const resp = await uploadCarTypeImage(file)
+    const path = resp?.imagePath || resp?.path || resp?.url
+    if (path) {
+      typeFormData.ImagePath = path
+      ElMessage.success('图片上传成功')
+    } else {
+      ElMessage.error('图片上传失败：服务器未返回路径')
+    }
+  } catch (error) {
+    console.error('上传车型图片失败:', error)
+    ElMessage.error('上传车型图片失败: ' + (error.message || '未知错误'))
+  } finally {
+    uploadingTypeImage.value = false
+    if (event?.target) {
+      event.target.value = ''
+    }
+  }
+}
+
+const triggerTypeImageChoose = () => {
+  if (typeImageFileInput.value) {
+    typeImageFileInput.value.click()
+  }
+}
 
 const typeRules = {
   TNo: [{ required: true, message: '请输入类型编号', trigger: 'blur' }],
@@ -645,11 +693,11 @@ const fetchCars = async () => {
   }
 }
 
-// 获取所有车型选项
+// 获取所有车型选项（管理端使用：包含数据库中的全部车型）
 const fetchCarTypes = async () => {
   typeLoading.value = true
   try {
-    const response = await getCarTypes()
+    const response = await getCarTypesAdmin()
     const allTypes = (response || []).map(type => {
       const rawImagePath = type.imageUrl || type.Image || type.imageUrl
       const normalizedImage = normalizeImageUrl(rawImagePath)
@@ -848,8 +896,8 @@ const handleTypeSubmit = async () => {
     if (valid) {
       try {
         const payload = {
-          tno: typeFormData.TNo,
-          tname: typeFormData.TName,
+          tNo: typeFormData.TNo,
+          tName: typeFormData.TName,
           rentRate: typeFormData.RentRate,
           imagePath: typeFormData.ImagePath
         }
@@ -865,7 +913,9 @@ const handleTypeSubmit = async () => {
         fetchCars()
       } catch (error) {
         console.error('操作失败:', error)
-        ElMessage.error('操作失败: ' + (error.message || '未知错误'))
+        const respData = error?.response?.data
+        const serverMsg = respData?.message || respData?.details || respData || error.message
+        ElMessage.error('操作失败: ' + (serverMsg || '未知错误'))
       }
     }
   })
