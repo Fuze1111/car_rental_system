@@ -1,7 +1,7 @@
-# 车辆信息管理模块 RESTful API 文档
+# 车辆信息与租赁业务 API 文档
 
 ## 概述
-本文档描述了汽车租赁系统中车辆信息管理模块的RESTful API接口。
+本文档描述了汽车租赁系统中车辆信息与租赁业务管理模块的RESTful API接口。
 
 **基础URL**: `http://localhost:8080`
 
@@ -325,6 +325,208 @@
 
 ---
 
+## 租赁业务管理 API（Rental）
+
+### 1. 数据模型概览
+
+`rental` 表字段（详见 `schema.sql` / `database-README.md`）:
+
+| 字段名              | 类型          | 说明                       |
+|---------------------|---------------|----------------------------|
+| InvoiceNo           | CHAR(10)      | 发票号 / 订单号（主键）    |
+| LoanDate            | DATETIME      | 借车时间                   |
+| ReturnDate          | DATETIME      | 还车时间                   |
+| LoanPlace           | CHAR(100)     | 借车地点                   |
+| ReturnPlace         | CHAR(100)     | 还车地点                   |
+| CarID               | CHAR(10)      | 车辆牌照号（外键 car.CarID）|
+| CNo                 | CHAR(8)       | 客户号（外键 customer.CNo）|
+| DNo                 | CHAR(8)       | 司机号（外键 driver.DNo，可为空＝自驾）|
+| RoundTripDistance   | NUMERIC(8,2)  | 本次往返行驶里程（公里）   |
+| DriveTime           | NUMERIC(4,2)  | 本次行驶时间（小时，向上取整）|
+| Amount              | NUMERIC(8,2)  | 本次应付金额（元）         |
+
+> 说明：`RoundTripDistance` / `DriveTime` 是“单次租赁的行程数据”；车辆表 `car` 中的 `RUNKM` / `RunHour` 为车辆的**累计运行里程/累计运行小时**，会在结算时按增量同步更新。
+
+### 2. 创建租赁记录
+
+- **接口**：`POST /api/rentals`
+- **说明**：客户在前端选车下单时调用，创建一条租赁记录。发票号由后端自动生成。
+- **请求体 JSON 示例：**
+
+```json
+{
+  "loanDate": "2025-12-17T00:00:00",
+  "returnDate": "2025-12-18T00:00:00",
+  "loanPlace": "广州白云国际机场店",
+  "returnPlace": "广州天河珠江新城店",
+  "carId": "京C11111",
+  "cNo": "C0000001",
+  "dNo": "D0000001",          // 可为空表示自驾
+  "roundTripDistance": 70.0    // 可先为空，结算时由管理员补录
+}
+```
+
+- **响应示例：**
+
+```json
+{
+  "invoiceNo": "INV0000011",
+  "loanDate": "2025-12-17T00:00:00",
+  "returnDate": "2025-12-18T00:00:00",
+  "loanPlace": "广州白云国际机场店",
+  "returnPlace": "广州天河珠江新城店",
+  "carId": "京C11111",
+  "cNo": "C0000001",
+  "dNo": "D0000001",
+  "roundTripDistance": null,
+  "driveTime": null,
+  "amount": null
+}
+```
+
+> 刚创建时，`RoundTripDistance` / `DriveTime` / `Amount` 为空，实际行程与金额由管理员在“订单结算”环节录入并计算。
+
+---
+
+### 3. 更新 / 结算租赁记录
+
+- **接口**：`PUT /api/rentals/{invoiceNo}`
+- **说明**：管理员在“订单管理/结算”页面中，根据实际行程录入 `roundTripDistance`，并确认 `loanDate` / `returnDate` 后，由后端统一计算 `DriveTime` 和 `Amount`，同时将本次订单的里程/小时增量累加到车辆 `RUNKM` / `RunHour` 中，并在金额非空时释放车辆与司机状态。
+
+- **请求体 JSON 示例：**
+
+```json
+{
+  "roundTripDistance": 70.0,
+  "returnDate": "2025-12-18T00:00:00",
+  "loanPlace": "广州白云国际机场店",
+  "returnPlace": "广州天河珠江新城店"
+}
+```
+
+- **核心业务逻辑（摘自 `RentalService.updateRental`）：**
+
+1. 记录结算前订单的旧值：
+   - `oldDistance = existingRental.roundTripDistance`（默认 0）
+   - `oldDriveTime = existingRental.driveTime`（默认 0）
+2. 根据请求体更新基础字段（包括 `roundTripDistance`）。
+3. 若 `loanDate` 与 `returnDate` 均非空，则按两者差值计算行驶时长（小时）：
+   - 使用 `Duration.between(loanDate, returnDate).toHours()` 取整小时；
+   - 若存在零头分钟，则向上取整 1 小时；
+   - 小于 0 的异常数据强制置 0；
+   - 结果写入 `driveTime`（BigDecimal）。
+4. 调用 `calculateRentalAmount(existingRental)` 统一计算本次金额 `amount`。
+5. 计算增量：
+   - `deltaKm   = newDistance - oldDistance`
+   - `deltaHour = newDriveTime - oldDriveTime`
+6. 若 `deltaKm > 0` 或 `deltaHour > 0`，则找到对应车辆 `CarId`：
+   - `car.RUNKM  = (car.RUNKM  ?? 0) + deltaKm`
+   - `car.RunHour = (car.RunHour ?? 0) + deltaHour`
+   - 保存更新车辆。
+7. 若 `amount` 非空，视为订单已结算：
+   - `car.CarStatus = "0"`（可租），保存；
+   - 若有司机 `DNo`，则将其 `DStatus` 设为“空闲”。
+
+> **注意：** 通过“增量”方式更新车辆累计里程和小时，可以避免管理员多次点击保存导致重复累加同一笔行程。
+
+---
+
+### 4. 金额计算规则（`calculateRentalAmount`）
+
+金额计算集中于 `RentalService.calculateRentalAmount(Rental rental)`，核心规则如下：
+
+1. 前置条件：
+   - 必须存在 `carId`、`loanDate`、`returnDate`；否则金额返回 0。
+   - 通过 `carId` 找到车辆及其 `CarType`，从 `CarType.RentRate` 读取**每小时费用** `hourlyRate`（元/小时）。
+
+2. 时间费用：
+   - 使用 `Duration.between(loanDate, returnDate).toHours()` 计算小时差 `hoursDiff`（不足整小时不向上取整，用于计费）;
+   - `timeCost = hourlyRate × hoursDiff`。
+
+3. 里程费用：
+   - 将每小时费用折算为每公里：`kilometerRate = hourlyRate ÷ 50`（保留 2 位小数，四舍五入）;
+   - 如 `roundTripDistance` 非空，则 `distanceCost = kilometerRate × roundTripDistance`，否则为 0。
+
+4. 固定服务费：
+   - `serviceFee = 50` 元，始终计入。
+
+5. 司机服务费：
+   - 若订单存在 `DNo`（表示选择司机服务）:
+     - 先确定用于计费的小时数 `hours`：优先使用 `DriveTime`，否则退回到 `hoursDiff`；
+     - 換算成天数：`days = ceil(hours / 24.0)`，最少按 1 天计费；
+     - `driverFee = 200 × days`。
+   - 若为自驾（`DNo` 为空），则 `driverFee = 0`。
+
+6. 总金额：
+   - `totalAmount = timeCost + distanceCost + serviceFee + driverFee`；
+   - 最终四舍五入到 2 位小数作为 `amount`。
+
+---
+
+### 5. 按客户 / 司机 / 车辆查询租赁记录
+
+> 具体 URL 以当前 `RentalController` 实现为准，这里给出推荐设计与字段说明，便于前后端对齐。
+
+#### 5.1 按客户查询
+
+- **接口建议**：`GET /api/rentals/customer/{cNo}`
+- **说明**：返回指定客户的全部租赁记录，用于前端“个人中心-我的订单”展示。
+- **响应 JSON 每条记录字段（示例）：**
+
+```json
+{
+  "invoiceNo": "INV0000011",
+  "loanDate": "2025-12-17T00:00:00",
+  "returnDate": "2025-12-18T00:00:00",
+  "loanPlace": "广州白云国际机场店",
+  "returnPlace": "广州天河珠江新城店",
+  "carId": "京C11111",
+  "carType": "奔驰E级",
+  "carBrand": "奔驰E级",      // 当前实现中 carType 与 carBrand 复用车型名称
+  "dNo": "D0000001",         // 可为空表示自驾
+  "driverName": "钱七",       // 若存在司机
+  "roundTripDistance": 70.0,
+  "driveTime": 24.0,
+  "amount": 1774.00
+}
+```
+
+前端 `UserProfile.vue` 会基于这些字段计算并展示：
+
+- **基本费用**：根据车型 `rentRate`、租期天数、服务费、司机费等计算，与下单时预计总额保持一致；
+- **里程费用**：`amount - 基本费用`，作为“里程费用”部分展示；
+- **订单状态**：
+  - 若 `amount` 为空，则视为“进行中 / 待结算”;
+  - 若 `amount` 非空，则视为“已完成”，并将订单移入“历史订单”。
+
+#### 5.2 按司机查询
+
+- **接口建议**：`GET /api/rentals/driver/{dNo}`
+- **用途**：司机后台查看自己接单记录（当前实现程度根据实际代码补充）。
+
+#### 5.3 按车辆查询
+
+- **接口建议**：`GET /api/rentals/car/{carId}`
+- **用途**：管理员在车辆详情中查看该车历史租赁记录，与 CarRepair 维修信息结合评估车辆状态。
+
+---
+
+### 6. 租赁统计与收入
+
+结合 `RentalRepository` 的统计方法，可以提供如下统计接口（根据实际实现程度选择暴露）：
+
+- `GET /api/rentals/statistics/revenue?startDate=2025-01-01&endDate=2025-12-31`
+  - 调用 `calculateRevenue(startDate, endDate)`，返回某时间范围内租赁收入总额。
+- `GET /api/rentals/statistics/summary`：
+  - 返回：
+    - `totalRentals`：租赁总笔数；
+    - `totalRevenue`：租赁总收入；
+    - `averageAmount`：平均每单金额。
+
+> 这些统计接口可用于后台“报表/仪表盘”模块，为运营人员提供整体经营数据。
+
+---
+
 ## 数据模型
 
 ### 车辆状态说明
@@ -384,6 +586,33 @@ curl -X POST http://localhost:8080/api/repairs \
   }'
 ```
 
+### 示例5: 创建租赁记录
+```
+curl -X POST http://localhost:8080/api/rentals \
+  -H "Content-Type: application/json" \
+  -d '{
+    "loanDate": "2025-12-17T00:00:00",
+    "returnDate": "2025-12-18T00:00:00",
+    "loanPlace": "广州白云国际机场店",
+    "returnPlace": "广州天河珠江新城店",
+    "carId": "京C11111",
+    "cNo": "C0000001",
+    "dNo": "D0000001"
+  }'
+```
+
+### 示例6: 更新租赁记录并结算
+```
+curl -X PUT http://localhost:8080/api/rentals/INV0000011 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "roundTripDistance": 70.0,
+    "returnDate": "2025-12-18T00:00:00",
+    "loanPlace": "广州白云国际机场店",
+    "returnPlace": "广州天河珠江新城店"
+  }'
+```
+
 ---
 
 ## 注意事项
@@ -404,4 +633,3 @@ curl -X POST http://localhost:8080/api/repairs \
 - 租赁业务管理
 - 费用计算
 - 报表统计
-

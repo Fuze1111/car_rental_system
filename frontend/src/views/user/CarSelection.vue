@@ -277,6 +277,12 @@
                 <span class="value amount">¥{{ totalAmount }}</span>
               </div>
             </div>
+
+            <!-- 里程费说明：当前预计总额不包含里程费用 -->
+            <p class="fee-tip">
+              说明：以上为不含<span class="fee-tip__highlight">里程费用</span>的预计总额，实际支付金额将在还车结算时，
+              根据实际行驶里程再按平台标准单价计入<span class="fee-tip__highlight">里程费用</span>。
+            </p>
           </div>
         </div>
 
@@ -1482,6 +1488,20 @@ const parseLocalDateTime = (val) => {
     margin: 8px 0;
     border-top: 1px dashed #e2e8f0;
     background: transparent;
+  }
+}
+
+/* 费用提示语样式（如“里程费用将在结算时另行计算”） */
+.fee-tip {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #9ca3af;
+  text-align: left;
+
+  .fee-tip__highlight {
+    color: #ef4444;
+    font-weight: 600;
   }
 }
 

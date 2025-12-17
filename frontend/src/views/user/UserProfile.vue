@@ -69,7 +69,12 @@
                             </div>
                             <div class="fee-item">
                               <span class="fee-label">里程费用：</span>
-                              <span class="fee-value pending">待计算</span>
+                              <span
+                                class="fee-value"
+                                :class="{ pending: !order.amount || calculateMileageFee(order) === '待计算' }"
+                              >
+                                {{ !order.amount ? '待计算' : calculateMileageFee(order) }}
+                              </span>
                             </div>
                           </div>
                         </div>
@@ -271,7 +276,9 @@
               </div>
               <div class="info-item">
                 <span class="label">司机</span>
-                <span class="value">{{ currentOrder.DNo ? '配备司机' : '自驾' }}</span>
+                <span class="value">
+                  {{ currentOrder.driverName ? currentOrder.driverName : (currentOrder.DNo ? '配备司机' : '自驾') }}
+                </span>
               </div>
             </div>
           </div>
@@ -281,21 +288,21 @@
             <div class="info-grid">
               <div class="info-item">
                 <span class="label">金额状态</span>
-                <span class="value amount" :class="{ 'pending': currentOrder.status === '进行中' }">
-                  {{ currentOrder.status === '进行中' ? '待结算' : '¥' + currentOrder.amount }}
+                <span class="value amount" :class="{ 'pending': !currentOrder.amount }">
+                  {{ !currentOrder.amount ? '待结算' : '¥' + currentOrder.amount }}
                 </span>
               </div>
               <div class="info-item">
                 <span class="label">订单状态</span>
                 <el-tag size="small" :type="currentOrder.status === '已完成' ? 'success' : 'primary'">{{ currentOrder.status }}</el-tag>
               </div>
-              <div class="info-item" v-if="currentOrder.status === '已完成'">
+              <div class="info-item" v-if="currentOrder.distance != null">
                 <span class="label">行驶里程</span>
-                <span class="value">{{ currentOrder.distance || '-' }} km</span>
+                <span class="value">{{ currentOrder.distance }} km</span>
               </div>
-              <div class="info-item" v-if="currentOrder.status === '已完成'">
+              <div class="info-item" v-if="currentOrder.duration != null">
                 <span class="label">行驶时长</span>
-                <span class="value">{{ currentOrder.duration || '-' }} h</span>
+                <span class="value">{{ currentOrder.duration }} h</span>
               </div>
             </div>
           </div>
@@ -416,12 +423,16 @@ const loadCustomerOrders = async () => {
       // 判断订单状态：如果还车日期为空或未到，则为进行中；否则为已完成
       const now = new Date()
       const returnDate = rental.returnDate ? new Date(rental.returnDate) : null
-      const isPending = !returnDate || returnDate > now
-      
+      const isPendingByTime = !returnDate || returnDate > now
+
+      // 如果后台已结算出金额(amount不为空)，即使时间上还未到达也视为“已完成”历史订单
+      const hasAmount = rental.amount != null && rental.amount !== 0
+      const status = hasAmount ? '已完成' : (isPendingByTime ? '进行中' : '已完成')
+
       return {
         id: rental.invoiceNo,
         invoiceNo: rental.invoiceNo,
-        status: isPending ? '进行中' : '已完成',
+        status,
         carName: rental.carType || rental.carBrand || '未知车辆',
         carPlate: rental.carId || '未知车牌',
         CarID: rental.carId,
@@ -430,7 +441,7 @@ const loadCustomerOrders = async () => {
         LoanDate: rental.loanDate,
         ReturnDate: rental.returnDate,
         loanPlace: rental.loanPlace || '未知地点',
-        returnPlace: rental.returnPlace || (isPending ? '待定' : '未知地点'),
+        returnPlace: rental.returnPlace || (status === '进行中' ? '待定' : '未知地点'),
         amount: rental.amount || 0,
         distance: rental.roundTripDistance || null,
         duration: rental.driveTime || null,
@@ -440,10 +451,12 @@ const loadCustomerOrders = async () => {
       }
     })
     
-    // 将订单分为现有订单和历史订单
+    // 将订单分为现有订单和历史订单：
+    // 现有订单：尚未结算（无 amount）的进行中订单
+    // 历史订单：已结算（有 amount）的订单，或时间上已完成的订单
     allOrders.value = orders
-    currentOrders.value = orders.filter(order => order.status === '进行中')
-    historyOrders.value = orders.filter(order => order.status === '已完成')
+    currentOrders.value = orders.filter(order => order.status === '进行中' && !order.amount)
+    historyOrders.value = orders.filter(order => order.status === '已完成' || order.amount)
   } catch (error) {
     console.error('加载订单失败:', error)
     ElMessage.error('加载订单失败，请稍后重试')
@@ -452,40 +465,105 @@ const loadCustomerOrders = async () => {
   }
 }
 
-// 计算基本费用（租金率 × 租期小时数）
+// 计算现有订单显示用的“基本费用”（力求与租车大厅的预计总额保持一致，不含里程费）
 const calculateBasicFee = (order) => {
-  if (!order.LoanDate || !order.rentRate) {
+  // 订单还没有预计/实际还车时间，无法给出基础费用
+  if (!order.LoanDate || !order.ReturnDate) {
     return '待定'
   }
-  
-  const startDate = new Date(order.LoanDate)
-  let endDate
-  
-  // 对于进行中的订单，如果有预计还车时间则使用，否则显示待定
-  if (order.status === '进行中') {
-    if (!order.ReturnDate) {
-      return '待定'
-    }
-    endDate = new Date(order.ReturnDate)
-  } else {
-    // 已完成订单使用实际还车时间
-    if (!order.ReturnDate) {
-      return '待定'
-    }
-    endDate = new Date(order.ReturnDate)
+
+  const start = new Date(order.LoanDate)
+  const end = new Date(order.ReturnDate)
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
+    return '待定'
   }
-  
-  // 计算租期小时数
-  const diffMs = endDate - startDate
-  const diffHours = diffMs / (1000 * 60 * 60)
-  
-  // 基本费用 = 租金率（元/小时）× 租期小时数
-  const basicFee = order.rentRate * diffHours
-  return basicFee.toFixed(2)
+
+  // 按天数计算租期：与 CarSelection.vue 中 totalDays 的算法保持一致
+  const diffMs = Math.abs(end.getTime() - start.getTime())
+  const days = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)))
+
+  // 如果后端提供了租金率（元/小时），则使用：日租金 = 每小时单价 × 24
+  const hourlyRate = Number(order.rentRate) || 0
+  if (!hourlyRate) {
+    return '待定'
+  }
+  const dailyRate = hourlyRate * 24
+
+  const baseRent = dailyRate * days
+  const serviceFee = 50
+
+  // 司机服务费：只要有 DNo 或 driverName，就视为带司机，按 200 元/天计算
+  let driverFee = 0
+  if (order.DNo || order.driverName) {
+    driverFee = 200 * days
+  }
+
+  const total = baseRent + serviceFee + driverFee
+  // 返回两位小数的数值，确保展示为正常金额
+  return Number(total.toFixed(2))
 }
 
-const openDetail = (order) => {
-  currentOrder.value = order
+// 计算订单结算后的“里程费用”：有 amount 的订单使用后端 amount 减去基础费用，缺少关键数据时返回“待计算”
+const calculateMileageFee = (order) => {
+  if (!order || !order.amount) {
+    return '待计算'
+  }
+
+  const basicFee = calculateBasicFee(order)
+  if (basicFee === '待定') {
+    return '待计算'
+  }
+
+  const mileage = Number(order.amount) - Number(basicFee)
+  if (!Number.isFinite(mileage) || mileage < 0) {
+    return '待计算'
+  }
+
+  return `¥${mileage.toFixed(2)}`
+}
+
+const openDetail = async (order) => {
+  // 打开详情前，尽量从后台刷新这一笔订单，确保 amount / 里程 等最新
+  try {
+    const userInfo = getUserInfo()
+    const fresh = await getCustomerRentals(userInfo.userId)
+    const updated = fresh.find(r => r.invoiceNo === order.invoiceNo)
+    if (updated) {
+      // 与 loadCustomerOrders 中一致：有 amount 就视为已完成
+      const now = new Date()
+      const returnDate = updated.returnDate ? new Date(updated.returnDate) : null
+      const isPendingByTime = !returnDate || returnDate > now
+      const hasAmount = updated.amount != null && updated.amount !== 0
+      const status = hasAmount ? '已完成' : (isPendingByTime ? '进行中' : '已完成')
+
+      currentOrder.value = {
+        id: updated.invoiceNo,
+        invoiceNo: updated.invoiceNo,
+        status,
+        carName: updated.carType || updated.carBrand || '未知车辆',
+        carPlate: updated.carId || '未知车牌',
+        CarID: updated.carId,
+        startTime: updated.loanDate ? new Date(updated.loanDate).toLocaleString('zh-CN') : '未知',
+        endTime: updated.returnDate ? new Date(updated.returnDate).toLocaleString('zh-CN') : '待定',
+        LoanDate: updated.loanDate,
+        ReturnDate: updated.returnDate,
+        loanPlace: updated.loanPlace || '未知地点',
+        returnPlace: updated.returnPlace || (status === '进行中' ? '待定' : '未知地点'),
+        amount: updated.amount || 0,
+        distance: updated.roundTripDistance || null,
+        duration: updated.driveTime || null,
+        driverName: updated.driverName || null,
+        DNo: updated.dNo,
+        rentRate: updated.rentRate || 0
+      }
+    } else {
+      currentOrder.value = order
+    }
+  } catch (e) {
+    console.error('刷新订单详情失败:', e)
+    currentOrder.value = order
+  }
+
   detailVisible.value = true
   hasMapKey.value = false
 }
@@ -816,7 +894,7 @@ onMounted(() => {
     &.is-active {
       background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
       color: white;
-      box-shadow: 0 6px 20px rgba(59, 130, 246, 0.35), 0 2px 8px rgba(59, 130, 246, 0.2);
+      box-shadow: 0 6px 20px rgba(59, 130,246, 0.35), 0 2px 8px rgba(59, 130, 246, 0.2);
       transform: translateY(-2px);
       
       &::before {

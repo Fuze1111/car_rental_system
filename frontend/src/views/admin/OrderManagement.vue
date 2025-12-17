@@ -238,15 +238,11 @@
             </el-input-number>
           </el-form-item>
           <el-form-item label="行驶时间">
-            <el-input-number
-              v-model="completeForm.DriveTime"
-              :min="0"
-              :step="1"
-              controls-position="right"
-              class="number-input"
-            >
-              <template #append>h</template>
-            </el-input-number>
+            <!-- 改为只读显示，根据借还时间差自动计算 -->
+            <div class="readonly-time">
+              <span class="time-value">{{ formattedDriveTime }}</span>
+              <span class="time-unit">h</span>
+            </div>
           </el-form-item>
 
           <!-- 费用明细展示（含公式） -->
@@ -259,7 +255,6 @@
               <div class="total">
                 <span class="label">合计</span>
                 <span class="amount dynamic">¥{{ computedEstimatedAmount }}</span>
-                <span class="unit small">（含服务费）</span>
               </div>
             </div>
 
@@ -290,16 +285,16 @@
                 <div class="fee-formula">
                   <span class="formula-label">计算：</span>
                   <span class="formula-text">
-                    <span class="highlight-number">{{ completeForm.DriveTime || 0 }}</span>
+                    <span class="highlight-number">{{ formattedDriveTime }}</span>
                     <span class="unit"> h × </span>
-                    <span class="highlight-number">{{ currentOrder.RentRate || currentOrder.rentRate }}</span>
+                    <span class="highlight-number">{{ hourlyRateDisplay }}</span>
                     <span class="unit"> 元/h</span>
                   </span>
                 </div>
               </div>
 
-              <!-- 司机服务费 -->
-              <div class="fee-row driver" v-if="currentOrder && currentOrder.DNo">
+              <!-- 司机服务费：与合计金额使用同一 hasDriver 条件 -->
+              <div class="fee-row driver" v-if="currentOrder && (currentOrder.DNo || currentOrder.DriverName)">
                 <div class="fee-main">
                   <span class="fee-label">司机服务费</span>
                   <span class="fee-amount dynamic">¥{{ driverFee }}</span>
@@ -433,9 +428,7 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { Right, Location, LocationFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { getRentals, updateRental, deleteRental } from '@/api/rental'
-import { getCarById, updateCarStatus } from '@/api/car'
-import { updateDriverStatus } from '@/api/driver'
+import { getRentals, deleteRental, updateRental } from '@/api/rental'
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -462,76 +455,102 @@ const activePagination = reactive({ currentPage: 1, pageSize: 10, total: 0 })
 
 const completeForm = reactive({
   RoundTripDistance: 0,
-  DriveTime: 0,
-})
-
-// 根据租金率推导每公里单价的简单系数
-const getPricePerKmFromRentRate = (rentRate) => {
-  const rate = Number(rentRate || 0)
-  if (!rate || rate <= 0) return 0
-  // 每公里单价 = 小时租金率 / 50
-  return rate / 50
-}
-
-// 当前订单的每公里单价（仅用于展示公式）
-const pricePerKmDisplay = computed(() => {
-  if (!currentOrder.value) return 0
-  const rate = Number(currentOrder.value.RentRate || currentOrder.value.rentRate || 0)
-  const price = getPricePerKmFromRentRate(rate)
-  return Number(price.toFixed(2))
-})
-
-// 单独计算各项费用，便于在 UI 中展示明细
-const distanceFee = computed(() => {
-  if (!currentOrder.value) return 0
-  const distance = Number(completeForm.RoundTripDistance) || 0
-  const pricePerKm = pricePerKmDisplay.value
-  return Number((distance * pricePerKm).toFixed(2))
-})
-
-// 按行驶时间计算的费用：行驶小时数 × 小时租金率
-const timeFee = computed(() => {
-  if (!currentOrder.value) return 0
-  const driveTime = Number(completeForm.DriveTime) || 0
-  const rentRate = Number(currentOrder.value.RentRate || currentOrder.value.rentRate || 0)
-  if (!rentRate || driveTime <= 0) return 0
-  return Number((driveTime * rentRate).toFixed(2))
-})
-
-// 司机按天计费时的天数（仅展示用）
-const driverDaysDisplay = computed(() => {
-  if (!currentOrder.value || !currentOrder.value.DNo) return 0
-  const driveTime = Number(completeForm.DriveTime) || 0
-  const hours = driveTime > 0 ? driveTime : 0
-  if (hours <= 0) return 1
-  return Math.ceil(hours / 24)
-})
-
-const driverFee = computed(() => {
-  if (!currentOrder.value || !currentOrder.value.DNo) return 0
-  const days = driverDaysDisplay.value
-  return days * 200
-})
-
-const serviceFee = computed(() => 50)
-
-// 计算预计金额：里程*每Km的钱 + 司机服务费(如有) + 固定服务费50
-const computedEstimatedAmount = computed(() => {
-  const total = distanceFee.value + timeFee.value + driverFee.value + serviceFee.value
-  return Number(total.toFixed(2))
+  DriveTime: 0
 })
 
 const activeOrders = ref([])
 const historyOrders = ref([])
 
 // Mock Aux Data
-const mockCars = { '京A88888': 'Toyota Camry', '京AD12345': 'Tesla Model 3', '京A66666': 'Benz S-Class', '京A99999': 'BMW X5' }
+const mockCars = { '京A88888': 'Toyota Camry', '京AD12345': 'Tesla Model 3', '京A66666': 'Benz S-Class', '京A99999': 'BMW X5' };
 const mockCustomers = { 'C0000001': '张客户1', 'C0000002': '李客户2' }
 const mockDrivers = { 'D0000001': '王司机1' }
 
 const getCarName = (id) => mockCars[id] || id
 const getCustomerName = (id) => mockCustomers[id] || id
 const getDriverName = (id) => mockDrivers[id] || id
+
+// 基于借还时间差自动计算行驶时间（小时）
+const calculatedDriveTime = computed(() => {
+  if (!currentOrder.value || !currentOrder.value.LoanDate || !currentOrder.value.ReturnDate) return 0
+  const start = new Date(currentOrder.value.LoanDate)
+  const end = new Date(currentOrder.value.ReturnDate)
+  const diffMs = end.getTime() - start.getTime()
+  if (!isFinite(diffMs) || diffMs <= 0) return 0
+  const hours = diffMs / (1000 * 60 * 60)
+  // 业务上按小时向上取整，保证不少计
+  return Math.ceil(hours)
+})
+
+const formattedDriveTime = computed(() => calculatedDriveTime.value.toString())
+
+// 订单天数（用于司机服务费）：按借还时间差向上取整到天
+const driverDays = computed(() => {
+  if (!currentOrder.value || !currentOrder.value.LoanDate || !currentOrder.value.ReturnDate) return 0
+  const start = new Date(currentOrder.value.LoanDate)
+  const end = new Date(currentOrder.value.ReturnDate)
+  const diffMs = end.getTime() - start.getTime()
+  if (!isFinite(diffMs) || diffMs <= 0) return 0
+  const days = diffMs / (1000 * 60 * 60 * 24)
+  return Math.ceil(days)
+})
+
+const driverDaysDisplay = computed(() => driverDays.value.toString())
+const driverFee = computed(() => driverDays.value * 200)
+
+// 判断当前订单是否包含司机服务（DNo 非空且非自驾标识）
+const hasDriverService = computed(() => {
+  if (!currentOrder.value) return false
+  const dno = (currentOrder.value.DNo || '').toString().trim()
+  // 为空或特殊标记 SELF_DRIVE 视为自驾
+  if (!dno || dno === 'SELF_DRIVE') return false
+  return true
+})
+
+// 根据当前订单的租金率计算每小时、每公里单价
+const hourlyRate = computed(() => {
+  if (!currentOrder.value) return 0
+  const raw = currentOrder.value.RentRate
+  const num = Number(raw)
+  return Number.isFinite(num) && num > 0 ? num : 0
+})
+
+const pricePerKm = computed(() => {
+  // 与后端 calculateRentalAmount 逻辑保持一致：每公里费用 = 每小时租金 / 50
+  if (!hourlyRate.value) return 0
+  return +(hourlyRate.value / 50).toFixed(2)
+})
+
+// 供模板直接展示的字符串
+const pricePerKmDisplay = computed(() => pricePerKm.value ? pricePerKm.value.toString() : '0')
+const hourlyRateDisplay = computed(() => hourlyRate.value ? hourlyRate.value.toString() : '0')
+
+// 统一的固定服务费常量
+const serviceFee = 50
+
+// 结算金额统一使用自动计算的行驶时间
+const computedEstimatedAmount = computed(() => {
+  const distance = Number(completeForm.RoundTripDistance) || 0
+  const hours = calculatedDriveTime.value
+  const distanceFeeLocal = distance * pricePerKm.value
+  const timeFeeLocal = hours * hourlyRate.value
+  const base = serviceFee
+  // 兼容两种情况：1）DNo 有值；2）DriverName 有值（即使 DNo 为 null）
+  const hasDriver = !!(currentOrder.value && (currentOrder.value.DNo || currentOrder.value.DriverName))
+  const driver = hasDriver ? driverFee.value : 0
+  return Math.round((base + distanceFeeLocal + timeFeeLocal + driver) * 100) / 100
+})
+
+// 为模板中的明细行提供拆分出来的费用
+const distanceFee = computed(() => {
+  const distance = Number(completeForm.RoundTripDistance) || 0
+  return Math.round((distance * pricePerKm.value) * 100) / 100
+})
+
+const timeFee = computed(() => {
+  const hours = calculatedDriveTime.value
+  return Math.round((hours * hourlyRate.value) * 100) / 100
+})
 
 // Map Initialization
 const initMap = () => {
@@ -681,7 +700,6 @@ const formatDateTime = (value) => {
 
 // Helper to normalize a rental DTO from backend into the template's expected shape
 const normalizeRental = (r) => {
-  // r may have camelCase fields like invoiceNo, loanDate, returnDate, carId, cNo, dNo, roundTripDistance, driveTime, amount, customerName, driverName
   return {
     InvoiceNo: r.invoiceNo || r.InvoiceNo || '',
     LoanDate: formatDateTime(r.loanDate || r.LoanDate || r.loanDateStr || ''),
@@ -694,7 +712,8 @@ const normalizeRental = (r) => {
     RoundTripDistance: (r.roundTripDistance !== undefined ? r.roundTripDistance : (r.RoundTripDistance !== undefined ? r.RoundTripDistance : null)),
     DriveTime: (r.driveTime !== undefined ? r.driveTime : (r.DriveTime !== undefined ? r.DriveTime : null)),
     Amount: (r.amount !== undefined ? r.amount : (r.Amount !== undefined ? r.Amount : null)),
-    // Additional friendly fields if backend provided
+    // 把后端的租金率映射到统一的 RentRate 字段，便于后续计算
+    RentRate: r.rentRate ?? r.RentRate ?? null,
     CustomerName: r.customerName || r.CustomerName || getCustomerName(r.cNo || r.CNo || ''),
     DriverName: r.driverName || r.DriverName || getDriverName(r.dNo || r.DNo || ''),
     CarType: r.carType || r.CarType || getCarName(r.carId || r.CarID || '')
@@ -867,28 +886,11 @@ const handlePageChange = (val) => {
 // but ensure page-change handlers are in sync with pagination events.
 
 // Dialog Logic
-const openCompleteDialog = async (row) => {
-  // 先设置基础订单信息
-  currentOrder.value = { ...row }
-
-  // 根据 CarID 从后端获取最新的车型租金率
-  try {
-    const carId = row.CarID || row.carId
-    if (carId) {
-      const resp = await getCarById(carId)
-      const car = resp.data || resp
-      const rate = car.rentRate || car.RentRate
-      if (rate !== undefined && rate !== null) {
-        currentOrder.value.rentRate = Number(rate)
-      }
-    }
-  } catch (e) {
-    console.error('获取车辆租金率失败，将按 0 处理', e)
-    currentOrder.value.rentRate = 0
-  }
-
+const openCompleteDialog = (row) => {
+  currentOrder.value = row
+  console.log('[OrderManagement] openCompleteDialog currentOrder:', JSON.parse(JSON.stringify(row)))
   completeForm.RoundTripDistance = 0
-  completeForm.DriveTime = 0
+  completeForm.DriveTime = calculatedDriveTime.value
   dialogVisible.value = true
 }
 
@@ -896,63 +898,25 @@ const handleCompleteSubmit = async () => {
   if (!currentOrder.value) return
   submitting.value = true
   try {
-    const distance = Number(completeForm.RoundTripDistance) || 0
-    const driveTime = Number(completeForm.DriveTime) || 0
-
-    if (distance < 0 || driveTime < 0) {
-      ElMessage.error('行驶里程和时间不能为负数')
-      submitting.value = false
-      return
-    }
-
-    const amount = computedEstimatedAmount.value
-    const now = new Date()
-    const pad = (n) => String(n).padStart(2, '0')
-    const returnDateIso = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
-    const order = currentOrder.value
-
+    // 构造更新 payload：只提交还车结算相关字段
     const payload = {
-      // update only completion related fields; backend merges with existing entity
-      // Always send a proper ISO local datetime so backend's LocalDateTime deserialization works.
-      // Use current time to represent actual return time when admin confirms settlement.
-      returnDate: returnDateIso,
-      roundTripDistance: distance,
-      driveTime,
-      amount,
+      invoiceNo: currentOrder.value.InvoiceNo,
+      roundTripDistance: Number(completeForm.RoundTripDistance) || 0,
+      driveTime: calculatedDriveTime.value,
+      amount: computedEstimatedAmount.value
     }
 
-    // 1. 更新租赁记录（结算订单）
-    await updateRental(order.InvoiceNo || order.invoiceNo, payload)
+    await updateRental(currentOrder.value.InvoiceNo, payload)
 
-    // 2. 更新车辆状态为可租(0) —— 如果有 carId
-    const carId = order.CarID || order.carId
-    if (carId) {
-      try {
-        await updateCarStatus(carId, { carStatus: '0' })
-      } catch (e) {
-        console.error('更新车辆状态失败', e)
-        ElMessage.warning('订单已结算，但车辆状态更新失败，请在车辆管理中检查')
-      }
-    }
+    ElMessage.success('还车结算完成')
+    dialogVisible.value = false
 
-    // 3. 如有司机，更新司机状态为空闲
-    const dNo = order.DNo || order.dNo
-    if (dNo) {
-      try {
-        await updateDriverStatus(dNo, '空闲')
-      } catch (e) {
-        console.error('更新司机状态失败', e)
-        ElMessage.warning('订单已结算，但司机状态更新失败，请在司机管理中检查')
-      }
-    }
-
+    // 重新加载进行中 / 历史订单列表
     await fetchActive()
     await fetchHistory()
-    ElMessage.success('订单已结算归档')
-    dialogVisible.value = false
   } catch (error) {
-    console.error('完成订单失败:', error)
-    ElMessage.error('完成订单失败')
+    console.error('还车结算失败', error)
+    ElMessage.error('还车结算失败，请稍后重试')
   } finally {
     submitting.value = false
   }
@@ -1450,6 +1414,27 @@ const handleView = (row) => {
     margin-top: 24px;
     display: flex;
     justify-content: flex-end;
+  }
+
+  .readonly-time {
+    display: inline-flex;
+    align-items: baseline;
+    padding: 4px 12px;
+    border-radius: 6px;
+    background: #f9fafb;
+    border: 1px dashed #cbd5e1;
+
+    .time-value {
+      font-size: 18px;
+      font-weight: 600;
+      color: #0f766e;
+      margin-right: 4px;
+    }
+
+    .time-unit {
+      font-size: 13px;
+      color: #64748b;
+    }
   }
 }
 @keyframes fadeIn {
