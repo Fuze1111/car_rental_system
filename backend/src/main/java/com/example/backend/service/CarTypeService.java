@@ -3,12 +3,10 @@ package com.example.backend.service;
 import com.example.backend.dto.CarTypeDTO;
 import com.example.backend.entity.Car;
 import com.example.backend.entity.CarType;
-import com.example.backend.entity.CarTypeImage;
 import com.example.backend.repository.CarRepository;
 import com.example.backend.repository.CarTypeRepository;
 import com.example.backend.repository.CarRepairRepository;
 import com.example.backend.repository.RentalRepository;
-import com.example.backend.repository.CarTypeImageRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -37,9 +35,6 @@ public class CarTypeService {
     @Autowired
     private RentalRepository rentalRepository;
 
-    @Autowired
-    private CarTypeImageRepository carTypeImageRepository;
-
     /**
      * 获取所有车型信息（包含图片URL）
      * 只返回有可用车辆（carStatus='0'）的车型
@@ -47,15 +42,12 @@ public class CarTypeService {
      * @return 车型DTO列表
      */
     public List<CarTypeDTO> getAllCarTypes() {
-        List<CarType> carTypes = carTypeRepository.findAll();
-        
-        // 过滤掉没有可用车辆的车型
-        return carTypes.stream()
+        return carTypeRepository.findAll().stream()
                 .filter(carType -> hasAvailableCars(carType.getTNo()))
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }
-    
+
     /**
      * 检查指定车型是否有可用车辆
      * @param tNo 车型编号
@@ -66,7 +58,7 @@ public class CarTypeService {
         List<Car> availableCars = carRepository.findByMultipleConditions("0", tNo, null);
         return !availableCars.isEmpty();
     }
-    
+
     /**
      * 将CarType转换为CarTypeDTO（包含图片URL）
      */
@@ -75,29 +67,43 @@ public class CarTypeService {
         dto.setTNo(carType.getTNo());
         dto.setTName(carType.getTName());
         dto.setRentRate(carType.getRentRate());
-
-        // 从 car_type_image 表按 TNo 读取第一张图片 URL
-        String imageUrl = resolveImageUrlFromDb(carType.getTNo());
-        dto.setImageUrl(imageUrl);
-
+        dto.setImageUrl(resolveImageUrl(carType.getTNo()));
         return dto;
     }
 
     /**
-     * 根据 TNo 从 car_type_image 表查询图片 URL
-     * 若没有配置图片，则返回 null，由前端决定显示占位图
+     * 根据车型编号解析图片URL
      */
-    private String resolveImageUrlFromDb(String tNo) {
-        if (tNo == null) {
-            return null;
+    private String resolveImageUrl(String tNo) {
+        if (tNo == null || tNo.isBlank()) {
+            return "/images/default.jpg";
         }
-        // 取第一条图片记录的路径
-        return carTypeImageRepository.findImagePathsByTNo(tNo)
-                .stream()
-                .findFirst()
-                .orElse(null);
+        return carTypeRepository.findById(tNo)
+                .map(CarType::getImagePath)
+                .filter(path -> path != null && !path.isBlank())
+                .orElseGet(() -> suggestImagePathByTNo(tNo));
     }
-    
+
+    private String suggestImagePathByTNo(String tNo) {
+        String normalized = tNo.trim().toUpperCase();
+        switch (normalized) {
+            case "T001":
+                return "/images/toyota_camry.jpg";
+            case "T002":
+                return "/images/honda_accord.jpg";
+            case "T003":
+                return "/images/benz_e_class.jpg";
+            case "T004":
+                return "/images/bmw_5_series.jpg";
+            case "T005":
+                return "/images/audi_a6l.jpg";
+            case "T006":
+                return "/images/vw_passat.jpg";
+            default:
+                return "/images/default.jpg";
+        }
+    }
+
     /**
      * 获取原始车型实体列表（保留用于其他地方）
      */
@@ -138,7 +144,7 @@ public class CarTypeService {
         if (carTypeRepository.existsById(carType.getTNo())) {
             throw new RuntimeException("车型已存在: " + carType.getTNo());
         }
-
+        carType.setImagePath(normalizeImagePath(carType.getImagePath()));
         return carTypeRepository.save(carType);
     }
 
@@ -159,6 +165,9 @@ public class CarTypeService {
         }
         if (carType.getRentRate() != null) {
             existingCarType.setRentRate(carType.getRentRate());
+        }
+        if (carType.getImagePath() != null) {
+            existingCarType.setImagePath(normalizeImagePath(carType.getImagePath()));
         }
 
         return carTypeRepository.save(existingCarType);
@@ -236,31 +245,11 @@ public class CarTypeService {
         }
     }
 
-    /**
-     * 返回指定车型的所有图片 URL 列表
-     */
-    public List<String> getCarTypeImages(String tNo) {
-        if (tNo == null) {
-            return java.util.Collections.emptyList();
+    private String normalizeImagePath(String imagePath) {
+        if (imagePath == null || imagePath.isBlank()) {
+            return null;
         }
-        return carTypeImageRepository.findImagePathsByTNo(tNo);
-    }
-
-    /**
-     * 为指定车型保存/更新图片 URL（管理员上传车型图片后调用）
-     * 当前策略：允许同一 TNo 存在多条图片记录，前端主要使用按 ImageID 升序的第一条作为主图
-     */
-    public void saveOrUpdateCarTypeImage(String tNo, String imageUrl) {
-        if (tNo == null || imageUrl == null || imageUrl.isBlank()) {
-            throw new IllegalArgumentException("TNo 和 imageUrl 均不能为空");
-        }
-        if (!carTypeRepository.existsById(tNo)) {
-            throw new RuntimeException("车型不存在: " + tNo);
-        }
-
-        CarTypeImage entity = new CarTypeImage();
-        entity.setTNo(tNo);
-        entity.setImagePath(imageUrl);
-        carTypeImageRepository.save(entity);
+        String trimmed = imagePath.trim();
+        return trimmed.startsWith("/") ? trimmed : "/" + trimmed;
     }
 }
