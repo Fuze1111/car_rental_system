@@ -69,7 +69,12 @@
                             </div>
                             <div class="fee-item">
                               <span class="fee-label">里程费用：</span>
-                              <span class="fee-value pending">待计算</span>
+                              <span
+                                class="fee-value"
+                                :class="{ pending: !order.amount || calculateMileageFee(order) === '待计算' }"
+                              >
+                                {{ !order.amount ? '待计算' : calculateMileageFee(order) }}
+                              </span>
                             </div>
                           </div>
                         </div>
@@ -283,21 +288,21 @@
             <div class="info-grid">
               <div class="info-item">
                 <span class="label">金额状态</span>
-                <span class="value amount" :class="{ 'pending': currentOrder.status === '进行中' }">
-                  {{ currentOrder.status === '进行中' ? '待结算' : '¥' + currentOrder.amount }}
+                <span class="value amount" :class="{ 'pending': !currentOrder.amount }">
+                  {{ !currentOrder.amount ? '待结算' : '¥' + currentOrder.amount }}
                 </span>
               </div>
               <div class="info-item">
                 <span class="label">订单状态</span>
                 <el-tag size="small" :type="currentOrder.status === '已完成' ? 'success' : 'primary'">{{ currentOrder.status }}</el-tag>
               </div>
-              <div class="info-item" v-if="currentOrder.status === '已完成'">
+              <div class="info-item" v-if="currentOrder.distance != null">
                 <span class="label">行驶里程</span>
-                <span class="value">{{ currentOrder.distance || '-' }} km</span>
+                <span class="value">{{ currentOrder.distance }} km</span>
               </div>
-              <div class="info-item" v-if="currentOrder.status === '已完成'">
+              <div class="info-item" v-if="currentOrder.duration != null">
                 <span class="label">行驶时长</span>
-                <span class="value">{{ currentOrder.duration || '-' }} h</span>
+                <span class="value">{{ currentOrder.duration }} h</span>
               </div>
             </div>
           </div>
@@ -418,12 +423,16 @@ const loadCustomerOrders = async () => {
       // 判断订单状态：如果还车日期为空或未到，则为进行中；否则为已完成
       const now = new Date()
       const returnDate = rental.returnDate ? new Date(rental.returnDate) : null
-      const isPending = !returnDate || returnDate > now
-      
+      const isPendingByTime = !returnDate || returnDate > now
+
+      // 如果后台已结算出金额(amount不为空)，即使时间上还未到达也视为“已完成”历史订单
+      const hasAmount = rental.amount != null && rental.amount !== 0
+      const status = hasAmount ? '已完成' : (isPendingByTime ? '进行中' : '已完成')
+
       return {
         id: rental.invoiceNo,
         invoiceNo: rental.invoiceNo,
-        status: isPending ? '进行中' : '已完成',
+        status,
         carName: rental.carType || rental.carBrand || '未知车辆',
         carPlate: rental.carId || '未知车牌',
         CarID: rental.carId,
@@ -432,7 +441,7 @@ const loadCustomerOrders = async () => {
         LoanDate: rental.loanDate,
         ReturnDate: rental.returnDate,
         loanPlace: rental.loanPlace || '未知地点',
-        returnPlace: rental.returnPlace || (isPending ? '待定' : '未知地点'),
+        returnPlace: rental.returnPlace || (status === '进行中' ? '待定' : '未知地点'),
         amount: rental.amount || 0,
         distance: rental.roundTripDistance || null,
         duration: rental.driveTime || null,
@@ -442,10 +451,12 @@ const loadCustomerOrders = async () => {
       }
     })
     
-    // 将订单分为现有订单和历史订单
+    // 将订单分为现有订单和历史订单：
+    // 现有订单：尚未结算（无 amount）的进行中订单
+    // 历史订单：已结算（有 amount）的订单，或时间上已完成的订单
     allOrders.value = orders
-    currentOrders.value = orders.filter(order => order.status === '进行中')
-    historyOrders.value = orders.filter(order => order.status === '已完成')
+    currentOrders.value = orders.filter(order => order.status === '进行中' && !order.amount)
+    historyOrders.value = orders.filter(order => order.status === '已完成' || order.amount)
   } catch (error) {
     console.error('加载订单失败:', error)
     ElMessage.error('加载订单失败，请稍后重试')
@@ -492,8 +503,67 @@ const calculateBasicFee = (order) => {
   return Number(total.toFixed(2))
 }
 
-const openDetail = (order) => {
-  currentOrder.value = order
+// 计算订单结算后的“里程费用”：有 amount 的订单使用后端 amount 减去基础费用，缺少关键数据时返回“待计算”
+const calculateMileageFee = (order) => {
+  if (!order || !order.amount) {
+    return '待计算'
+  }
+
+  const basicFee = calculateBasicFee(order)
+  if (basicFee === '待定') {
+    return '待计算'
+  }
+
+  const mileage = Number(order.amount) - Number(basicFee)
+  if (!Number.isFinite(mileage) || mileage < 0) {
+    return '待计算'
+  }
+
+  return `¥${mileage.toFixed(2)}`
+}
+
+const openDetail = async (order) => {
+  // 打开详情前，尽量从后台刷新这一笔订单，确保 amount / 里程 等最新
+  try {
+    const userInfo = getUserInfo()
+    const fresh = await getCustomerRentals(userInfo.userId)
+    const updated = fresh.find(r => r.invoiceNo === order.invoiceNo)
+    if (updated) {
+      // 与 loadCustomerOrders 中一致：有 amount 就视为已完成
+      const now = new Date()
+      const returnDate = updated.returnDate ? new Date(updated.returnDate) : null
+      const isPendingByTime = !returnDate || returnDate > now
+      const hasAmount = updated.amount != null && updated.amount !== 0
+      const status = hasAmount ? '已完成' : (isPendingByTime ? '进行中' : '已完成')
+
+      currentOrder.value = {
+        id: updated.invoiceNo,
+        invoiceNo: updated.invoiceNo,
+        status,
+        carName: updated.carType || updated.carBrand || '未知车辆',
+        carPlate: updated.carId || '未知车牌',
+        CarID: updated.carId,
+        startTime: updated.loanDate ? new Date(updated.loanDate).toLocaleString('zh-CN') : '未知',
+        endTime: updated.returnDate ? new Date(updated.returnDate).toLocaleString('zh-CN') : '待定',
+        LoanDate: updated.loanDate,
+        ReturnDate: updated.returnDate,
+        loanPlace: updated.loanPlace || '未知地点',
+        returnPlace: updated.returnPlace || (status === '进行中' ? '待定' : '未知地点'),
+        amount: updated.amount || 0,
+        distance: updated.roundTripDistance || null,
+        duration: updated.driveTime || null,
+        driverName: updated.driverName || null,
+        DNo: updated.dNo,
+        rentRate: updated.rentRate || 0
+      }
+    } else {
+      currentOrder.value = order
+    }
+  } catch (e) {
+    console.error('刷新订单详情失败:', e)
+    currentOrder.value = order
+  }
+
   detailVisible.value = true
   hasMapKey.value = false
 }
