@@ -234,7 +234,7 @@ public class RentalService {
             driverRepository.save(newDriver);
         }
 
-        // 更新租赁信息
+        // 更新租赁基础信息
         if (rentalRequestDTO.getLoanDate() != null) {
             existingRental.setLoanDate(rentalRequestDTO.getLoanDate());
         }
@@ -259,19 +259,29 @@ public class RentalService {
         if (rentalRequestDTO.getRoundTripDistance() != null) {
             existingRental.setRoundTripDistance(rentalRequestDTO.getRoundTripDistance());
         }
-        if (rentalRequestDTO.getDriveTime() != null) {
-            existingRental.setDriveTime(rentalRequestDTO.getDriveTime());
-        }
-        
-        // 如果前端显式传入了 amount，则以前端计算的金额为准；否则使用后端自动计算逻辑
-        if (rentalRequestDTO.getAmount() != null) {
-            existingRental.setAmount(rentalRequestDTO.getAmount());
-        } else {
-            existingRental.setAmount(calculateRentalAmount(existingRental));
+
+        // ===== 核心变更：行驶时间与金额一律由后端根据借还时间差计算 =====
+        // 根据借车时间与还车时间计算行驶时长（小时），向上取整
+        if (existingRental.getLoanDate() != null && existingRental.getReturnDate() != null) {
+            java.time.Duration duration = java.time.Duration.between(
+                    existingRental.getLoanDate(), existingRental.getReturnDate());
+            long hours = duration.toHours();
+            if (duration.toMinutes() % 60 != 0) {
+                hours += 1; // 有零头分钟则向上取整
+            }
+            if (hours < 0) {
+                hours = 0;
+            }
+
+            BigDecimal driveHours = BigDecimal.valueOf(hours);
+            existingRental.setDriveTime(driveHours);
         }
 
+        // 使用统一金额计算逻辑，而不是信任前端传入的 amount
+        existingRental.setAmount(calculateRentalAmount(existingRental));
+
         // 如果更新了行驶里程和时间，则更新车辆的累计数据
-        if (rentalRequestDTO.getRoundTripDistance() != null || rentalRequestDTO.getDriveTime() != null) {
+        if (rentalRequestDTO.getRoundTripDistance() != null || existingRental.getDriveTime() != null) {
             Car car = carRepository.findById(existingRental.getCarId()).orElse(null);
             if (car != null) {
                 // 累加行驶里程
@@ -279,13 +289,33 @@ public class RentalService {
                     BigDecimal currentKm = car.getRunKm() != null ? car.getRunKm() : BigDecimal.ZERO;
                     car.setRunKm(currentKm.add(rentalRequestDTO.getRoundTripDistance()));
                 }
-                // 累加行驶小时
-                if (rentalRequestDTO.getDriveTime() != null) {
+                // 累加行驶小时：使用后端重新计算得到的 driveTime
+                if (existingRental.getDriveTime() != null) {
                     BigDecimal currentHour = car.getRunHour() != null ? car.getRunHour() : BigDecimal.ZERO;
-                    car.setRunHour(currentHour.add(rentalRequestDTO.getDriveTime()));
+                    car.setRunHour(currentHour.add(existingRental.getDriveTime()));
                 }
                 carRepository.save(car);
                 System.out.println("已更新车辆 " + car.getCarId() + " 的行驶数据");
+            }
+        }
+
+        // 订单被视为已结算/完成时，需要释放车辆与司机状态
+        // 这里采用：只要金额已计算（非空）即视为已完成
+        if (existingRental.getAmount() != null) {
+            // 恢复车辆状态为可租(0)
+            Car car = carRepository.findById(existingRental.getCarId()).orElse(null);
+            if (car != null) {
+                car.setCarStatus("0");
+                carRepository.save(car);
+            }
+
+            // 如果存在司机，则将司机状态改为"空闲"
+            if (existingRental.getDNo() != null) {
+                Driver driver = driverRepository.findById(existingRental.getDNo()).orElse(null);
+                if (driver != null) {
+                    driver.setDStatus("空闲");
+                    driverRepository.save(driver);
+                }
             }
         }
 
@@ -599,9 +629,13 @@ public class RentalService {
 
     /**
      * 根据租赁信息自动计算金额
-     * 计算公式：基础费用（小时数*租金率）+ 里程费用（里程数*租金率/30）
-     * @param rental 租赁实体
-     * @return 计算出的金额
+     * 统一公式：
+     *   amount = 时间费 + 里程费 + 固定服务费50 + （如有司机）司机服务费
+     * 其中：
+     *   时间费   = 每小时费用 × 时间差(小时)
+     *   里程费   = (每小时费用 ÷ 50) × 公里数
+     *   固定服务费 = 50 元
+     *   司机服务费 = 若 DNo 不为空，则 200 × 订单天数（向上取整 LoanDate/ReturnDate 之差的天数，至少1天）
      */
     private BigDecimal calculateRentalAmount(Rental rental) {
         // 检查必要字段是否存在
@@ -615,34 +649,55 @@ public class RentalService {
             System.err.println("警告: 未找到车辆ID为 " + rental.getCarId() + " 的车辆信息");
             return BigDecimal.ZERO;
         }
-        
+
         if (car.getCarType() == null) {
             System.err.println("警告: 车辆ID为 " + rental.getCarId() + " 的车辆类型信息为空");
             return BigDecimal.ZERO;
         }
 
-        // 获取每小时费用（租金率）
+        // 获取每小时费用
         BigDecimal hourlyRate = car.getCarType().getRentRate();
         if (hourlyRate == null) {
             System.err.println("警告: 车辆类型 " + car.getCarType().getTName() + " 的租金率为空");
             return BigDecimal.ZERO;
         }
 
-        // 计算时间差（小时）
+        // 计算时间差（小时）——与前端保持一致，使用 Duration.between 的整小时数
         long hoursDiff = java.time.Duration.between(rental.getLoanDate(), rental.getReturnDate()).toHours();
-        
-        // 基础费用 = 小时数 * 租金率
+        if (hoursDiff < 0) {
+            // 异常数据，直接返回0
+            return BigDecimal.ZERO;
+        }
         BigDecimal timeCost = hourlyRate.multiply(BigDecimal.valueOf(hoursDiff));
 
-        // 里程费用 = 里程数 * 租金率 / 30
+        // 计算里程费用（每小时费用 ÷ 50 × 公里数）
+        BigDecimal kilometerRate = hourlyRate.divide(BigDecimal.valueOf(50), 2, java.math.RoundingMode.HALF_UP);
         BigDecimal distanceCost = BigDecimal.ZERO;
         if (rental.getRoundTripDistance() != null) {
-            BigDecimal kilometerRate = hourlyRate.divide(BigDecimal.valueOf(30), 2, java.math.RoundingMode.HALF_UP);
-            distanceCost = rental.getRoundTripDistance().multiply(kilometerRate);
+            distanceCost = kilometerRate.multiply(rental.getRoundTripDistance());
         }
 
-        // 总费用 = 基础费用 + 里程费用
-        BigDecimal totalAmount = timeCost.add(distanceCost);
+        // 固定服务费：50 元
+        BigDecimal serviceFee = BigDecimal.valueOf(50);
+
+        // 司机服务费：仅当 DNo 不为空时生效，按天数 × 200 元/天
+        BigDecimal driverFee = BigDecimal.ZERO;
+        if (rental.getDNo() != null && !rental.getDNo().isBlank()) {
+            long hours = hoursDiff;
+            // 如果 DriveTime 字段有值，可以优先使用 DriveTime 作为小时数；否则退回到 Loan/Return 差值
+            if (rental.getDriveTime() != null) {
+                hours = rental.getDriveTime().longValue();
+            }
+            double daysDouble = hours / 24.0;
+            long days = (long) Math.ceil(daysDouble);
+            if (days <= 0) {
+                days = 1; // 至少按1天计费
+            }
+            driverFee = BigDecimal.valueOf(200L * days);
+        }
+
+        // 总费用 = 时间费用 + 里程费用 + 固定服务费 + 司机服务费
+        BigDecimal totalAmount = timeCost.add(distanceCost).add(serviceFee).add(driverFee);
         return totalAmount.setScale(2, java.math.RoundingMode.HALF_UP);
     }
 
