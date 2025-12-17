@@ -42,12 +42,15 @@ public class CarTypeService {
      * @return 车型DTO列表
      */
     public List<CarTypeDTO> getAllCarTypes() {
-        return carTypeRepository.findAll().stream()
+        List<CarType> carTypes = carTypeRepository.findAll();
+        
+        // 过滤掉没有可用车辆的车型
+        return carTypes.stream()
                 .filter(carType -> hasAvailableCars(carType.getTNo()))
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }
-
+    
     /**
      * 检查指定车型是否有可用车辆
      * @param tNo 车型编号
@@ -58,7 +61,7 @@ public class CarTypeService {
         List<Car> availableCars = carRepository.findByMultipleConditions("0", tNo, null);
         return !availableCars.isEmpty();
     }
-
+    
     /**
      * 将CarType转换为CarTypeDTO（包含图片URL）
      */
@@ -67,43 +70,58 @@ public class CarTypeService {
         dto.setTNo(carType.getTNo());
         dto.setTName(carType.getTName());
         dto.setRentRate(carType.getRentRate());
-        dto.setImageUrl(resolveImageUrl(carType.getTNo()));
+        
+        // 根据车型名称匹配后端静态资源中的图片文件
+        String imageUrl = resolveImageUrl(carType.getTName(), carType.getTNo());
+        dto.setImageUrl(imageUrl);
+        
         return dto;
     }
-
+    
     /**
-     * 根据车型编号解析图片URL
+     * 根据车型名称和编号解析图片URL
      */
-    private String resolveImageUrl(String tNo) {
-        if (tNo == null || tNo.isBlank()) {
-            return "/images/default.jpg";
-        }
-        return carTypeRepository.findById(tNo)
-                .map(CarType::getImagePath)
-                .filter(path -> path != null && !path.isBlank())
-                .orElseGet(() -> suggestImagePathByTNo(tNo));
-    }
-
-    private String suggestImagePathByTNo(String tNo) {
-        String normalized = tNo.trim().toUpperCase();
-        switch (normalized) {
-            case "T001":
+    private String resolveImageUrl(String tName, String tNo) {
+        String name = (tName != null ? tName : "").toLowerCase();
+        
+        try {
+            if (name.contains("丰田") || name.contains("凯美瑞") || name.contains("camry")) {
                 return "/images/toyota_camry.jpg";
-            case "T002":
+            }
+            if (name.contains("本田") || name.contains("雅阁") || name.contains("accord")) {
                 return "/images/honda_accord.jpg";
-            case "T003":
+            }
+            if (name.contains("奔驰") || name.contains("e级") || name.contains("benz") || name.contains("mercedes")) {
                 return "/images/benz_e_class.jpg";
-            case "T004":
+            }
+            if (name.contains("宝马") || name.contains("5系") || name.contains("bmw")) {
                 return "/images/bmw_5_series.jpg";
-            case "T005":
+            }
+            if (name.contains("奥迪") || name.contains("a6l") || name.contains("audi")) {
                 return "/images/audi_a6l.jpg";
-            case "T006":
+            }
+            if (name.contains("大众") || name.contains("帕萨特") || name.contains("passat")) {
                 return "/images/vw_passat.jpg";
-            default:
-                return "/images/default.jpg";
+            }
+        } catch (Exception ex) {
+            // 忽略异常，使用默认图片
         }
+        
+        // 备用：根据tNo匹配
+        if (tNo != null) {
+            String tn = tNo.toLowerCase();
+            if (tn.startsWith("t001")) return "/images/toyota_camry.jpg";
+            if (tn.startsWith("t002")) return "/images/honda_accord.jpg";
+            if (tn.startsWith("t003")) return "/images/benz_e_class.jpg";
+            if (tn.startsWith("t004")) return "/images/bmw_5_series.jpg";
+            if (tn.startsWith("t005")) return "/images/audi_a6l.jpg";
+            if (tn.startsWith("t006")) return "/images/vw_passat.jpg";
+        }
+        
+        // 默认图片
+        return "/images/default.jpg";
     }
-
+    
     /**
      * 获取原始车型实体列表（保留用于其他地方）
      */
@@ -144,7 +162,7 @@ public class CarTypeService {
         if (carTypeRepository.existsById(carType.getTNo())) {
             throw new RuntimeException("车型已存在: " + carType.getTNo());
         }
-        carType.setImagePath(normalizeImagePath(carType.getImagePath()));
+
         return carTypeRepository.save(carType);
     }
 
@@ -165,9 +183,6 @@ public class CarTypeService {
         }
         if (carType.getRentRate() != null) {
             existingCarType.setRentRate(carType.getRentRate());
-        }
-        if (carType.getImagePath() != null) {
-            existingCarType.setImagePath(normalizeImagePath(carType.getImagePath()));
         }
 
         return carTypeRepository.save(existingCarType);
@@ -243,13 +258,5 @@ public class CarTypeService {
                 throw new RuntimeException("删除失败: " + e.getMessage(), e);
             }
         }
-    }
-
-    private String normalizeImagePath(String imagePath) {
-        if (imagePath == null || imagePath.isBlank()) {
-            return null;
-        }
-        String trimmed = imagePath.trim();
-        return trimmed.startsWith("/") ? trimmed : "/" + trimmed;
     }
 }

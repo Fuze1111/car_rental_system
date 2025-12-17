@@ -34,13 +34,13 @@ INSERT INTO driver (DNo, DName, Phone, StartWork, Salary, DStatus, LicenseType) 
 -- ================================================
 -- RentRate now represents hourly rate (RMB/hour)
 -- Kilometer rate will be calculated as: hourly_rate / 50
-INSERT INTO car_type (TNo, TName, RentRate, ImagePath) VALUES
-('T001', '丰田凯美瑞', 30.00, '/images/car-types/toyota-camry.jpg'),
-('T002', '本田雅阁', 35.00, '/images/car-types/honda-accord.jpg'),
-('T003', '奔驰E级', 60.00, '/images/car-types/mercedes-e.jpg'),
-('T004', '宝马5系', 70.00, '/images/car-types/bmw-5-series.jpg'),
-('T005', '奥迪A6L', 55.00, '/images/car-types/audi-a6l.jpg'),
-('T006', '大众帕萨特', 25.00, '/images/car-types/vw-passat.jpg');
+INSERT INTO car_type (TNo, TName, RentRate) VALUES
+('T001', '丰田凯美瑞', 30.00),
+('T002', '本田雅阁', 35.00),
+('T003', '奔驰E级', 60.00),
+('T004', '宝马5系', 70.00),
+('T005', '奥迪A6L', 55.00),
+('T006', '大众帕萨特', 25.00);
 
 -- ================================================
 -- 4. 汽车表测试数据

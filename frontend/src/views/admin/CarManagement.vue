@@ -299,27 +299,21 @@
             <template #append>/小时</template>
           </el-input-number>
         </el-form-item>
-        <el-form-item label="车型图片" prop="ImagePath">
-          <div style="display:flex;flex-direction:column;gap:12px;width:100%">
-            <el-input
-              v-model="typeFormData.ImagePath"
-              placeholder="例如: /images/car-types/toyota-camry.jpg"
-              class="custom-input"
-            />
-            <div style="display:flex;align-items:center;gap:16px">
-              <el-image
-                :src="previewImageUrl"
-                fit="cover"
-                style="width:140px;height:100px;border-radius:8px;border:1px dashed #d1d5db"
+        <el-form-item label="车型图片" prop="Image">
+          <div style="display:flex;align-items:flex-start;gap:16px">
+            <div style="flex: 0 0 140px;">
+              <el-upload
+                class="avatar-uploader"
+                action="#"
+                :show-file-list="false"
+                :auto-upload="false"
+                :on-change="handleFileChange"
               >
-                <template #error>
-                  <div style="width:140px;height:100px;display:flex;align-items:center;justify-content:center;color:#9ca3af;border:1px dashed #d1d5db;border-radius:8px">
-                    无法预览
-                  </div>
-                </template>
-              </el-image>
-              <div style="flex:1;color:#6b7280">填写后端可访问的静态资源路径，示例：/images/car-types/xxx.jpg</div>
+                <img v-if="typeFormData.Image" :src="typeFormData.Image" alt="车型图片预览" class="avatar" />
+                <el-icon v-else class="avatar-uploader-icon"><Plus /></el-icon>
+              </el-upload>
             </div>
+            <div style="flex:1; display:flex; align-items:center; color:#6b7280;">支持 jpg/png，建议尺寸 800x600</div>
           </div>
         </el-form-item>
       </el-form>
@@ -348,7 +342,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, defineAsyncComponent, onMounted, computed } from 'vue'
+import { ref, reactive, defineAsyncComponent, onMounted } from 'vue'
 import { Search, Refresh, Plus, Edit, Delete, Tools } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { 
@@ -412,15 +406,7 @@ const typeFormData = reactive({
   TNo: '',
   TName: '',
   RentRate: 0,
-  ImagePath: ''
-})
-
-const previewImageUrl = computed(() => {
-  if (typeFormData.ImagePath && typeFormData.ImagePath.trim()) {
-    const normalized = normalizeImageUrl(typeFormData.ImagePath)
-    if (normalized) return normalized
-  }
-  return getImageForCarType(typeFormData.TName)
+  Image: ''
 })
 
 const typeRules = {
@@ -650,17 +636,14 @@ const fetchCarTypes = async () => {
   typeLoading.value = true
   try {
     const response = await getCarTypes()
-    const allTypes = (response || []).map(type => {
-      const rawImagePath = type.imageUrl || type.Image || type.imageUrl
-      const normalizedImage = normalizeImageUrl(rawImagePath)
-      return {
-        tno: type.tNo || type.tno,
-        tname: type.tName || type.tname,
-        rentRate: type.rentRate,
-        imagePath: rawImagePath || '',
-        imageUrl: normalizedImage
-      }
-    })
+    // backend now returns CarTypeDTO { tNo, tName, rentRate, imageUrl }
+    const allTypes = (response || []).map(type => ({
+      tno: type.tNo || type.tno,
+      tname: type.tName || type.tname,
+      rentRate: type.rentRate,
+      // normalize any relative backend path to absolute URL so <img> can load it from the backend
+      imageUrl: normalizeImageUrl(type.imageUrl || type.Image || type.imageUrl)
+    }))
 
     // 用于车辆搜索下拉的完整选项（保持原样）
     carTypeOptions.value = allTypes.map(type => ({
@@ -690,16 +673,13 @@ const fetchCarTypes = async () => {
     const pageSlice = filtered.slice(start, start + size)
 
     // 更新表格数据（保持字段名兼容）
-    typeTableData.value = pageSlice.map(type => {
-      const displayImage = type.imageUrl || getImageForCarType(type.tname)
-      return {
-        TNo: type.tno,
-        TName: type.tname,
-        rentRate: type.rentRate,
-        imagePath: type.imagePath,
-        Image: displayImage
-      }
-    })
+    typeTableData.value = pageSlice.map(type => ({
+      TNo: type.tno,
+      TName: type.tname,
+      rentRate: type.rentRate,
+      // prefer backend-provided (and normalized) image URL; fallback to local asset helper
+      Image: type.imageUrl || type.Image || getImageForCarType(type.tname)
+    }))
   } catch (error) {
     console.error('获取车型列表失败:', error)
     ElMessage.error('获取车型列表失败: ' + (error.message || '网络错误'))
@@ -789,17 +769,18 @@ const handleTypeAdd = () => {
   typeFormData.TNo = ''
   typeFormData.TName = ''
   typeFormData.RentRate = 0
-  typeFormData.ImagePath = ''
   typeDialogVisible.value = true
 }
 
 const handleTypeEdit = (row) => {
   isTypeEdit.value = true
+  // 确保字段名匹配后端返回的小写字段名
   Object.assign(typeFormData, {
     TNo: row.TNo || row.tno,
     TName: row.TName || row.tname,
     RentRate: row.rentRate || row.RentRate || 0,
-    ImagePath: row.imagePath || row.ImagePath || ''
+    // prefer backend-provided imageUrl when opening edit dialog
+    Image: row.imageUrl || row.Image || ''
   })
   typeDialogVisible.value = true
 }
@@ -847,21 +828,27 @@ const handleTypeSubmit = async () => {
   await typeFormRef.value.validate(async (valid) => {
     if (valid) {
       try {
-        const payload = {
-          tno: typeFormData.TNo,
-          tname: typeFormData.TName,
-          rentRate: typeFormData.RentRate,
-          imagePath: typeFormData.ImagePath
-        }
         if (isTypeEdit.value) {
-          await updateCarType(typeFormData.TNo, typeFormData.TName, payload)
+          // 更新车型
+          await updateCarType(typeFormData.TNo, typeFormData.TName, {
+            tno: typeFormData.TNo,
+            tname: typeFormData.TName,
+            rentRate: typeFormData.RentRate
+          })
           ElMessage.success('修改成功')
         } else {
-          await createCarType(payload)
+          // 创建新车型
+          await createCarType({
+            tno: typeFormData.TNo,
+            tname: typeFormData.TName,
+            rentRate: typeFormData.RentRate
+          })
           ElMessage.success('新增成功')
         }
+        
         typeDialogVisible.value = false
         fetchCarTypes()
+        // also refresh car list so RentRate in the vehicle table updates immediately
         fetchCars()
       } catch (error) {
         console.error('操作失败:', error)

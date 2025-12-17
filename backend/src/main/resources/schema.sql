@@ -11,11 +11,11 @@
 DROP TABLE IF EXISTS customer_login;
 DROP TABLE IF EXISTS driver_login;
 DROP TABLE IF EXISTS admin_login;
+DROP TABLE IF EXISTS car_type_image;
 DROP TABLE IF EXISTS store;
 DROP TABLE IF EXISTS rental;
 DROP TABLE IF EXISTS car_repair;
 DROP TABLE IF EXISTS car;
-DROP TABLE IF EXISTS car_type_image;
 DROP TABLE IF EXISTS car_type;
 DROP TABLE IF EXISTS driver;
 DROP TABLE IF EXISTS customer;
@@ -59,7 +59,6 @@ CREATE TABLE IF NOT EXISTS car_type (
     TNo             CHAR(4)         NOT NULL COMMENT '类型编号',
     TName           CHAR(20)        NOT NULL COMMENT '汽车型号',
     RentRate        NUMERIC(6,2)    NULL COMMENT '租金率',
-    ImagePath       VARCHAR(255)    NULL COMMENT '车型图片路径',
 
     PRIMARY KEY (TNo),
     UNIQUE KEY (TName)
@@ -161,7 +160,18 @@ CREATE TABLE IF NOT EXISTS admin_login (
     UNIQUE KEY (Username)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='管理员登录表';
 
+-- ================================================
+-- 表 4.4 CarTypeImage（车型图片表）
+-- ================================================
+DROP TABLE IF EXISTS car_type_image;
+CREATE TABLE IF NOT EXISTS car_type_image (
+    ImageID     INT             NOT NULL AUTO_INCREMENT COMMENT '图片索引',
+    TNo         CHAR(4)         NOT NULL COMMENT '类型编号',
+    ImagePath   VARCHAR(255)    NOT NULL COMMENT '图片路径',
 
+    PRIMARY KEY (ImageID),
+    FOREIGN KEY (TNo) REFERENCES car_type(TNo) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='车型图片表';
 
 -- ================================================
 -- 表 4.5 Store（租车门店表）

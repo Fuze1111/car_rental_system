@@ -36,10 +36,4 @@ public class CarType {
      */
     @Column(name = "RentRate", precision = 6, scale = 2)
     private BigDecimal rentRate;
-
-    /**
-     * 图片路径
-     */
-    @Column(name = "ImagePath", length = 255)
-    private String imagePath;
 }
