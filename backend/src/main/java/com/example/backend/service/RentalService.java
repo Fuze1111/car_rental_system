@@ -190,6 +190,12 @@ public class RentalService {
         Rental existingRental = rentalRepository.findById(invoiceNo)
                 .orElseThrow(() -> new RuntimeException("租赁记录不存在: " + invoiceNo));
 
+        // 记录更新前订单的旧里程和旧行驶时间，用于后面计算增量
+        java.math.BigDecimal oldDistance = existingRental.getRoundTripDistance() != null
+                ? existingRental.getRoundTripDistance() : java.math.BigDecimal.ZERO;
+        java.math.BigDecimal oldDriveTime = existingRental.getDriveTime() != null
+                ? existingRental.getDriveTime() : java.math.BigDecimal.ZERO;
+
         // 如果更换了车辆，则恢复原车辆状态，设置新车辆状态
         if (rentalRequestDTO.getCarId() != null && !rentalRequestDTO.getCarId().equals(existingRental.getCarId())) {
             // 恢复原车辆状态
@@ -260,7 +266,6 @@ public class RentalService {
             existingRental.setRoundTripDistance(rentalRequestDTO.getRoundTripDistance());
         }
 
-        // ===== 核心变更：行驶时间与金额一律由后端根据借还时间差计算 =====
         // 根据借车时间与还车时间计算行驶时长（小时），向上取整
         if (existingRental.getLoanDate() != null && existingRental.getReturnDate() != null) {
             java.time.Duration duration = java.time.Duration.between(
@@ -272,44 +277,44 @@ public class RentalService {
             if (hours < 0) {
                 hours = 0;
             }
-
-            BigDecimal driveHours = BigDecimal.valueOf(hours);
-            existingRental.setDriveTime(driveHours);
+            existingRental.setDriveTime(java.math.BigDecimal.valueOf(hours));
         }
 
-        // 使用统一金额计算逻辑，而不是信任前端传入的 amount
+        // 统一根据租赁信息计算金额，而不是信任前端传入的 amount
         existingRental.setAmount(calculateRentalAmount(existingRental));
 
-        // 如果更新了行驶里程和时间，则更新车辆的累计数据
-        if (rentalRequestDTO.getRoundTripDistance() != null || existingRental.getDriveTime() != null) {
+        // 计算这次更新相对旧值的增量
+        java.math.BigDecimal newDistance = existingRental.getRoundTripDistance() != null
+                ? existingRental.getRoundTripDistance() : java.math.BigDecimal.ZERO;
+        java.math.BigDecimal newDriveTime = existingRental.getDriveTime() != null
+                ? existingRental.getDriveTime() : java.math.BigDecimal.ZERO;
+
+        java.math.BigDecimal deltaKm = newDistance.subtract(oldDistance);
+        java.math.BigDecimal deltaHour = newDriveTime.subtract(oldDriveTime);
+
+        // 只有在有正向增量时，才把本次订单的行驶数据累计到车辆
+        if (deltaKm.compareTo(java.math.BigDecimal.ZERO) > 0 || deltaHour.compareTo(java.math.BigDecimal.ZERO) > 0) {
             Car car = carRepository.findById(existingRental.getCarId()).orElse(null);
             if (car != null) {
-                // 累加行驶里程
-                if (rentalRequestDTO.getRoundTripDistance() != null) {
-                    BigDecimal currentKm = car.getRunKm() != null ? car.getRunKm() : BigDecimal.ZERO;
-                    car.setRunKm(currentKm.add(rentalRequestDTO.getRoundTripDistance()));
+                if (deltaKm.compareTo(java.math.BigDecimal.ZERO) > 0) {
+                    java.math.BigDecimal currentKm = car.getRunKm() != null ? car.getRunKm() : java.math.BigDecimal.ZERO;
+                    car.setRunKm(currentKm.add(deltaKm));
                 }
-                // 累加行驶小时：使用后端重新计算得到的 driveTime
-                if (existingRental.getDriveTime() != null) {
-                    BigDecimal currentHour = car.getRunHour() != null ? car.getRunHour() : BigDecimal.ZERO;
-                    car.setRunHour(currentHour.add(existingRental.getDriveTime()));
+                if (deltaHour.compareTo(java.math.BigDecimal.ZERO) > 0) {
+                    java.math.BigDecimal currentHour = car.getRunHour() != null ? car.getRunHour() : java.math.BigDecimal.ZERO;
+                    car.setRunHour(currentHour.add(deltaHour));
                 }
                 carRepository.save(car);
-                System.out.println("已更新车辆 " + car.getCarId() + " 的行驶数据");
             }
         }
 
-        // 订单被视为已结算/完成时，需要释放车辆与司机状态
-        // 这里采用：只要金额已计算（非空）即视为已完成
+        // 如果金额已计算（非空），视为订单已结算，释放车辆与司机状态
         if (existingRental.getAmount() != null) {
-            // 恢复车辆状态为可租(0)
             Car car = carRepository.findById(existingRental.getCarId()).orElse(null);
             if (car != null) {
-                car.setCarStatus("0");
+                car.setCarStatus("0"); // 可租
                 carRepository.save(car);
             }
-
-            // 如果存在司机，则将司机状态改为"空闲"
             if (existingRental.getDNo() != null) {
                 Driver driver = driverRepository.findById(existingRental.getDNo()).orElse(null);
                 if (driver != null) {
