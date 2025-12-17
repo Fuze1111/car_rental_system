@@ -190,3 +190,78 @@ SOURCE /path/to/data.sql;
 
 可根据实际需要修改或删除测试数据。
 
+---
+
+# 数据库结构说明
+
+## 表 3.3 Car（汽车表）
+
+| 字段名 | 类型 | 约束 | 说明 |
+|--------|------|------|------|
+| CarID | CHAR(10) | 主键 | 注册号码 |
+| PurchaseDate | DATE | NULL | 购入日期 |
+| Price | NUMERIC(8,2) | NULL | 价格 |
+| CarStatus | CHAR(5) | NULL | 车辆状态（0-可租；1-已租；2-维修） |
+| TNo | CHAR(4) | 外键 | 类型编号 |
+| TName | CHAR(20) | 外键 | 汽车型号 |
+
+新增字段说明：
+
+- `RUNKM` (`NUMERIC(10,2)`): 车辆**累计运行公里数**。在每次租赁订单结算时，会将本次订单的新增里程（`deltaKm = Rental.RoundTripDistance(新) - Rental.RoundTripDistance(旧)`）累加到该字段，用于反映车辆累计使用情况。
+- `RunHour` (`NUMERIC(8,2)`): 车辆**累计运行小时数**。在租赁订单结算时，系统会根据 `LoanDate` / `ReturnDate` 计算本次行驶时间（小时，向上取整），并按增量方式累加到该字段。
+
+> 注意：`RUNKM` / `RunHour` 记录的是**所有租赁行为累积后的总里程/总小时**，可用于判断车辆折旧、保养周期等；与 `car_repair` 表中的 `RunKM` / `RunHour` 属于不同维度：后者是“某次维修记录时的运行数据快照”。
+
+## 表 3.4 CarRepair（汽车维修表）
+
+| 字段名 | 类型 | 约束 | 说明 |
+|--------|------|------|------|
+| RNo | INT | 主键，自增 | 维修编号 |
+| RDate | DATE | NULL | 维修日期 |
+| RunKM | NUMERIC(10,2) | NULL | 运行公里 |
+| RunHour | NUMERIC(8,2) | NULL | 运行小时 |
+| CarID | CHAR(10) | 外键 | 注册号码 |
+
+补充说明：
+
+- `RunKM` / `RunHour`：记录车辆在本次维修前累计的运行公里 / 小时，用于维修决策和历史追踪。并不会自动同步到 `car` 表，而是作为每次维修的独立采样值。
+
+## 表 3.6 Rental（租赁业务表）
+
+| 字段名 | 类型 | 约束 | 说明 |
+|--------|------|------|------|
+| InvoiceNo | CHAR(20) | 主键 | 发票号 |
+| LoanDate | DATETIME | NULL | 借车日期时间 |
+| ReturnDate | DATETIME | NULL | 还车日期时间 |
+| LoanPlace | VARCHAR(100) | NULL | 借车地点 |
+| ReturnPlace | VARCHAR(100) | NULL | 还车地点 |
+| CarID | CHAR(10) | 外键 | 牌照号 |
+| CNo | CHAR(8) | 外键 | 客户号 |
+| DNo | CHAR(8) | 外键 | 司机号 |
+| RoundTripDistance | NUMERIC(8,2) | NULL | 往返里程(公里) |
+| DriveTime | NUMERIC(4,2) | NULL | 行驶时间(小时) |
+| Amount | NUMERIC(8,2) | NULL | 应付金额(元) |
+
+补充业务含义：
+
+- `RoundTripDistance` (`NUMERIC(8,2)`): 本次租赁的**往返行驶里程（公里）**。通常由管理员在还车结算时，根据行驶记录或车载设备读数录入。该值参与金额计算，也用于更新车辆表中的累计里程 `RUNKM`。
+- `DriveTime` (`NUMERIC(4,2)`): 本次租赁的**行驶时间（小时）**。系统会根据 `LoanDate` / `ReturnDate` 自动计算，向上取整到整小时（有零头分钟即 +1 小时），用于金额计算和更新车辆的累计运行小时 `RunHour`。
+- `Amount` (`NUMERIC(8,2)`): 本次租赁的**应付金额**。由后端统一根据车辆租金率、时间费用、里程费用、固定服务费以及司机服务费等规则计算，不依赖前端传入的金额值。
+
+> 租赁订单结算时，系统会：
+> 1. 记录旧的 `RoundTripDistance` / `DriveTime`；
+> 2. 更新新值并重新计算 `Amount`；
+> 3. 使用“新值 - 旧值”的增量更新对应车辆的 `RUNKM` / `RunHour`；
+> 4. 当金额非空时，将车辆状态置为可租(`CarStatus = '0'`)，并将关联司机（若有）状态置为“空闲”。
+
+## 表 4.4 CarTypeImage（车型图片表）
+
+| 字段名 | 类型 | 约束 | 说明 |
+|--------|------|------|------|
+| TNo | CHAR(4) | 外键 | 类型编号 |
+| ImagePath | VARCHAR(255) | NULL | 图片路径 |
+
+补充说明：
+
+- `ImagePath` (`VARCHAR(255)`): 车型图片的存储路径或文件名。推荐仅存相对路径或文件名（例如 `"sedan-basic.png"`），由后端或前端在运行时拼接静态资源前缀（如 `/static/images/car-types/`），以便后续迁移到 CDN 或对象存储时无需修改数据库记录。
+- `TNo` 外键与 `car_type.TNo` 关联：同一车型类型可以存放多张图片（多条 car_type_image 记录），前端可根据业务需要选择封面图或轮播图。
