@@ -271,7 +271,9 @@
               </div>
               <div class="info-item">
                 <span class="label">司机</span>
-                <span class="value">{{ currentOrder.DNo ? '配备司机' : '自驾' }}</span>
+                <span class="value">
+                  {{ currentOrder.driverName ? currentOrder.driverName : (currentOrder.DNo ? '配备司机' : '自驾') }}
+                </span>
               </div>
             </div>
           </div>
