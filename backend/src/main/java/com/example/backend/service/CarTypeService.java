@@ -3,10 +3,12 @@ package com.example.backend.service;
 import com.example.backend.dto.CarTypeDTO;
 import com.example.backend.entity.Car;
 import com.example.backend.entity.CarType;
+import com.example.backend.entity.CarTypeImage;
 import com.example.backend.repository.CarRepository;
 import com.example.backend.repository.CarTypeRepository;
 import com.example.backend.repository.CarRepairRepository;
 import com.example.backend.repository.RentalRepository;
+import com.example.backend.repository.CarTypeImageRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -34,6 +36,9 @@ public class CarTypeService {
 
     @Autowired
     private RentalRepository rentalRepository;
+
+    @Autowired
+    private CarTypeImageRepository carTypeImageRepository;
 
     /**
      * 获取所有车型信息（包含图片URL）
@@ -70,56 +75,27 @@ public class CarTypeService {
         dto.setTNo(carType.getTNo());
         dto.setTName(carType.getTName());
         dto.setRentRate(carType.getRentRate());
-        
-        // 根据车型名称匹配后端静态资源中的图片文件
-        String imageUrl = resolveImageUrl(carType.getTName(), carType.getTNo());
+
+        // 从 car_type_image 表按 TNo 读取第一张图片 URL
+        String imageUrl = resolveImageUrlFromDb(carType.getTNo());
         dto.setImageUrl(imageUrl);
-        
+
         return dto;
     }
-    
+
     /**
-     * 根据车型名称和编号解析图片URL
+     * 根据 TNo 从 car_type_image 表查询图片 URL
+     * 若没有配置图片，则返回 null，由前端决定显示占位图
      */
-    private String resolveImageUrl(String tName, String tNo) {
-        String name = (tName != null ? tName : "").toLowerCase();
-        
-        try {
-            if (name.contains("丰田") || name.contains("凯美瑞") || name.contains("camry")) {
-                return "/images/toyota_camry.jpg";
-            }
-            if (name.contains("本田") || name.contains("雅阁") || name.contains("accord")) {
-                return "/images/honda_accord.jpg";
-            }
-            if (name.contains("奔驰") || name.contains("e级") || name.contains("benz") || name.contains("mercedes")) {
-                return "/images/benz_e_class.jpg";
-            }
-            if (name.contains("宝马") || name.contains("5系") || name.contains("bmw")) {
-                return "/images/bmw_5_series.jpg";
-            }
-            if (name.contains("奥迪") || name.contains("a6l") || name.contains("audi")) {
-                return "/images/audi_a6l.jpg";
-            }
-            if (name.contains("大众") || name.contains("帕萨特") || name.contains("passat")) {
-                return "/images/vw_passat.jpg";
-            }
-        } catch (Exception ex) {
-            // 忽略异常，使用默认图片
+    private String resolveImageUrlFromDb(String tNo) {
+        if (tNo == null) {
+            return null;
         }
-        
-        // 备用：根据tNo匹配
-        if (tNo != null) {
-            String tn = tNo.toLowerCase();
-            if (tn.startsWith("t001")) return "/images/toyota_camry.jpg";
-            if (tn.startsWith("t002")) return "/images/honda_accord.jpg";
-            if (tn.startsWith("t003")) return "/images/benz_e_class.jpg";
-            if (tn.startsWith("t004")) return "/images/bmw_5_series.jpg";
-            if (tn.startsWith("t005")) return "/images/audi_a6l.jpg";
-            if (tn.startsWith("t006")) return "/images/vw_passat.jpg";
-        }
-        
-        // 默认图片
-        return "/images/default.jpg";
+        // 取第一条图片记录的路径
+        return carTypeImageRepository.findImagePathsByTNo(tNo)
+                .stream()
+                .findFirst()
+                .orElse(null);
     }
     
     /**
@@ -258,5 +234,33 @@ public class CarTypeService {
                 throw new RuntimeException("删除失败: " + e.getMessage(), e);
             }
         }
+    }
+
+    /**
+     * 返回指定车型的所有图片 URL 列表
+     */
+    public List<String> getCarTypeImages(String tNo) {
+        if (tNo == null) {
+            return java.util.Collections.emptyList();
+        }
+        return carTypeImageRepository.findImagePathsByTNo(tNo);
+    }
+
+    /**
+     * 为指定车型保存/更新图片 URL（管理员上传车型图片后调用）
+     * 当前策略：允许同一 TNo 存在多条图片记录，前端主要使用按 ImageID 升序的第一条作为主图
+     */
+    public void saveOrUpdateCarTypeImage(String tNo, String imageUrl) {
+        if (tNo == null || imageUrl == null || imageUrl.isBlank()) {
+            throw new IllegalArgumentException("TNo 和 imageUrl 均不能为空");
+        }
+        if (!carTypeRepository.existsById(tNo)) {
+            throw new RuntimeException("车型不存在: " + tNo);
+        }
+
+        CarTypeImage entity = new CarTypeImage();
+        entity.setTNo(tNo);
+        entity.setImagePath(imageUrl);
+        carTypeImageRepository.save(entity);
     }
 }

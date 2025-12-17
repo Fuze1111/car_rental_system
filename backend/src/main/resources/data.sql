@@ -139,3 +139,15 @@ INSERT INTO driver_login (DNo, Phone, Password) VALUES
 ('D0000005', '15500155000', '123456'),
 ('D0000006', '15400154000', '123456');
 
+-- ================================================
+-- 11. 车型图片表测试数据
+-- ================================================
+-- 图片文件位于 src/main/resources/static/images 目录
+-- ImagePath 使用相对静态资源根路径的 URL
+INSERT INTO car_type_image (TNo, ImagePath) VALUES
+('T001', '/images/toyota_camry.jpg'),   -- 丰田凯美瑞
+('T002', '/images/honda_accord.jpg'),   -- 本田雅阁
+('T003', '/images/benz_e_class.jpg'),   -- 奔驰E级
+('T004', '/images/bmw_5_series.jpg'),   -- 宝马5系
+('T005', '/images/audi_a6l.jpg'),       -- 奥迪A6L
+('T006', '/images/vw_passat.jpg');      -- 大众帕萨特
