@@ -335,6 +335,8 @@
             value-format="YYYY-MM-DD HH:mm:ss"
             style="width: 100%"
             class="custom-date-picker"
+            :disabled-date="disableFutureDate"
+            :disabled-time="disableFutureTime"
           />
         </el-form-item>
       </el-form>
@@ -402,6 +404,78 @@ const completeForm = reactive({
 })
 const completeRules = {
   rDate: [{ required: true, message: '请选择完成时间', trigger: 'change' }]
+}
+
+// 禁用未来日期（整日）
+const disableFutureDate = (date) => {
+  if (!date) return false
+  // 禁止选择严格晚于当前时刻的日期
+  const now = new Date()
+  // 如果日期所在的一整天在当前日期之后，则禁用；如果是同一天，交由 disabled-time 处理具体时间
+  const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  const todayOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  return dateOnly.getTime() > todayOnly.getTime()
+}
+
+// 禁用当天超过当前时刻的时间选择（小时/分钟/秒）
+const disableFutureTime = (date) => {
+  const now = new Date()
+  if (!date) {
+    // 无特定日期时，不禁用任何时间
+    return {
+      disabledHours: () => [],
+      disabledMinutes: () => [],
+      disabledSeconds: () => []
+    }
+  }
+
+  const isSameDay = date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate()
+
+  if (!isSameDay) {
+    // 如果不是今天，则不禁用时间（disabled-date 已经阻止了未来的整日）
+    return {
+      disabledHours: () => [],
+      disabledMinutes: () => [],
+      disabledSeconds: () => []
+    }
+  }
+
+  const currentHour = now.getHours()
+  const currentMinute = now.getMinutes()
+  const currentSecond = now.getSeconds()
+
+  return {
+    disabledHours: () => {
+      // 禁用大于当前小时的小时选项
+      const hours = []
+      for (let h = currentHour + 1; h < 24; h++) hours.push(h)
+      return hours
+    },
+    disabledMinutes: (hour) => {
+      // 如果选中的小时大于当前小时，所有分钟都禁用；等于当前小时，只禁用大于当前分钟的分钟
+      if (hour > currentHour) {
+        return Array.from({ length: 60 }, (_, i) => i)
+      }
+      if (hour < currentHour) {
+        return []
+      }
+      return Array.from({ length: 60 }, (_, i) => i).filter(m => m > currentMinute)
+    },
+    disabledSeconds: (hour, minute) => {
+      if (hour > currentHour) {
+        return Array.from({ length: 60 }, (_, i) => i)
+      }
+      if (hour < currentHour) {
+        return []
+      }
+      if (minute > currentMinute) {
+        return Array.from({ length: 60 }, (_, i) => i)
+      }
+      return Array.from({ length: 60 }, (_, i) => i).filter(s => s > currentSecond)
+    }
+  }
 }
 
 // 表单引用

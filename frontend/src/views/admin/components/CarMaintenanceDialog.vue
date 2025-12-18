@@ -22,8 +22,7 @@
       <el-form-item label="运行里程" prop="RunKM">
         <el-input-number 
           v-model="formData.RunKM" 
-          :min="0" 
-          :step="100" 
+          :step="100"
           style="width: 100%"
           controls-position="right"
         >
@@ -34,8 +33,7 @@
       <el-form-item label="运行时间" prop="RunHour">
         <el-input-number 
           v-model="formData.RunHour" 
-          :min="0" 
-          :step="10" 
+          :step="10"
           style="width: 100%"
           controls-position="right"
         >
@@ -57,6 +55,7 @@
 
 <script setup>
 import { ref, reactive, watch } from 'vue'
+import { ElMessage } from 'element-plus'
 
 const props = defineProps({
   visible: {
@@ -80,18 +79,57 @@ const formData = reactive({
   RunHour: 0
 })
 
-const rules = {
-  RunKM: [{ required: true, message: '请输入运行里程', trigger: 'blur' }],
-  RunHour: [{ required: true, message: '请输入运行时间', trigger: 'blur' }]
+// 记录当前车辆的原始里程和小时数，用于校验最小值
+const minRunKM = ref(0)
+const minRunHour = ref(0)
+
+// 自定义校验：运行里程必须大于等于当前车辆的运行里程
+const validateRunKM = (rule, value, callback) => {
+  if (value === null || value === undefined || value === '') {
+    return callback(new Error('请输入运行里程'))
+  }
+  if (Number(value) < minRunKM.value) {
+    return callback(new Error(`运行里程不能小于当前车辆里程（${minRunKM.value} km）`))
+  }
+  callback()
 }
 
-watch(() => props.carData, (newVal) => {
-  if (newVal) {
-    formData.CarID = newVal.CarID
-    formData.RunKM = 0
-    formData.RunHour = 0
+// 自定义校验：运行时间必须大于等于当前车辆的运行时间
+const validateRunHour = (rule, value, callback) => {
+  if (value === null || value === undefined || value === '') {
+    return callback(new Error('请输入运行时间'))
   }
-}, { immediate: true })
+  if (Number(value) < minRunHour.value) {
+    return callback(new Error(`运行时间不能小于当前车辆运行时间（${minRunHour.value} h）`))
+  }
+  callback()
+}
+
+const rules = reactive({
+  RunKM: [
+    { required: true, validator: validateRunKM, trigger: ['blur', 'change'] }
+  ],
+  RunHour: [
+    { required: true, validator: validateRunHour, trigger: ['blur', 'change'] }
+  ]
+})
+
+watch(
+  () => props.carData,
+  (newVal) => {
+    if (newVal) {
+      formData.CarID = newVal.CarID
+      // 记录当前车辆的里程和小时数作为最小值
+      // 兼容各种可能的字段名：RUNKM (全大写), RunKM (帕斯卡), runKm (驼峰)
+      minRunKM.value = Number(newVal.RUNKM || newVal.RunKM || newVal.runKm || 0)
+      minRunHour.value = Number(newVal.RunHour || newVal.runHour || 0)
+      // 默认填充值为当前里程/时间，方便直接送修
+      formData.RunKM = minRunKM.value
+      formData.RunHour = minRunHour.value
+    }
+  },
+  { immediate: true }
+)
 
 const handleClose = () => {
   emit('update:visible', false)
@@ -102,8 +140,17 @@ const handleSubmit = async () => {
   
   await formRef.value.validate((valid) => {
     if (valid) {
+      // 二次校验，确保数据逻辑正确
+      if (formData.RunKM < minRunKM.value) {
+        ElMessage.error(`运行里程不能小于当前车辆里程（${minRunKM.value} km）`)
+        return
+      }
+      if (formData.RunHour < minRunHour.value) {
+        ElMessage.error(`运行时间不能小于当前车辆运行时间（${minRunHour.value} h）`)
+        return
+      }
+
       loading.value = true
-      // Simulate API call
       try {
         emit('submit', { ...formData })
         handleClose()
