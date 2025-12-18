@@ -343,7 +343,7 @@ import { Van, User, List, Money, Top, Bottom, Plus, Document, Warning, Setting, 
 
 // new imports for API
 import { getCarStatistics as apiGetCarStatistics, getRepairs as apiGetRepairs } from '@/api/car'
-import { getRentalStatistics, calculateRevenue, getRentalsByDateRange, getRentals, getRentalTrend } from '@/api/rental'
+import { getRentalStatistics, calculateRevenue, getRentalsByDateRange, getRentals, getRentalTrend, exportFinancialReport, exportCarInventoryReport, exportCarTypeReport } from '@/api/rental'
 import { getCustomerStatistics } from '@/api/admin'
 import { getDriverStatistics as apiGetDriverStatistics } from '@/api/driver'
 
@@ -374,14 +374,40 @@ const handleQuickAction = (action) => {
   }
 }
 
-const handleExportConfirm = () => {
+const handleExportConfirm = async () => {
   exportLoading.value = true
-  setTimeout(() => {
-    exportLoading.value = false
+  const map = { financial: '财务营收报表', cars: '车辆库存清单', types: '车型配置清单' }
+  const filenameMap = { financial: 'financial-report.xlsx', cars: 'car-inventory.xlsx', types: 'car-types.xlsx' }
+  try {
+    let blob
+    if (reportType.value === 'financial') {
+      blob = await exportFinancialReport()
+    } else if (reportType.value === 'cars') {
+      blob = await exportCarInventoryReport()
+    } else {
+      blob = await exportCarTypeReport()
+    }
+
+    // axios response interceptor returns data directly; when responseType='blob', blob is the data
+    const data = blob
+    const fileName = filenameMap[reportType.value] || 'report.xlsx'
+    const url = window.URL.createObjectURL(data)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = fileName
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    window.URL.revokeObjectURL(url)
+
     reportDialogVisible.value = false
-    const map = { financial: '财务营收报表', cars: '车辆库存清单', types: '车型配置清单' }
     ElMessage.success(`《${map[reportType.value]}》已导出成功`)
-  }, 1000)
+  } catch (error) {
+    console.error('导出报表失败:', error)
+    ElMessage.error('导出报表失败，请稍后重试')
+  } finally {
+    exportLoading.value = false
+  }
 }
 
 // KPI reactive state

@@ -9,6 +9,36 @@ export function getRentals(params) {
   })
 }
 
+// 导出财务营收报表（xlsx）
+export function exportFinancialReport() {
+  return request({
+    url: '/reports/financial',
+    method: 'get',
+    responseType: 'blob',
+    quiet: true
+  })
+}
+
+// 导出车辆库存清单（xlsx）
+export function exportCarInventoryReport() {
+  return request({
+    url: '/reports/cars',
+    method: 'get',
+    responseType: 'blob',
+    quiet: true
+  })
+}
+
+// 导出车型配置清单（xlsx）
+export function exportCarTypeReport() {
+  return request({
+    url: '/reports/types',
+    method: 'get',
+    responseType: 'blob',
+    quiet: true
+  })
+}
+
 // 根据发票号获取租赁记录
 export function getRentalById(invoiceNo) {
   return request({
