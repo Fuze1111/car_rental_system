@@ -405,9 +405,9 @@ const metrics = ref({
 const chartData = ref([])
 const activeTimeRange = ref('week')
 const currentScale = computed(() => {
-  if (activeTimeRange.value === 'week') return { maxOrders: 50, maxRevenue: 15 }
-  if (activeTimeRange.value === 'month') return { maxOrders: 200, maxRevenue: 80 }
-  return { maxOrders: 800, maxRevenue: 300 }
+  if (activeTimeRange.value === 'week') return { maxOrders: 10, maxRevenue: 5 }
+  if (activeTimeRange.value === 'month') return { maxOrders: 60, maxRevenue: 20 }
+  return { maxOrders: 200, maxRevenue: 100 }
 })
 
 // Y-axis ticks used in template
