@@ -59,52 +59,6 @@
           </div>
         </el-tab-pane>
 
-        <!-- 通知设置 -->
-        <el-tab-pane label="通知偏好" name="notification">
-          <template #label>
-            <div class="custom-tab-label">
-              <el-icon><Bell /></el-icon>
-              <span>通知偏好</span>
-            </div>
-          </template>
-
-          <div class="tab-content">
-            <div class="notification-group">
-              <div class="group-title">邮件通知</div>
-              
-              <div class="switch-row">
-                <div class="switch-info">
-                  <span class="label">新订单提醒</span>
-                  <span class="desc">当有新订单创建时发送邮件</span>
-                </div>
-                <el-switch v-model="notifyForm.newOrder" />
-              </div>
-
-              <div class="switch-row">
-                <div class="switch-info">
-                  <span class="label">车辆异常警告</span>
-                  <span class="desc">当车辆状态异常或需要维修时通知</span>
-                </div>
-                <el-switch v-model="notifyForm.carAlert" />
-              </div>
-            </div>
-
-            <el-divider />
-
-            <div class="notification-group">
-              <div class="group-title">系统通知</div>
-              
-              <div class="switch-row">
-                <div class="switch-info">
-                  <span class="label">每日报表推送</span>
-                  <span class="desc">每天早上 8:00 推送昨日运营简报</span>
-                </div>
-                <el-switch v-model="notifyForm.dailyReport" />
-              </div>
-            </div>
-          </div>
-        </el-tab-pane>
-
         <!-- 关于系统 -->
         <el-tab-pane label="关于系统" name="about">
           <template #label>
@@ -148,7 +102,7 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { User, Bell, InfoFilled, Check, Van } from '@element-plus/icons-vue'
+import { User, InfoFilled, Check, Van } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 import { changeAdminPassword } from '@/api/admin'
@@ -165,12 +119,6 @@ const accountForm = reactive({
   adminId: '',
   currentPassword: '',
   newPassword: ''
-})
-
-const notifyForm = reactive({
-  newOrder: true,
-  carAlert: true,
-  dailyReport: false
 })
 
 // 加载管理员信息
@@ -191,18 +139,12 @@ const handleSaveAll = async () => {
     return
   }
   
-  // 保存通知设置到localStorage
+  // 这里只处理账户相关设置保存
   saving.value = true
-  try {
-    localStorage.setItem('notificationSettings', JSON.stringify(notifyForm))
-    setTimeout(() => {
-      saving.value = false
-      ElMessage.success('系统设置已成功保存')
-    }, 500)
-  } catch (error) {
+  setTimeout(() => {
     saving.value = false
-    ElMessage.error('保存设置失败')
-  }
+    ElMessage.success('账户设置已成功保存')
+  }, 500)
 }
 
 const handlePasswordChange = async () => {
@@ -261,17 +203,6 @@ onMounted(() => {
     activeTab.value = route.query.tab
   }
   loadAdminInfo()
-  
-  // 加载通知偏好设置
-  try {
-    const savedSettings = localStorage.getItem('notificationSettings')
-    if (savedSettings) {
-      const settings = JSON.parse(savedSettings)
-      Object.assign(notifyForm, settings)
-    }
-  } catch (error) {
-    console.error('加载通知设置失败:', error)
-  }
 })
 </script>
 

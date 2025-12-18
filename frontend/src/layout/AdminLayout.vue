@@ -73,42 +73,8 @@
           </el-menu-item>
         </el-menu>
 
-        <!-- 右侧用户信息 -->
+        <!-- 右侧用户信息（仅保留用户下拉） -->
         <div class="header-right">
-          <!-- 通知中心 Popover -->
-          <el-popover
-            placement="bottom"
-            :width="320"
-            trigger="click"
-            popper-class="notification-popover"
-          >
-            <template #reference>
-              <div class="action-item">
-                <el-icon><Bell /></el-icon>
-                <span class="badge" v-if="unreadCount > 0"></span>
-              </div>
-            </template>
-            
-            <div class="notification-container">
-              <div class="notification-header">
-                <span>通知 ({{ unreadCount }})</span>
-                <el-button link type="primary" size="small" @click="handleClearNotifications" :disabled="unreadCount === 0">全部已读</el-button>
-              </div>
-              <div class="notification-list" v-if="notifications.length > 0">
-                <div class="notification-item" v-for="(item, index) in notifications" :key="index">
-                  <div class="dot" :class="item.type"></div>
-                  <div class="content">
-                    <p class="title">{{ item.title }}</p>
-                    <p class="time">{{ item.time }}</p>
-                  </div>
-                </div>
-              </div>
-              <div class="empty-notification" v-else>
-                <p>暂无新通知</p>
-              </div>
-            </div>
-          </el-popover>
-
           <el-dropdown trigger="click" @command="handleCommand">
             <div class="user-info">
               <el-avatar :size="32" src="https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png" class="user-avatar" />
@@ -137,7 +103,6 @@
 <script setup>
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Bell } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const route = useRoute()
@@ -156,20 +121,6 @@ const bgStyle = computed(() => {
     transform: `translate3d(0, -${scrollY.value * 0.3}px, 0)`
   }
 })
-
-// 通知数据
-const notifications = ref([
-  { title: '新订单: 京A88888 租赁申请', time: '10分钟前', type: 'info' },
-  { title: '系统将于今晚 02:00 进行维护', time: '2小时前', type: 'warning' },
-  { title: '新用户注册: 张三', time: '5小时前', type: 'success' }
-])
-
-const unreadCount = computed(() => notifications.value.length)
-
-const handleClearNotifications = () => {
-  notifications.value = []
-  ElMessage.success('所有通知已标记为已读')
-}
 
 const activeMenu = computed(() => route.path)
 
