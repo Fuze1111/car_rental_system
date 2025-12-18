@@ -281,7 +281,7 @@
     >
       <el-form ref="typeFormRef" :model="typeFormData" :rules="typeRules" label-width="100px" class="type-form">
         <el-form-item label="类型编号" prop="TNo">
-          <el-input v-model="typeFormData.TNo" placeholder="例如: C1" class="custom-input" :disabled="isTypeEdit" />
+          <el-input v-model="typeFormData.TNo" placeholder="例如: T010" class="custom-input" :disabled="isTypeEdit" />
         </el-form-item>
         <el-form-item label="车型名称" prop="TName">
           <el-input v-model="typeFormData.TName" placeholder="例如: Toyota Camry" class="custom-input" :disabled="isTypeEdit" />
@@ -289,8 +289,8 @@
         <el-form-item label="小时租金" prop="RentRate">
           <el-input-number 
             v-model="typeFormData.RentRate" 
-            :min="0" 
-            :step="50" 
+            :min="0"
+            :step="50"
             style="width: 100%" 
             controls-position="right"
             class="custom-input-number"
@@ -301,11 +301,7 @@
         </el-form-item>
         <el-form-item label="车型图片" prop="ImagePath">
           <div style="display:flex;flex-direction:column;gap:12px;width:100%">
-            <el-input
-              v-model="typeFormData.ImagePath"
-              placeholder="例如: /images/car-types/toyota-camry.jpg"
-              class="custom-input"
-            />
+            <!-- 移除手动输入路径，只展示预览和上传按钮 -->
             <div style="display:flex;align-items:center;gap:16px">
               <el-image
                 :src="previewImageUrl"
@@ -318,7 +314,20 @@
                   </div>
                 </template>
               </el-image>
-              <div style="flex:1;color:#6b7280">填写后端可访问的静态资源路径，示例：/images/car-types/xxx.jpg</div>
+              <div style="flex:1;color:#6b7280">请选择本地图片上传，系统会自动生成图片路径并用于预览与展示</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;margin-top:8px">
+              <input
+                type="file"
+                accept="image/*"
+                ref="typeImageFileInput"
+                style="display:none"
+                @change="handleTypeImageFileChange"
+              />
+              <el-button size="small" @click="triggerTypeImageChoose" :loading="uploadingTypeImage">
+                选择图片并上传
+              </el-button>
+              <span style="font-size:12px;color:#9ca3af">上传成功后将自动关联到该车型</span>
             </div>
           </div>
         </el-form-item>
@@ -358,10 +367,11 @@ import {
   deleteCar, 
   createRepair,
   updateCarStatus,
-  getCarTypes,
+  getCarTypesAdmin,
   createCarType,
   updateCarType,
-  deleteCarType
+  deleteCarType,
+  uploadCarTypeImage
 } from '@/api/car'
 import request from '@/api/request'
 
@@ -411,9 +421,12 @@ const typePagination = reactive({
 const typeFormData = reactive({
   TNo: '',
   TName: '',
-  RentRate: 0,
+  RentRate: 100,
   ImagePath: ''
 })
+
+const typeImageFileInput = ref(null)
+const uploadingTypeImage = ref(false)
 
 const previewImageUrl = computed(() => {
   if (typeFormData.ImagePath && typeFormData.ImagePath.trim()) {
@@ -423,17 +436,61 @@ const previewImageUrl = computed(() => {
   return getImageForCarType(typeFormData.TName)
 })
 
+const handleTypeImageFileChange = async (event) => {
+  const files = event?.target?.files || event?.dataTransfer?.files
+  if (!files || !files[0]) return
+  const file = files[0]
+  uploadingTypeImage.value = true
+  try {
+    const resp = await uploadCarTypeImage(file)
+    const path = resp?.imagePath || resp?.path || resp?.url
+    if (path) {
+      typeFormData.ImagePath = path
+      ElMessage.success('图片上传成功')
+    } else {
+      ElMessage.error('图片上传失败：服务器未返回路径')
+    }
+  } catch (error) {
+    console.error('上传车型图片失败:', error)
+    const msg = error?.response?.data?.message || error?.message || '未知错误'
+    ElMessage.error('上传车型图片失败：' + msg)
+  } finally {
+    uploadingTypeImage.value = false
+    if (event?.target) {
+      event.target.value = ''
+    }
+  }
+}
+
+const triggerTypeImageChoose = () => {
+  if (typeImageFileInput.value) {
+    typeImageFileInput.value.click()
+  }
+}
+
 const typeRules = {
-  TNo: [{ required: true, message: '请输入类型编号', trigger: 'blur' }],
+  TNo: [
+    { required: true, message: '请输入类型编号', trigger: 'blur' },
+    { validator: (rule, value, callback) => {
+        if (!value) return callback(new Error('请输入类型编号'))
+        const v = String(value).trim()
+        const reg = /^T\d{3}$/
+        if (!reg.test(v)) {
+          return callback(new Error('类型编号格式应为 T 后跟3位数字，例如: T010'))
+        }
+        callback()
+      }, trigger: ['blur', 'change'] }
+  ],
   TName: [{ required: true, message: '请输入车型名称', trigger: 'blur' }],
   RentRate: [
     { required: true, message: '请输入小时租金', trigger: 'blur' },
     { validator: (rule, value, callback) => {
-        if (value === null || value === undefined || value === '') { return callback(new Error('请输入小时租金')) }
+        if (value === null || value === undefined || value === '') {
+          return callback(new Error('请输入小时租金'))
+        }
         const num = Number(value)
-        if (isNaN(num) || num < 0) return callback(new Error('小时租金需为非负数'))
+        if (isNaN(num) || num <= 0) return callback(new Error('小时租金必须大于 0'))
         if (num > 9999.99) return callback(new Error('小时租金不能超过 9999.99'))
-        // 小数位数校验，允许两位小数
         const s = String(value)
         const parts = s.split('.')
         if (parts.length === 2 && parts[1].length > 2) return callback(new Error('小时租金最多保留两位小数'))
@@ -645,11 +702,11 @@ const fetchCars = async () => {
   }
 }
 
-// 获取所有车型选项
+// 获取所有车型选项（管理端使用：包含数据库中的全部车型）
 const fetchCarTypes = async () => {
   typeLoading.value = true
   try {
-    const response = await getCarTypes()
+    const response = await getCarTypesAdmin()
     const allTypes = (response || []).map(type => {
       const rawImagePath = type.imageUrl || type.Image || type.imageUrl
       const normalizedImage = normalizeImageUrl(rawImagePath)
@@ -795,10 +852,11 @@ const handleTypeAdd = () => {
 
 const handleTypeEdit = (row) => {
   isTypeEdit.value = true
+  const rawRate = Number(row.rentRate ?? row.RentRate ?? 0)
   Object.assign(typeFormData, {
     TNo: row.TNo || row.tno,
     TName: row.TName || row.tname,
-    RentRate: row.rentRate || row.RentRate || 0,
+    RentRate: rawRate > 0 ? rawRate : 100,
     ImagePath: row.imagePath || row.ImagePath || ''
   })
   typeDialogVisible.value = true
@@ -833,44 +891,78 @@ const handleTypeClose = () => {
   typeDialogVisible.value = false
 }
 
-const handleFileChange = (uploadFile) => {
-  // 模拟上传：将图片转换为 Base64 进行预览
-  const reader = new FileReader()
-  reader.readAsDataURL(uploadFile.raw)
-  reader.onload = () => {
-    typeFormData.Image = reader.result
-  }
-}
-
-const handleTypeSubmit = async () => {
+const handleTypeSubmit = () => {
   if (!typeFormRef.value) return
-  await typeFormRef.value.validate(async (valid) => {
-    if (valid) {
-      try {
-        const payload = {
-          tno: typeFormData.TNo,
-          tname: typeFormData.TName,
-          rentRate: typeFormData.RentRate,
-          imagePath: typeFormData.ImagePath
-        }
-        if (isTypeEdit.value) {
-          await updateCarType(typeFormData.TNo, typeFormData.TName, payload)
-          ElMessage.success('修改成功')
+  typeFormRef.value.validate(async (valid) => {
+    if (!valid) return
+    const rent = Number(typeFormData.RentRate)
+    if (!Number.isFinite(rent) || rent <= 0) {
+      ElMessage.error('小时租金必须大于 0')
+      return
+    }
+    try {
+      const payload = {
+        tNo: typeFormData.TNo,
+        tName: typeFormData.TName,
+        rentRate: rent,
+        imagePath: typeFormData.ImagePath || null
+      }
+      if (isTypeEdit.value) {
+        await updateCarType(typeFormData.TNo, payload)
+        ElMessage.success('车型更新成功')
+      } else {
+        await createCarType(payload)
+        ElMessage.success('车型创建成功')
+      }
+      typeDialogVisible.value = false
+      await fetchCarTypes()
+    } catch (error) {
+      console.error('保存车型失败:', error)
+      const resp = error?.response
+      const data = resp?.data || {}
+      const status = resp?.status
+      let detail = ''
+
+      if (typeof data === 'object') {
+        if (data.details) detail = data.details
+        else if (data.message) detail = data.message
+        else if (data.error) detail = data.error
+      }
+
+      const d = (detail || '').toString()
+      const isDuplicate = status === 409 || d.includes('已存在') || /duplicate entry/i.test(d)
+      if (isDuplicate) {
+        if (d.includes('TName') || d.includes('车型名称') || d.includes('名称')) {
+          ElMessage.error('保存车型失败：车型名称已存在，请更换后重试')
+        } else if (d.includes('TNo') || d.includes('类型编号')) {
+          ElMessage.error('保存车型失败：类型编号已存在，请更换后重试')
         } else {
-          await createCarType(payload)
-          ElMessage.success('新增成功')
+          ElMessage.error('保存车型失败：类型编号或名称已存在，请更换后重试')
         }
-        typeDialogVisible.value = false
-        fetchCarTypes()
-        fetchCars()
-      } catch (error) {
-        console.error('操作失败:', error)
-        ElMessage.error('操作失败: ' + (error.message || '未知错误'))
+        return
+      }
+
+      if (status === 400) {
+        if (d.includes('TNo') || d.includes('类型编号')) {
+          ElMessage.error('保存车型失败：类型编号不能为空或格式不正确')
+        } else if (d.includes('TName') || d.includes('车型名称')) {
+          ElMessage.error('保存车型失败：车型名称不能为空或不合法')
+        } else if (d.includes('RentRate') || d.includes('小时租金')) {
+          ElMessage.error('保存车型失败：小时租金必须大于 0')
+        } else {
+          ElMessage.error('保存车型失败：请求参数不合法')
+        }
+      } else if (status >= 500) {
+        ElMessage.error('保存车型失败：服务器内部错误，请稍后重试')
+      } else {
+        const fallback = d || error?.message || '未知错误'
+        ElMessage.error('保存车型失败：' + fallback)
       }
     }
   })
 }
 
+// 处理新增/编辑车型提交
 const handleDialogSubmit = async (formData) => {
   try {
     console.log('收到的formData:', formData)

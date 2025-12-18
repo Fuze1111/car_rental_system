@@ -155,12 +155,12 @@ const rules = {
   CarStatus: [{ required: true, message: '请选择状态', trigger: 'change' }]
 }
 
-// 获取车型列表
+// 获取车型列表（管理端：包含数据库中的全部车型）
 const fetchCarTypes = async () => {
   try {
-    const { getCarTypes } = await import('@/api/car')
-    // getCarTypes() 返回的已经是经过 axios 拦截器处理过的 data
-    const resp = await getCarTypes()
+    const { getCarTypesAdmin } = await import('@/api/car')
+    // getCarTypesAdmin() 返回的已经是经过 axios 拦截器处理过的 data
+    const resp = await getCarTypesAdmin()
     const typesRaw = resp || []
     // 容错地从后端返回的对象中读取 tNo/tName（可能是 tNo/tName 或 TNo/TName 或 tno/tname）
     const pick = (obj, ...keys) => {
