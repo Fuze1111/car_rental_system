@@ -337,7 +337,53 @@ public class CarTypeService {
                 log.info("已删除车型图片文件: {}", target);
             }
         } catch (SecurityException | java.io.IOException ex) {
-            log.warn("删除车型图片失败 ({}): {}", target, ex.getMessage());
+            log.warn("删除车型图片失败 ({})：{}", target, ex.getMessage());
         }
+    }
+
+    /**
+     * 保存或更新车型图片 URL 到 car_type 表（如果以前有图片并且是本地上传的，会尝试删除旧文件）
+     * @param tNo 车型编号
+     * @param imageUrl 图片访问 URL（例如 /images/car-types/xxx.jpg 或 完整 URL）
+     */
+    public void saveOrUpdateCarTypeImage(String tNo, String imageUrl) {
+        if (tNo == null || tNo.isBlank()) {
+            throw new IllegalArgumentException("车型编号不能为空");
+        }
+        if (imageUrl == null || imageUrl.isBlank()) {
+            throw new IllegalArgumentException("imageUrl 不能为空");
+        }
+
+        CarType existing = carTypeRepository.findById(tNo)
+                .orElseThrow(() -> new RuntimeException("车型不存在: " + tNo));
+
+        String normalized = normalizeImagePath(imageUrl);
+        String oldImage = existing.getImagePath();
+        if (oldImage != null && !oldImage.equals(normalized)) {
+            // 尝试删除之前上传的本地图片文件（如果适用）
+            deleteCarTypeImage(oldImage);
+        }
+
+        existing.setImagePath(normalized);
+        carTypeRepository.save(existing);
+    }
+
+    /**
+     * 获取某个车型的图片 URL 列表（目前每个车型仅保存单张主图）
+     * @param tNo 车型编号
+     * @return 图片 URL 列表（可能为空）
+     */
+    public java.util.List<String> getCarTypeImages(String tNo) {
+        java.util.List<String> result = new java.util.ArrayList<>();
+        if (tNo == null || tNo.isBlank()) {
+            return result;
+        }
+        carTypeRepository.findById(tNo).ifPresent(ct -> {
+            String p = ct.getImagePath();
+            if (p != null && !p.isBlank()) {
+                result.add(p);
+            }
+        });
+        return result;
     }
 }

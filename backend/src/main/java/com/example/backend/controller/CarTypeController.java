@@ -2,7 +2,6 @@ package com.example.backend.controller;
 
 import com.example.backend.entity.CarType;
 import com.example.backend.dto.CarTypeDTO;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import com.example.backend.service.CarTypeService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -203,34 +202,25 @@ public class CarTypeController {
         return ResponseEntity.noContent().build();
     }
 
-    // Resolve an image filename based on type name or tNo.
-    // This maps common Chinese/English model names to the english filenames stored in /static/images.
-    private String resolveImageFileName(String tName, String tNo) {
-        String name = (tName != null ? tName : "").toLowerCase();
-        try {
-            if (name.contains("丰田") || name.contains("凯美瑞") || name.contains("camry")) return "toyota_camry.jpg";
-            if (name.contains("本田") || name.contains("雅阁") || name.contains("accord")) return "honda_accord.jpg";
-            if (name.contains("奔驰") || name.contains("e级") || name.contains("benz") || name.contains("mercedes")) return "benz_e_class.jpg";
-            if (name.contains("宝马") || name.contains("5系") || name.contains("bmw")) return "bmw_5_series.jpg";
-            if (name.contains("奥迪") || name.contains("a6l") || name.contains("audi")) return "audi_a6l.jpg";
-            if (name.contains("大众") || name.contains("帕萨特") || name.contains("passat")) return "vw_passat.jpg";
-        } catch (Exception ex) {
-            // ignore and fallback
-        }
+    /**
+     * 管理员上传车型图片后，保存/更新图片 URL 到 car_type_image 表
+     * 前端传入 TNo 和图片访问 URL（例如 /images/xxx.jpg 或完整 URL）
+     */
+    @PostMapping("/{tNo}/image")
+    public ResponseEntity<Void> saveCarTypeImage(
+            @PathVariable String tNo,
+            @RequestBody Map<String, String> body) {
+        String imageUrl = body.get("imageUrl");
+        carTypeService.saveOrUpdateCarTypeImage(tNo, imageUrl);
+        return ResponseEntity.ok().build();
+    }
 
-        // Fallback heuristics: if tNo maps to a known pattern (e.g., T001 -> toyota), you can extend here.
-        if (tNo != null) {
-            String tn = tNo.toLowerCase();
-            // example mapping by tNo prefix
-            if (tn.startsWith("t001")) return "toyota_camry.jpg";
-            if (tn.startsWith("t002")) return "honda_accord.jpg";
-            if (tn.startsWith("t003")) return "benz_e_class.jpg";
-            if (tn.startsWith("t004")) return "bmw_5_series.jpg";
-            if (tn.startsWith("t005")) return "audi_a6l.jpg";
-            if (tn.startsWith("t006")) return "vw_passat.jpg";
-        }
-
-        // final fallback
-        return "default.jpg";
+    /**
+     * 根据 TNo 获取该车型的所有图片 URL（当前主要用于扩展或调试）
+     */
+    @GetMapping("/{tNo}/images")
+    public ResponseEntity<List<String>> getCarTypeImages(@PathVariable String tNo) {
+        List<String> paths = carTypeService.getCarTypeImages(tNo);
+        return ResponseEntity.ok(paths);
     }
 }
