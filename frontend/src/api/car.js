@@ -154,6 +154,15 @@ export function getRepairCountByCarId(carId) {
   })
 }
 
+// 完成指定车辆的维修（填入完成时间并将车辆状态恢复为可租）
+export function completeRepair(carId, data) {
+  return request({
+    url: `/repairs/car/${carId}/complete`,
+    method: 'post',
+    data
+  })
+}
+
 // 获取所有可租车型（仅包含存在可用车辆的车型），主要用于前台租车大厅
 export function getCarTypes() {
   return request({

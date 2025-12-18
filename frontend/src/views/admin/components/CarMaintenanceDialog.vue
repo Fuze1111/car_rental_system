@@ -19,17 +19,6 @@
         <el-input v-model="formData.CarID" disabled />
       </el-form-item>
 
-      <el-form-item label="维修日期" prop="RDate">
-        <el-date-picker
-          v-model="formData.RDate"
-          type="date"
-          placeholder="选择日期"
-          format="YYYY-MM-DD"
-          value-format="YYYY-MM-DD"
-          style="width: 100%"
-        />
-      </el-form-item>
-
       <el-form-item label="运行里程" prop="RunKM">
         <el-input-number 
           v-model="formData.RunKM" 
@@ -57,8 +46,8 @@
 
     <template #footer>
       <span class="dialog-footer">
-        <el-button @click="handleClose">取消</el-button>
-        <el-button type="primary" @click="handleSubmit" :loading="loading">
+        <el-button @click="handleClose" class="footer-btn">取消</el-button>
+        <el-button type="primary" @click="handleSubmit" :loading="loading" class="footer-btn submit-btn">
           确认送修
         </el-button>
       </span>
@@ -87,13 +76,11 @@ const loading = ref(false)
 
 const formData = reactive({
   CarID: '',
-  RDate: new Date().toISOString().split('T')[0],
   RunKM: 0,
   RunHour: 0
 })
 
 const rules = {
-  RDate: [{ required: true, message: '请选择维修日期', trigger: 'change' }],
   RunKM: [{ required: true, message: '请输入运行里程', trigger: 'blur' }],
   RunHour: [{ required: true, message: '请输入运行时间', trigger: 'blur' }]
 }
@@ -101,9 +88,6 @@ const rules = {
 watch(() => props.carData, (newVal) => {
   if (newVal) {
     formData.CarID = newVal.CarID
-    // Initialize other fields if needed, maybe fetch last recorded KM?
-    // For now, reset them
-    formData.RDate = new Date().toISOString().split('T')[0]
     formData.RunKM = 0
     formData.RunHour = 0
   }
@@ -136,5 +120,51 @@ const handleSubmit = async () => {
 <style scoped>
 .maintenance-form {
   padding: 20px 0;
+}
+
+.custom-dialog {
+  border-radius: 16px !important;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+
+  :deep(.el-dialog__header) {
+    margin: 0;
+    padding: 20px 24px;
+    border-bottom: 1px solid #f1f5f9;
+    background: #f8fafc;
+
+    .el-dialog__title {
+      font-weight: 700;
+      color: #1e293b;
+      font-size: 18px;
+    }
+  }
+
+  :deep(.el-dialog__body) {
+    padding: 32px 24px !important;
+  }
+
+  :deep(.el-dialog__footer) {
+    padding: 20px 24px;
+    border-top: 1px solid #f1f5f9;
+    background: #f8fafc;
+  }
+}
+
+.footer-btn {
+  border-radius: 8px;
+  padding: 10px 24px;
+  font-weight: 500;
+
+  &.submit-btn {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    border: none;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(37, 99, 235, 0.3);
+    }
+  }
 }
 </style>

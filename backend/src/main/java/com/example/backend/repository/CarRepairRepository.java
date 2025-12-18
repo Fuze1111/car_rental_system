@@ -79,4 +79,10 @@ public interface CarRepairRepository extends JpaRepository<CarRepair, String> {
      */
     @Query("SELECT COUNT(cr) FROM CarRepair cr WHERE cr.carId IN :carIds")
     long countByCarIdIn(@Param("carIds") List<String> carIds);
+
+    /**
+     * 查找指定车辆尚未完成（rDate 为空）的维修记录，按维修编号倒序排列
+     */
+    @Query("SELECT cr FROM CarRepair cr WHERE cr.carId = :carId AND cr.rDate IS NULL ORDER BY cr.rNo DESC")
+    List<CarRepair> findOpenRepairsByCarIdOrderByRNoDesc(@Param("carId") String carId);
 }

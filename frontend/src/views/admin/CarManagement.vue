@@ -808,10 +808,8 @@ const handleMaintenance = (row) => {
 
 const handleMaintenanceSubmit = async (formData) => {
   try {
-    // 准备维修记录数据
     const repairData = {
       carId: formData.CarID,
-      rDate: formData.RDate,
       runKm: formData.RunKM,
       runHour: formData.RunHour
     }

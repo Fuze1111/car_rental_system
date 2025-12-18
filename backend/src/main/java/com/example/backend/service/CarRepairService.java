@@ -152,6 +152,36 @@ public class CarRepairService {
     }
 
     /**
+     * 完成车辆维修：为指定车辆最近一次未完成的维修记录填入完成时间，并将车辆状态改为可租
+     * @param carId 车辆号
+     * @param completeTime 完成维修时间
+     * @return 更新后的维修记录
+     */
+    @Transactional
+    public CarRepairResponseDTO completeRepair(String carId, java.time.LocalDateTime completeTime) {
+        if (completeTime == null) {
+            throw new IllegalArgumentException("完成维修时维修日期不能为空");
+        }
+
+        CarRepair repair = carRepairRepository
+                .findOpenRepairsByCarIdOrderByRNoDesc(carId)
+                .stream()
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("未找到进行中的维修记录: " + carId));
+
+        repair.setRDate(completeTime);
+        CarRepair updatedRepair = carRepairRepository.save(repair);
+
+        // 将车辆状态恢复为可租
+        Car car = carRepository.findById(carId)
+                .orElseThrow(() -> new RuntimeException("车辆不存在: " + carId));
+        car.setCarStatus(CAR_STATUS_AVAILABLE);
+        carRepository.save(car);
+
+        return convertToResponseDTO(updatedRepair);
+    }
+
+    /**
      * 根据过滤条件分页查询维修记录（支持按车牌号和时间范围）
      */
     public Page<CarRepairResponseDTO> getRepairsByFilters(String carId, java.time.LocalDateTime start, java.time.LocalDateTime end, Pageable pageable) {

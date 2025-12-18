@@ -137,4 +137,19 @@ public class CarRepairController {
         long count = carRepairService.getRepairCountByCarId(carId);
         return ResponseEntity.ok(count);
     }
+
+    /**
+     * 完成指定车辆的维修（填入维修完成时间并恢复车辆为可租状态）
+     * POST /api/repairs/car/{carId}/complete
+     * @param carId 车辆号
+     * @param repairRequestDTO 包含完成时间的请求体
+     * @return 更新后的维修记录
+     */
+    @PostMapping("/car/{carId}/complete")
+    public ResponseEntity<CarRepairResponseDTO> completeRepair(
+            @PathVariable String carId,
+            @RequestBody CarRepairRequestDTO repairRequestDTO) {
+        CarRepairResponseDTO dto = carRepairService.completeRepair(carId, repairRequestDTO.getRDate());
+        return ResponseEntity.ok(dto);
+    }
 }

@@ -301,6 +301,58 @@
         </span>
       </template>
     </el-dialog>
+
+    <!-- 完成维修时间选择弹窗 -->
+    <el-dialog
+      :model-value="completeDialogVisible"
+      title="完成维修"
+      width="400px"
+      @close="handleCompleteDialogClose"
+      destroy-on-close
+      class="custom-dialog"
+    >
+      <el-form 
+        ref="completeFormRef" 
+        :model="completeForm" 
+        :rules="completeRules" 
+        label-width="100px"
+        class="repair-form"
+      >
+        <el-form-item label="车牌号">
+          <el-input 
+            v-model="completeForm.carId" 
+            disabled
+            class="custom-input"
+          />
+        </el-form-item>
+
+        <el-form-item label="完成时间" prop="rDate">
+          <el-date-picker
+            v-model="completeForm.rDate"
+            type="datetime"
+            placeholder="请选择完成时间"
+            format="YYYY-MM-DD HH:mm:ss"
+            value-format="YYYY-MM-DD HH:mm:ss"
+            style="width: 100%"
+            class="custom-date-picker"
+          />
+        </el-form-item>
+      </el-form>
+      
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="handleCompleteDialogClose" class="footer-btn">取消</el-button>
+          <el-button 
+            type="primary" 
+            @click="handleCompleteSubmit" 
+            :loading="completeSubmitLoading"
+            class="footer-btn submit-btn"
+          >
+            确定
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -313,7 +365,8 @@ import {
   createRepair, 
   updateRepair, 
   deleteRepair,
-  getRepairsByCarId
+  getRepairsByCarId,
+  completeRepair
 } from '@/api/car'
 
 // 标签页
@@ -338,6 +391,18 @@ const submitLoading = ref(false)
 const dialogVisible = ref(false)
 const isEdit = ref(false)
 const currentEditId = ref(null)
+
+// 完成维修弹窗
+const completeDialogVisible = ref(false)
+const completeSubmitLoading = ref(false)
+const completeFormRef = ref(null)
+const completeForm = reactive({
+  carId: '',
+  rDate: ''
+})
+const completeRules = {
+  rDate: [{ required: true, message: '请选择完成时间', trigger: 'change' }]
+}
 
 // 表单引用
 const repairFormRef = ref(null)
@@ -467,33 +532,40 @@ const handleOngoingCurrentChange = (val) => {
 
 // 完成维修
 const handleCompleteRepair = (row) => {
-  ElMessageBox.prompt('请输入维修费用（元）', '完成维修', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    inputPattern: /^\d+(\.\d{1,2})?$/,
-    inputErrorMessage: '请输入正确的金额'
-  }).then(async ({ value }) => {
+  completeForm.carId = row.carId
+  completeForm.rDate = ''
+  completeDialogVisible.value = true
+}
+
+const handleCompleteDialogClose = () => {
+  completeDialogVisible.value = false
+  completeForm.carId = ''
+  completeForm.rDate = ''
+}
+
+const handleCompleteSubmit = async () => {
+  if (!completeFormRef.value) return
+
+  await completeFormRef.value.validate(async (valid) => {
+    if (!valid) return
+    completeSubmitLoading.value = true
     try {
-      // 创建维修记录
-      const repairData = {
-        carId: row.carId,
-        rDate: new Date().toISOString().slice(0, 19).replace('T', ' '),
-        runKm: row.runKm,
-        runHour: row.runHour
-      }
-      await createRepair(repairData)
-      
+      await completeRepair(completeForm.carId, { rDate: completeForm.rDate })
+
       // 更新车辆状态为可租
       const { updateCarStatus } = await import('@/api/car')
-      await updateCarStatus(row.carId, { carStatus: '0' })
-      
+      await updateCarStatus(completeForm.carId, { carStatus: '0' })
+
       ElMessage.success('维修已完成')
+      handleCompleteDialogClose()
       fetchOngoingRepairs()
     } catch (error) {
       console.error('完成维修失败:', error)
       ElMessage.error('完成维修失败')
+    } finally {
+      completeSubmitLoading.value = false
     }
-  }).catch(() => {})
+  })
 }
 
 // 获取维修记录列表
