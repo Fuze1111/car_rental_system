@@ -285,7 +285,7 @@
             <div class="icon-box blue"><el-icon><Money /></el-icon></div>
             <div class="option-info">
               <span class="name">财务营收报表</span>
-              <span class="desc">包含本周/本月的营收明细与统计</span>
+              <span class="desc">包含营收明细与统计</span>
             </div>
             <div class="check-mark" v-if="reportType === 'financial'"><el-icon><Select /></el-icon></div>
           </div>

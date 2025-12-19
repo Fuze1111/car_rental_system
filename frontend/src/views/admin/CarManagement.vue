@@ -58,6 +58,7 @@
         style="width: 100%" 
         v-loading="loading" 
         class="modern-table"
+        @sort-change="handleCarSortChange"
       >
         <!-- 车牌号 (CarID) -->
         <el-table-column prop="CarID" label="车牌号" min-width="140" align="left">
@@ -79,7 +80,7 @@
         </el-table-column>
 
         <!-- 租金率 (RentRate) -->
-        <el-table-column prop="RentRate" label="小时租金" width="150" align="left">
+        <el-table-column prop="RentRate" label="小时租金" width="150" align="left" sortable>
           <template #default="scope">
             <div class="price-tag">
               <span class="currency">¥</span>
@@ -104,14 +105,14 @@
         </el-table-column>
 
         <!-- 运行公里 (RUNKM) -->
-        <el-table-column prop="RUNKM" label="运行公里" width="120" align="right">
+        <el-table-column prop="RUNKM" label="运行公里" width="120" align="right" sortable>
           <template #default="scope">
             <span class="text-secondary">{{ scope.row.RUNKM }} km</span>
           </template>
         </el-table-column>
 
         <!-- 运行小时 (RunHour) -->
-        <el-table-column prop="RunHour" label="运行小时" width="120" align="right">
+        <el-table-column prop="RunHour" label="运行小时" width="120" align="right" sortable>
           <template #default="scope">
             <span class="text-secondary">{{ scope.row.RunHour }} h</span>
           </template>
@@ -204,7 +205,7 @@
         </div>
 
         <!-- Table Types -->
-        <el-table :data="typeTableData" style="width: 100%" v-loading="typeLoading" class="modern-table">
+        <el-table :data="typeTableData" style="width: 100%" v-loading="typeLoading" class="modern-table" @sort-change="handleTypeSortChange">
             <el-table-column prop="TNo" label="类型编号" min-width="120" align="center">
               <template #default="scope">
                 <el-tag type="info" effect="plain" round>{{ scope.row.TNo }}</el-tag>
@@ -229,7 +230,7 @@
                 <span style="font-weight: 600; color: #1e293b;">{{ scope.row.TName }}</span>
               </template>
             </el-table-column>
-            <el-table-column prop="rentRate" label="基准小时租金" min-width="150" align="right">
+            <el-table-column prop="rentRate" label="基准小时租金" min-width="150" align="right" sortable>
               <template #default="scope">
                 <div class="price-tag">
                   <span class="currency">¥</span>
@@ -504,6 +505,18 @@ const tableData = ref([])
 const typeTableData = ref([])
 const carTypeOptions = ref([])
 
+// 车辆列表排序状态：记录小时租金、运行公里、运行小时三列的排序方向
+const carSortState = reactive({
+  rentOrder: null,
+  kmOrder: null,
+  hourOrder: null
+})
+
+// 车型租金表排序状态：目前只对小时租金列记录排序方向
+const typeSortState = reactive({
+  rentOrder: null
+})
+
 const getStatusClass = (status) => {
   const map = {
     '0': 'status-success', // 可租
@@ -520,6 +533,52 @@ const getStatusLabel = (status) => {
     '2': '维修中'
   }
   return map[status] || '未知'
+}
+
+// 车辆列表多字段排序：
+// 1) 如果设置了小时租金排序：以小时租金为主键，运行公里为次键，运行小时为第三键
+// 2) 否则如果设置了运行公里排序：以公里为主键，小时为次键
+// 3) 否则仅有运行小时排序时：按运行小时排序
+const sortCarsByFields = (list, rentOrder, kmOrder, hourOrder) => {
+  if (!rentOrder && !kmOrder && !hourOrder) return list
+
+  const rateFactor = rentOrder === 'descending' ? -1 : 1
+  const kmFactor = kmOrder === 'descending' ? -1 : 1
+  const hourFactor = hourOrder === 'descending' ? -1 : 1
+
+  return [...list].sort((a, b) => {
+    const rateA = Number(a.RentRate || 0)
+    const rateB = Number(b.RentRate || 0)
+    const kmA = Number(a.RUNKM || 0)
+    const kmB = Number(b.RUNKM || 0)
+    const hourA = Number(a.RunHour || 0)
+    const hourB = Number(b.RunHour || 0)
+
+    // 1) 小时租金为主键
+    if (rentOrder) {
+      if (rateA !== rateB) return (rateA - rateB) * rateFactor
+      // 次键：公里
+      if (kmOrder && kmA !== kmB) return (kmA - kmB) * kmFactor
+      // 第三键：小时
+      if (hourOrder && hourA !== hourB) return (hourA - hourB) * hourFactor
+      return 0
+    }
+
+    // 2) 未设置租金排序，仅有公里/小时
+    if (kmOrder) {
+      if (kmA !== kmB) return (kmA - kmB) * kmFactor
+      if (hourOrder && hourA !== hourB) return (hourA - hourB) * hourFactor
+      return 0
+    }
+
+    // 3) 仅有小时排序
+    if (hourOrder) {
+      if (hourA !== hourB) return (hourA - hourB) * hourFactor
+      return 0
+    }
+
+    return 0
+  })
 }
 
 // 格式化日期时间
@@ -620,6 +679,32 @@ const onTypeImageError = (row) => {
   if (row._imageFallback) return
   row._imageFallback = true
   row.Image = getImageForCarType(row.TName || row.tname)
+}
+
+// 车辆列表排序变更（多字段前端排序）
+const handleCarSortChange = ({ prop, order }) => {
+  if (prop === 'RentRate') {
+    carSortState.rentOrder = order || null
+  } else if (prop === 'RUNKM') {
+    carSortState.kmOrder = order || null
+  } else if (prop === 'RunHour') {
+    carSortState.hourOrder = order || null
+  } else {
+    return
+  }
+
+  // 如果三个排序字段都被清空，则回到接口默认顺序
+  if (!carSortState.rentOrder && !carSortState.kmOrder && !carSortState.hourOrder) {
+    fetchCars()
+    return
+  }
+
+  tableData.value = sortCarsByFields(
+    tableData.value,
+    carSortState.rentOrder,
+    carSortState.kmOrder,
+    carSortState.hourOrder
+  )
 }
 
 // 搜索按钮触发的函数（确保在模板渲染时已定义）
@@ -745,9 +830,23 @@ const fetchCarTypes = async () => {
     const size = Math.max(1, typePagination.pageSize || 10)
     const start = (page - 1) * size
     const pageSlice = filtered.slice(start, start + size)
+  
+    // 根据当前排序状态对当前页数据做前端排序（小时租金为主键，车型名称为次键）
+    let sortedSlice = [...pageSlice]
+    if (typeSortState.rentOrder) {
+      const factor = typeSortState.rentOrder === 'descending' ? -1 : 1
+      sortedSlice.sort((a, b) => {
+        const rateA = Number(a.rentRate || 0)
+        const rateB = Number(b.rentRate || 0)
+        if (rateA !== rateB) return (rateA - rateB) * factor
+        const nameA = (a.tname || '').toString()
+        const nameB = (b.tname || '').toString()
+        return nameA.localeCompare(nameB) * factor
+      })
+    }
 
     // 更新表格数据（保持字段名兼容）
-    typeTableData.value = pageSlice.map(type => {
+    typeTableData.value = sortedSlice.map(type => {
       const displayImage = type.imageUrl || getImageForCarType(type.tname)
       return {
         TNo: type.tno,
@@ -778,6 +877,32 @@ const resetSearch = () => {
   searchForm.minPrice = undefined
   searchForm.maxPrice = undefined
   handleSearch()
+}
+
+// 车型租金表排序：仅对当前页的小时租金列做前端排序，车型名称为次关键字
+const handleTypeSortChange = ({ prop, order }) => {
+  if (prop !== 'rentRate') {
+    return
+  }
+
+  typeSortState.rentOrder = order || null
+
+  // 当排序被清空时，重新拉取一次数据以恢复接口默认顺序
+  if (!typeSortState.rentOrder) {
+    fetchCarTypes()
+    return
+  }
+
+  // 直接对当前页数据重新排序
+  const factor = typeSortState.rentOrder === 'descending' ? -1 : 1
+  typeTableData.value = [...typeTableData.value].sort((a, b) => {
+    const rateA = Number(a.rentRate || 0)
+    const rateB = Number(b.rentRate || 0)
+    if (rateA !== rateB) return (rateA - rateB) * factor
+    const nameA = (a.TName || '').toString()
+    const nameB = (b.TName || '').toString()
+    return nameA.localeCompare(nameB) * factor
+  })
 }
 
 const handleAdd = () => {

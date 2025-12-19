@@ -37,6 +37,7 @@
             style="width: 100%" 
             v-loading="ongoingLoading" 
             class="modern-table"
+            @sort-change="handleOngoingSortChange"
           >
             <el-table-column prop="carId" label="车牌号" min-width="120" align="center">
               <template #default="scope">
@@ -46,13 +47,13 @@
 
             <el-table-column prop="tName" label="车型" min-width="150" align="center" />
 
-            <el-table-column prop="runKm" label="当前公里" min-width="120" align="center">
+            <el-table-column prop="runKm" label="当前公里" min-width="120" align="center" sortable>
               <template #default="scope">
                 <span>{{ scope.row.runKm }} km</span>
               </template>
             </el-table-column>
 
-            <el-table-column prop="runHour" label="当前小时" min-width="120" align="center">
+            <el-table-column prop="runHour" label="当前小时" min-width="120" align="center" sortable>
               <template #default="scope">
                 <span>{{ scope.row.runHour }} h</span>
               </template>
@@ -149,6 +150,7 @@
             style="width: 100%" 
             v-loading="loading" 
             class="modern-table"
+            @sort-change="handleHistorySortChange"
           >
             <!-- 维修编号 -->
             <el-table-column prop="rNo" label="维修编号" min-width="100" align="center">
@@ -175,14 +177,14 @@
             </el-table-column>
 
             <!-- 运行公里 -->
-            <el-table-column prop="runKm" label="运行公里" min-width="120" align="center">
+            <el-table-column prop="runKm" label="运行公里" min-width="120" align="center" sortable>
               <template #default="scope">
                 <span>{{ scope.row.runKm }} km</span>
               </template>
             </el-table-column>
 
             <!-- 运行小时 -->
-            <el-table-column prop="runHour" label="运行小时" min-width="120" align="center">
+            <el-table-column prop="runHour" label="运行小时" min-width="120" align="center" sortable>
               <template #default="scope">
                 <span>{{ scope.row.runHour }} h</span>
               </template>
@@ -658,6 +660,78 @@ const handleOngoingCurrentChange = (val) => {
   fetchOngoingRepairs()
 }
 
+// 多字段排序帮助函数：始终以公里为主键、小时为次键；
+// kmOrder/hourOrder 可以独立为 'ascending' | 'descending' | null
+const sortByKmAndHour = (list, kmOrder, hourOrder) => {
+  // 如果两者都没有排序要求，则直接返回原列表
+  if (!kmOrder && !hourOrder) return list
+
+  const kmFactor = kmOrder === 'descending' ? -1 : 1 // 默认升序
+  const hourFactor = hourOrder === 'descending' ? -1 : 1 // 默认升序
+
+  return [...list].sort((a, b) => {
+    const kmA = Number(a.runKm || 0)
+    const kmB = Number(b.runKm || 0)
+    const hourA = Number(a.runHour || 0)
+    const hourB = Number(b.runHour || 0)
+
+    // 1) 如果设置了公里排序，始终以公里为第一关键字
+    if (kmOrder) {
+      if (kmA !== kmB) {
+        return (kmA - kmB) * kmFactor
+      }
+      // 公里相同，再看小时（如果有设置）
+      if (hourOrder) {
+        if (hourA !== hourB) {
+          return (hourA - hourB) * hourFactor
+        }
+      }
+      return 0
+    }
+
+    // 2) 未设置公里排序，仅有小时排序时：小时为主键，公里为次键
+    if (hourOrder) {
+      if (hourA !== hourB) {
+        return (hourA - hourB) * hourFactor
+      }
+      if (kmA !== kmB) {
+        return (kmA - kmB) * kmFactor
+      }
+    }
+
+    return 0
+  })
+}
+
+// 正在维修表排序状态：分别记录公里和小时的排序方向
+const ongoingSortState = reactive({
+  kmOrder: null,
+  hourOrder: null
+})
+
+// 正在维修表：前端多字段排序
+const handleOngoingSortChange = ({ prop, order }) => {
+  if (prop === 'runKm') {
+    ongoingSortState.kmOrder = order || null
+  } else if (prop === 'runHour') {
+    ongoingSortState.hourOrder = order || null
+  } else {
+    return
+  }
+
+  // 两个排序条件都清空时，回到接口默认顺序
+  if (!ongoingSortState.kmOrder && !ongoingSortState.hourOrder) {
+    fetchOngoingRepairs()
+    return
+  }
+
+  ongoingTableData.value = sortByKmAndHour(
+    ongoingTableData.value,
+    ongoingSortState.kmOrder,
+    ongoingSortState.hourOrder
+  )
+}
+
 // 完成维修
 const handleCompleteRepair = (row) => {
   completeForm.carId = row.carId
@@ -781,6 +855,34 @@ const handleSizeChange = (val) => {
 const handleCurrentChange = (val) => {
   pagination.currentPage = val
   fetchRepairs()
+}
+
+// 历史维修表排序状态：分别记录公里和小时的排序方向
+const historySortState = reactive({
+  kmOrder: null,
+  hourOrder: null
+})
+
+// 历史维修表：前端多字段排序
+const handleHistorySortChange = ({ prop, order }) => {
+  if (prop === 'runKm') {
+    historySortState.kmOrder = order || null
+  } else if (prop === 'runHour') {
+    historySortState.hourOrder = order || null
+  } else {
+    return
+  }
+
+  if (!historySortState.kmOrder && !historySortState.hourOrder) {
+    fetchRepairs()
+    return
+  }
+
+  tableData.value = sortByKmAndHour(
+    tableData.value,
+    historySortState.kmOrder,
+    historySortState.hourOrder
+  )
 }
 
 // 编辑维修记录
