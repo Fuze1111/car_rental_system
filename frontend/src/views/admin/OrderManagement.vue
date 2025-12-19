@@ -62,6 +62,15 @@
             </template>
           </el-table-column>
 
+          <el-table-column label="司机" min-width="120">
+            <template #default="scope">
+              <template v-if="(scope.row.DriverName && scope.row.DriverName !== '') || (scope.row.DNo && scope.row.DNo !== '')">
+                <el-tag size="small" type="info">{{ displayDriver(scope.row) }}</el-tag>
+              </template>
+              <span v-else class="sub-text">自驾</span>
+            </template>
+          </el-table-column>
+
           <el-table-column label="借还时间" width="320">
             <template #default="scope">
               <div class="date-range">
