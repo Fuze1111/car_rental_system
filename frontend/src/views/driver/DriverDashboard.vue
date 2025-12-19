@@ -331,20 +331,15 @@ const completeTask = async (task) => {
       return
     }
     
-    // 调用后端API更新rental记录，设置还车日期为当前时间
-    await completeRental(task.taskNo, {
-      invoiceNo: task.taskNo,
-      returnDate: new Date().toISOString(),
-      returnPlace: task.endPlace || '未知地点'
-    })
-    
-    // 调用后端API更新司机状态为空闲
+    // 司机端“完成任务”仅影响司机自身状态，不再修改租赁记录，
+    // 避免与管理员的“还车结算”流程混淆。
     await updateDriverStatus(userInfo.userId, '空闲')
-    
-    // 重新加载司机信息和任务列表
+
+    // 重新加载司机信息与任务列表，以反映状态变化：
+    // 当状态变为"空闲"时，不再展示任何现有任务。
     await loadDriverInfo()
     await loadDriverTasks()
-    
+
     ElMessage.success('任务已完成，您的状态已更新为"空闲"')
   } catch (error) {
     if (error !== 'cancel') {
@@ -469,15 +464,14 @@ const loadDriverTasks = async () => {
     
     // 将后端数据转换为前端需要的格式
     const allTasks = rentals.map(rental => {
-      // 判断任务状态：如果还车日期为空或未到，则为执行中；否则为已完成
-      const now = new Date()
-      const returnDate = rental.returnDate ? new Date(rental.returnDate) : null
-      const isPending = !returnDate || returnDate > now
+      // 与订单管理保持一致：仅根据金额是否结算(amount 是否有值)判断订单是否已完成
+      const hasAmount = rental.amount != null && rental.amount !== 0
+      const status = hasAmount ? 'completed' : 'pending'
       
       return {
         id: rental.invoiceNo,
         taskNo: rental.invoiceNo,
-        status: isPending ? 'pending' : 'completed',
+        status,
         customerName: rental.customerName || '未知客户',
         customerPhone: rental.customerPhone || '无',
         carName: rental.carBrand && rental.carType ? `${rental.carBrand} ${rental.carType}` : (rental.carBrand || rental.carType || '未知车辆'),
@@ -488,11 +482,21 @@ const loadDriverTasks = async () => {
         endPlace: rental.returnPlace || '未知地点'
       }
     })
-    
-    // 将任务分为现有任务和历史任务
+
+    // 根据司机当前状态决定是否还展示现有任务：
+    // 只有当司机 dStatus 为 "在岗" 时，才显示进行中的任务；
+    // 若司机状态为 "空闲"，即使有未结算订单，也不再给该司机展示现有任务。
+    const driverInfo = await getDriverInfo(userInfo.userId)
+    const onDuty = driverInfo && driverInfo.dStatus === '在岗'
+
     tasks.value = allTasks
-    currentTasks.value = allTasks.filter(task => task.status === 'pending')
-    historyTasks.value = allTasks.filter(task => task.status === 'completed')
+    if (onDuty) {
+      currentTasks.value = allTasks.filter(task => task.status === 'pending')
+      historyTasks.value = allTasks.filter(task => task.status === 'completed')
+    } else {
+      currentTasks.value = []
+      historyTasks.value = allTasks
+    }
   } catch (error) {
     console.error('加载任务失败:', error)
     // 不显示错误提示，避免干扰用户
