@@ -397,54 +397,19 @@ const getImageForCarType = (typeName) => {
   return `/images/${fallbackBase}.jpg`
 }
 
-// 根据车型名称推断车辆信息
+// 根据车型名称构造前端展示信息
+// 后端录入的车型名称通常已经包含品牌信息，这里不再尝试拆分/解析品牌，
+// 直接使用完整的车型名称用于展示，避免出现“未知品牌”等误判。
 const getCarInfoFromTName = (tName) => {
-  const info = {
-    brand: '未知品牌',
-    model: tName || '未知型号',
+  const name = tName || '未知车型'
+  return {
+    // 在界面上使用 "brand + model" 展示，这里将 brand 直接设置为完整名称，model 留空
+    brand: name,
+    model: '',
     seats: 5,
     transmission: '自动',
     fuel: '汽油'
   }
-  
-  if (tName) {
-    // 从车型名称中提取品牌信息，并从型号中移除品牌名称
-    if (tName.includes('丰田')) {
-      info.brand = '丰田'
-      info.model = tName.replace('丰田', '').trim()
-    } else if (tName.includes('本田')) {
-      info.brand = '本田'
-      info.model = tName.replace('本田', '').trim()
-    } else if (tName.includes('奔驰')) {
-      info.brand = '奔驰'
-      info.model = tName.replace('奔驰', '').trim()
-    } else if (tName.includes('宝马')) {
-      info.brand = '宝马'
-      info.model = tName.replace('宝马', '').trim()
-    } else if (tName.includes('奥迪')) {
-      info.brand = '奥迪'
-      info.model = tName.replace('奥迪', '').trim()
-    } else if (tName.includes('大众')) {
-      info.brand = '大众'
-      info.model = tName.replace('大众', '').trim()
-    } else if (tName.includes('特斯拉')) {
-      info.brand = '特斯拉'
-      info.model = tName.replace('特斯拉', '').trim()
-    } else if (tName.includes('福特')) {
-      info.brand = '福特'
-      info.model = tName.replace('福特', '').trim()
-    }
-    
-    // 根据车型推断座位数
-    if (tName.includes('MPV') || tName.includes('商务车')) info.seats = 7
-    else if (tName.includes('跑车')) info.seats = 4
-    else if (tName.includes('SUV')) info.seats = 5
-    
-    // 根据车型推断燃油类型
-    if (tName.includes('电动') || tName.includes('新能源')) info.fuel = '电动'
-  }
-  
-  return info
 }
 
 // Load car types data from API (显示车型而不是所有车辆)
@@ -818,7 +783,23 @@ const submitOrder = async () => {
     console.error('提交订单失败:', error)
     console.error('错误响应数据:', error.response?.data)
     console.error('错误状态码:', error.response?.status)
-    ElMessage.error(error.response?.data?.message || '提交订单失败，请稍后重试')
+    const respData = error.response?.data || {}
+    const backendDetail = typeof respData.details === 'string' ? respData.details : ''
+    const backendMessage = typeof respData.message === 'string' ? respData.message : ''
+    // GlobalExceptionHandler 将所有 RuntimeException 包装为
+    // message = "操作失败"，details = 真实业务原因（例如“暂无空闲司机可分配”）
+    // 因此这里优先使用 details 作为用户可见文案来源
+    const effectiveMsg = backendDetail || backendMessage || error.message || ''
+    
+    // 针对“暂无空闲司机可分配”等场景给出更明确的提示
+    if (effectiveMsg.includes('暂无空闲司机可分配')) {
+      ElMessage.warning('当前暂无空闲司机可提供服务，请取消勾选“司机送车服务”或更换时间/门店后再试')
+    } else if (effectiveMsg.includes('司机状态不是空闲状态')) {
+      ElMessage.warning('当前选择的司机暂不可用，请稍后再试或选择自驾')
+    } else {
+      ElMessage.error(effectiveMsg || '提交订单失败，请稍后重试')
+    }
+    
     submitting.value = false
   }
 }

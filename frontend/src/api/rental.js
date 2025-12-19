@@ -52,7 +52,8 @@ export function createRental(data) {
   return request({
     url: '/rentals',
     method: 'post',
-    data
+    data,
+    quiet: true
   })
 }
 
