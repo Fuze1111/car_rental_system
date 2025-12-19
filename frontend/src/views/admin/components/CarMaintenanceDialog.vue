@@ -29,28 +29,7 @@
           style="width: 100%"
         />
       </el-form-item>
-
-      <el-form-item label="运行里程" prop="RunKM">
-        <el-input-number 
-          v-model="formData.RunKM" 
-          :step="100"
-          style="width: 100%"
-          controls-position="right"
-        >
-          <template #suffix>km</template>
-        </el-input-number>
-      </el-form-item>
-
-      <el-form-item label="运行时间" prop="RunHour">
-        <el-input-number 
-          v-model="formData.RunHour" 
-          :step="10"
-          style="width: 100%"
-          controls-position="right"
-        >
-          <template #suffix>h</template>
-        </el-input-number>
-      </el-form-item>
+      <!-- 运行里程和运行时间字段保留在 formData 中用于提交，但不再在弹窗中展示输入控件 -->
     </el-form>
 
     <template #footer>
@@ -95,36 +74,8 @@ const formData = reactive({
 const minRunKM = ref(0)
 const minRunHour = ref(0)
 
-// 自定义校验：运行里程必须大于等于当前车辆的运行里程
-const validateRunKM = (rule, value, callback) => {
-  if (value === null || value === undefined || value === '') {
-    return callback(new Error('请输入运行里程'))
-  }
-  if (Number(value) < minRunKM.value) {
-    return callback(new Error(`运行里程不能小于当前车辆里程（${minRunKM.value} km）`))
-  }
-  callback()
-}
-
-// 自定义校验：运行时间必须大于等于当前车辆的运行时间
-const validateRunHour = (rule, value, callback) => {
-  if (value === null || value === undefined || value === '') {
-    return callback(new Error('请输入运行时间'))
-  }
-  if (Number(value) < minRunHour.value) {
-    return callback(new Error(`运行时间不能小于当前车辆运行时间（${minRunHour.value} h）`))
-  }
-  callback()
-}
-
 const rules = reactive({
   RDate: [{ required: true, message: '请选择维修日期', trigger: 'change' }],
-  RunKM: [
-    { required: true, validator: validateRunKM, trigger: ['blur', 'change'] }
-  ],
-  RunHour: [
-    { required: true, validator: validateRunHour, trigger: ['blur', 'change'] }
-  ]
 })
 
 watch(
