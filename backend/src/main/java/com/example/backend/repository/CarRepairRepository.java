@@ -8,7 +8,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -20,11 +19,9 @@ import java.util.Optional;
 public interface CarRepairRepository extends JpaRepository<CarRepair, String> {
 
     /**
-     * 根据车辆号查询所有维修记录
-     * @param carId 车辆号
-     * @return 维修记录列表
+     * 根据车辆号查询所有维修记录，按维修编号倒序排列
      */
-    @Query("SELECT cr FROM CarRepair cr WHERE cr.carId = :carId ORDER BY cr.rDate DESC")
+    @Query("SELECT cr FROM CarRepair cr WHERE cr.carId = :carId ORDER BY cr.rNo DESC")
     List<CarRepair> findByCarIdOrderByRDateDesc(@Param("carId") String carId);
 
     /**
@@ -43,15 +40,11 @@ public interface CarRepairRepository extends JpaRepository<CarRepair, String> {
     long countByCarId(String carId);
 
     /**
-     * 根据过滤条件查询维修记录（分页）
-     * @param carId 车辆号
-     * @param start 开始时间
-     * @param end 结束时间
-     * @param pageable 分页信息
-     * @return 维修记录分页列表
+     * 根据过滤条件查询维修记录（分页），仅返回已完成的维修记录（rDate 非空），按维修编号倒序
      */
-    @Query("SELECT cr FROM CarRepair cr WHERE (:carId IS NULL OR LOWER(cr.carId) LIKE CONCAT('%', LOWER(:carId), '%')) AND " +
-           "(:start IS NULL OR cr.rDate >= :start) AND (:end IS NULL OR cr.rDate <= :end) ORDER BY cr.rDate DESC")
+    @Query("SELECT cr FROM CarRepair cr WHERE cr.rDate IS NOT NULL AND " +
+           "(:carId IS NULL OR LOWER(cr.carId) LIKE CONCAT('%', LOWER(:carId), '%')) AND " +
+           "(:start IS NULL OR cr.rDate >= :start) AND (:end IS NULL OR cr.rDate <= :end) ORDER BY cr.rNo DESC")
     Page<CarRepair> findByFilters(
             @Param("carId") String carId,
             @Param("start") java.time.LocalDateTime start,
@@ -60,14 +53,11 @@ public interface CarRepairRepository extends JpaRepository<CarRepair, String> {
     );
 
     /**
-     * 根据过滤条件查询维修记录（不分页）
-     * @param carId 车辆号
-     * @param start 开始时间
-     * @param end 结束时间
-     * @return 维修记录列表
+     * 根据过滤条件查询维修记录（不分页），仅返回已完成的维修记录（rDate 非空），按维修编号倒序
      */
-    @Query("SELECT cr FROM CarRepair cr WHERE (:carId IS NULL OR LOWER(cr.carId) LIKE CONCAT('%', LOWER(:carId), '%')) AND " +
-           "(:start IS NULL OR cr.rDate >= :start) AND (:end IS NULL OR cr.rDate <= :end) ORDER BY cr.rDate DESC")
+    @Query("SELECT cr FROM CarRepair cr WHERE cr.rDate IS NOT NULL AND " +
+           "(:carId IS NULL OR LOWER(cr.carId) LIKE CONCAT('%', LOWER(:carId), '%')) AND " +
+           "(:start IS NULL OR cr.rDate >= :start) AND (:end IS NULL OR cr.rDate <= :end) ORDER BY cr.rNo DESC")
     List<CarRepair> findByFilters(
             @Param("carId") String carId,
             @Param("start") java.time.LocalDateTime start,

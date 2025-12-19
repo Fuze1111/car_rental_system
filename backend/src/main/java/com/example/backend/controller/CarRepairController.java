@@ -9,6 +9,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 /**
  * 车辆维修记录控制器
@@ -56,8 +59,14 @@ public class CarRepairController {
                     carRepairService.getRepairsByFilters(carId, start, end, null).getContent();
             return ResponseEntity.ok(repairs);
         } else {
-            org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size, org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "rDate"));
-            org.springframework.data.domain.Page<com.example.backend.dto.CarRepairResponseDTO> repairPage = carRepairService.getRepairsByFilters(carId, start, end, pageable);
+            // 默认按维修编号 RNo 降序排序
+            org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(
+                    page,
+                    size,
+                    org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "rNo")
+            );
+            org.springframework.data.domain.Page<com.example.backend.dto.CarRepairResponseDTO> repairPage =
+                    carRepairService.getRepairsByFilters(carId, start, end, pageable);
             return ResponseEntity.ok(repairPage);
         }
     }
@@ -142,14 +151,28 @@ public class CarRepairController {
      * 完成指定车辆的维修（填入维修完成时间并恢复车辆为可租状态）
      * POST /api/repairs/car/{carId}/complete
      * @param carId 车辆号
-     * @param repairRequestDTO 包含完成时间的请求体
+     * @param payload 包含完成时间的请求体
      * @return 更新后的维修记录
      */
     @PostMapping("/car/{carId}/complete")
     public ResponseEntity<CarRepairResponseDTO> completeRepair(
             @PathVariable String carId,
-            @RequestBody CarRepairRequestDTO repairRequestDTO) {
-        CarRepairResponseDTO dto = carRepairService.completeRepair(carId, repairRequestDTO.getRDate());
+            @RequestBody Map<String, Object> payload) {
+        // 尝试从请求体中解析 rDate 字段（前端以 "yyyy-MM-dd HH:mm:ss" 发送）
+        LocalDateTime parsed = null;
+        try {
+            Object raw = payload.get("rDate");
+            if (raw != null) {
+                String s = raw.toString();
+                DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                parsed = LocalDateTime.parse(s, fmt);
+            }
+        } catch (Exception ex) {
+            // 如果解析失败，抛出 400 错误
+            return ResponseEntity.badRequest().build();
+        }
+
+        CarRepairResponseDTO dto = carRepairService.completeRepair(carId, parsed);
         return ResponseEntity.ok(dto);
     }
 }

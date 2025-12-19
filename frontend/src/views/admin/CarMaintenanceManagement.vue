@@ -368,7 +368,8 @@ import {
   updateRepair, 
   deleteRepair,
   getRepairsByCarId,
-  completeRepair
+  completeRepair,
+  getCarById
 } from '@/api/car'
 
 // 标签页
@@ -503,12 +504,65 @@ const repairFormData = reactive({
   runHour: 0
 })
 
-// 表单验证规则
+// 最小里程/小时（从车辆信息读取）
+const minRepairRunKm = ref(0)
+const minRepairRunHour = ref(0)
+
+// 当 carId 变化时，尝试从后端获取车辆当前数据以用于最小值校验
+const fetchCarMinValues = async (carId) => {
+  if (!carId) {
+    minRepairRunKm.value = 0
+    minRepairRunHour.value = 0
+    return
+  }
+  try {
+    const car = await getCarById(carId)
+    // 兼容不同字段命名
+    minRepairRunKm.value = Number(car.runKm || car.RUNKM || car.RunKM || 0)
+    minRepairRunHour.value = Number(car.runHour || car.RunHour || 0)
+  } catch (err) {
+    // 如果未找到车辆或请求失败，保守设置为 0
+    minRepairRunKm.value = 0
+    minRepairRunHour.value = 0
+  }
+}
+
+// 监听 carId 的变化以更新最小值（输入框改变或者编辑时）
+import { watch } from 'vue'
+watch(() => repairFormData.carId, (val) => {
+  if (val) fetchCarMinValues(val)
+  else {
+    minRepairRunKm.value = 0
+    minRepairRunHour.value = 0
+  }
+})
+
+// 表单验证规则（替换为自定义 validator，以展示 inline 错误而不是硬改值）
+const validateRepairRunKm = (rule, value, callback) => {
+  if (value === null || value === undefined || value === '') {
+    return callback(new Error('请输入运行公里数'))
+  }
+  if (Number(value) < minRepairRunKm.value) {
+    return callback(new Error(`运行公里不能小于当前车辆里程（${minRepairRunKm.value} km）`))
+  }
+  callback()
+}
+
+const validateRepairRunHour = (rule, value, callback) => {
+  if (value === null || value === undefined || value === '') {
+    return callback(new Error('请输入运行小时数'))
+  }
+  if (Number(value) < minRepairRunHour.value) {
+    return callback(new Error(`运行小时不能小于当前车辆运行小时（${minRepairRunHour.value} h）`))
+  }
+  callback()
+}
+
 const repairRules = {
   carId: [{ required: true, message: '请输入车牌号', trigger: 'blur' }],
   rDate: [{ required: true, message: '请选择维修日期', trigger: 'change' }],
-  runKm: [{ required: true, message: '请输入运行公里数', trigger: 'blur' }],
-  runHour: [{ required: true, message: '请输入运行小时数', trigger: 'blur' }]
+  runKm: [ { required: true, validator: validateRepairRunKm, trigger: ['blur','change'] } ],
+  runHour: [ { required: true, validator: validateRepairRunHour, trigger: ['blur','change'] } ]
 }
 
 // 日期格式化
@@ -729,14 +783,6 @@ const handleCurrentChange = (val) => {
   fetchRepairs()
 }
 
-// 新增维修记录
-const handleAdd = () => {
-  isEdit.value = false
-  currentEditId.value = null
-  resetRepairForm()
-  dialogVisible.value = true
-}
-
 // 编辑维修记录
 const handleEdit = async (row) => {
   isEdit.value = true
@@ -746,31 +792,20 @@ const handleEdit = async (row) => {
   repairFormData.rDate = row.rDate
   repairFormData.runKm = row.runKm
   repairFormData.runHour = row.runHour
+  // 更新最小值（不自动修改用户输入）
+  fetchCarMinValues(row.carId)
   dialogVisible.value = true
 }
 
-// 删除维修记录
-const handleDelete = (row) => {
-  ElMessageBox.confirm(
-    `确定要删除维修记录 #${row.rNo} 吗？此操作不可恢复！`,
-    '删除确认',
-    {
-      confirmButtonText: '删除',
-      cancelButtonText: '取消',
-      type: 'warning'
-    }
-  ).then(async () => {
-    try {
-      await deleteRepair(row.rNo)
-      ElMessage.success('删除成功')
-      fetchRepairs()
-    } catch (error) {
-      console.error('删除失败:', error)
-      ElMessage.error('删除失败')
-    }
-  }).catch(() => {
-    // 用户取消删除
-  })
+// 新增维修记录
+const handleAdd = () => {
+  isEdit.value = false
+  currentEditId.value = null
+  resetRepairForm()
+  // ensure min values reset
+  minRepairRunKm.value = 0
+  minRepairRunHour.value = 0
+  dialogVisible.value = true
 }
 
 // 提交表单
@@ -798,7 +833,7 @@ const handleSubmit = async () => {
           await createRepair(repairData)
           ElMessage.success('维修记录创建成功')
         }
-        
+
         // 关闭对话框并刷新数据
         handleDialogClose()
         fetchRepairs()

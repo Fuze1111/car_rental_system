@@ -19,6 +19,17 @@
         <el-input v-model="formData.CarID" disabled />
       </el-form-item>
 
+      <el-form-item label="维修日期" prop="RDate">
+        <el-date-picker
+          v-model="formData.RDate"
+          type="date"
+          placeholder="选择日期"
+          format="YYYY-MM-DD"
+          value-format="YYYY-MM-DD"
+          style="width: 100%"
+        />
+      </el-form-item>
+
       <el-form-item label="运行里程" prop="RunKM">
         <el-input-number 
           v-model="formData.RunKM" 
@@ -75,6 +86,7 @@ const loading = ref(false)
 
 const formData = reactive({
   CarID: '',
+  RDate: new Date().toISOString().split('T')[0],
   RunKM: 0,
   RunHour: 0
 })
@@ -106,6 +118,7 @@ const validateRunHour = (rule, value, callback) => {
 }
 
 const rules = reactive({
+  RDate: [{ required: true, message: '请选择维修日期', trigger: 'change' }],
   RunKM: [
     { required: true, validator: validateRunKM, trigger: ['blur', 'change'] }
   ],
@@ -126,6 +139,8 @@ watch(
       // 默认填充值为当前里程/时间，方便直接送修
       formData.RunKM = minRunKM.value
       formData.RunHour = minRunHour.value
+      // 如果车数据包含最近维修日期，可以设置默认 RDate 为今天
+      formData.RDate = new Date().toISOString().split('T')[0]
     }
   },
   { immediate: true }
@@ -142,6 +157,7 @@ const handleSubmit = async () => {
     if (valid) {
       // 二次校验，确保数据逻辑正确
       if (formData.RunKM < minRunKM.value) {
+        // 不强制改写输入值，只提示错误（inline validator also shows message）
         ElMessage.error(`运行里程不能小于当前车辆里程（${minRunKM.value} km）`)
         return
       }
@@ -152,6 +168,7 @@ const handleSubmit = async () => {
 
       loading.value = true
       try {
+        // emit 到父组件；父组件负责调用 API
         emit('submit', { ...formData })
         handleClose()
       } catch (error) {
