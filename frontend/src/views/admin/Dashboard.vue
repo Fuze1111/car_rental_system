@@ -12,11 +12,6 @@
             </div>
           </div>
           <p class="quote">“ {{ greetingText }} ”</p>
-          <div class="weather-brief">
-            <span class="brief-item"><el-icon><Monitor /></el-icon> 监控中</span>
-            <span class="divider">|</span>
-            <span class="brief-item"><el-icon><Bell /></el-icon> 无新告警</span>
-          </div>
         </div>
         
         <div class="center-panel">
