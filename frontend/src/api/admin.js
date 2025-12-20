@@ -115,3 +115,16 @@ export const changeAdminPassword = (data) => {
     data
   })
 }
+
+/**
+ * 管理员修改用户名
+ * @param {Object} data - 修改用户名数据 { userId, newUsername }
+ * @returns {Promise}
+ */
+export const changeAdminUsername = (data) => {
+  return request({
+    url: '/auth/change-username/admin',
+    method: 'post',
+    data
+  })
+}

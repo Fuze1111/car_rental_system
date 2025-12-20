@@ -105,8 +105,8 @@ import { ref, reactive, onMounted } from 'vue'
 import { User, InfoFilled, Check, Van } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
-import { changeAdminPassword } from '@/api/admin'
-import { getUserInfo, clearAuth } from '@/utils/auth'
+import { changeAdminPassword, changeAdminUsername } from '@/api/admin'
+import { getUserInfo, clearAuth, setUserInfo } from '@/utils/auth'
 
 const route = useRoute()
 const router = useRouter()
@@ -131,56 +131,66 @@ const loadAdminInfo = () => {
 }
 
 const handleSaveAll = async () => {
-  // 验证密码修改
-  if (accountForm.currentPassword && accountForm.newPassword) {
-    await handlePasswordChange()
-  } else if (accountForm.currentPassword || accountForm.newPassword) {
-    ElMessage.warning('请同时填写当前密码和新密码')
-    return
-  }
-  
-  // 这里只处理账户相关设置保存
-  saving.value = true
-  setTimeout(() => {
-    saving.value = false
-    ElMessage.success('账户设置已成功保存')
-  }, 500)
-}
+  // 如果用户名有变更，先尝试保存用户名
+  const userInfo = getUserInfo()
+  const originalUsername = userInfo?.userName || 'admin'
+  const hasUsernameChanged = accountForm.username && accountForm.username !== originalUsername
 
-const handlePasswordChange = async () => {
-  if (!accountForm.currentPassword) {
-    ElMessage.warning('请输入当前密码')
-    return
-  }
-  
-  if (!accountForm.newPassword) {
-    ElMessage.warning('请输入新密码')
-    return
-  }
-  
-  if (accountForm.newPassword.length < 6) {
-    ElMessage.warning('新密码长度至少6位')
-    return
-  }
-  
-  passwordChanging.value = true
+  saving.value = true
+
   try {
-    await changeAdminPassword({
-      userId: accountForm.adminId,
-      currentPassword: accountForm.currentPassword,
-      newPassword: accountForm.newPassword
-    })
-    
-    ElMessage.success('密码修改成功')
-    
-    // 清空密码输入框
-    accountForm.currentPassword = ''
-    accountForm.newPassword = ''
+    // 1. 用户名修改（如果有变化）
+    if (hasUsernameChanged) {
+      await changeAdminUsername({
+        userId: accountForm.adminId,
+        newUsername: accountForm.username
+      })
+
+      if (userInfo) {
+        const newUserInfo = { ...userInfo, userName: accountForm.username }
+        setUserInfo(newUserInfo)
+      }
+    }
+
+    // 2. 密码修改：统一在这里做校验和调用
+    if (accountForm.currentPassword || accountForm.newPassword) {
+      // 只要填了任意一个，就要求两个都填
+      if (!accountForm.currentPassword || !accountForm.newPassword) {
+        ElMessage.warning('请同时填写当前密码和新密码')
+        return
+      }
+
+      // 与 handlePasswordChange 中保持同样的前端校验
+      if (accountForm.newPassword.length < 6) {
+        ElMessage.warning('新密码长度至少6位')
+        return
+      }
+
+      // 新旧密码相同的情况，直接在前端拦截，不再请求后端
+      if (accountForm.currentPassword === accountForm.newPassword) {
+        ElMessage.error('新密码不能与当前密码相同')
+        return
+      }
+
+      await changeAdminPassword({
+        userId: accountForm.adminId,
+        currentPassword: accountForm.currentPassword,
+        newPassword: accountForm.newPassword
+      })
+
+      ElMessage.success('密码修改成功')
+
+      accountForm.currentPassword = ''
+      accountForm.newPassword = ''
+    }
+
+    // 所有上面的操作都成功后，再给出总的成功提示
+    ElMessage.success('账户设置已成功保存')
   } catch (error) {
-    console.error('修改密码失败:', error)
-    ElMessage.error(error.response?.data?.message || '修改密码失败')
+    console.error('保存账户设置失败:', error)
+    ElMessage.error(error.response?.data?.message || '保存账户设置失败')
   } finally {
-    passwordChanging.value = false
+    saving.value = false
   }
 }
 

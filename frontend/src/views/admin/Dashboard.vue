@@ -7,7 +7,7 @@
           <div class="user-greeting">
             <el-avatar :size="48" src="https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png" class="avatar-shadow" />
             <div class="greeting-text">
-              <h2>{{ timeGreeting }}，<span class="user-name">Admin</span></h2>
+              <h2>{{ timeGreeting }}，<span class="user-name">{{ adminName }}</span></h2>
               <el-tag type="success" size="small" effect="light" round class="status-tag">系统运行正常</el-tag>
             </div>
           </div>
@@ -341,10 +341,18 @@ import { getCarStatistics as apiGetCarStatistics, getRepairs as apiGetRepairs } 
 import { getRentalStatistics, calculateRevenue, getRentalsByDateRange, getRentals, getRentalTrend, exportFinancialReport, exportCarInventoryReport, exportCarTypeReport } from '@/api/rental'
 import { getCustomerStatistics } from '@/api/admin'
 import { getDriverStatistics as apiGetDriverStatistics } from '@/api/driver'
+import { getUserInfo } from '@/utils/auth'
 
 const router = useRouter()
 const currentTime = ref(new Date())
 let timer = null
+
+// 从本地登录信息获取管理员用户名
+const adminName = computed(() => {
+  const info = getUserInfo()
+  // 后端 LoginResponse 中 admin 使用 username 字段，前端存为 userName
+  return info?.userName || info?.username || 'Admin'
+})
 
 // UI dialogs and controls (were referenced in template)
 const reportDialogVisible = ref(false)

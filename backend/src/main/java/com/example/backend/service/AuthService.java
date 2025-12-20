@@ -315,4 +315,35 @@ public class AuthService {
         return "密码修改成功";
     }
 
+    /**
+     * 修改管理员用户名
+     * @param adminId 管理员ID（AdminID）
+     * @param newUsername 新用户名
+     */
+    @Transactional
+    public void changeAdminUsername(String adminId, String newUsername) {
+        if (adminId == null || adminId.trim().isEmpty()) {
+            throw new IllegalArgumentException("管理员ID不能为空");
+        }
+        if (newUsername == null || newUsername.trim().isEmpty()) {
+            throw new IllegalArgumentException("用户名不能为空");
+        }
+
+        String trimmedId = adminId.trim();
+        String trimmedUsername = newUsername.trim();
+
+        // 检查新用户名是否已存在（排除自己）
+        adminLoginRepository.findByUsername(trimmedUsername).ifPresent(existing -> {
+            if (!trimmedId.equals(existing.getAdminId())) {
+                throw new IllegalArgumentException("用户名已存在，请更换其他用户名");
+            }
+        });
+
+        AdminLogin adminLogin = adminLoginRepository.findById(trimmedId)
+                .orElseThrow(() -> new IllegalArgumentException("管理员不存在: " + trimmedId));
+
+        adminLogin.setUsername(trimmedUsername);
+        adminLoginRepository.save(adminLogin);
+    }
+
 }
