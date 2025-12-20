@@ -41,14 +41,16 @@
           <el-form-item label="购入价格" prop="Price">
             <el-input-number 
               v-model="formData.Price" 
-              :min="0" 
-              :step="1000" 
+              :min="0"
+              :step="1000"
               style="width: 100%"
               controls-position="right"
               class="custom-input-number"
             >
               <template #prefix>¥</template>
             </el-input-number>
+            <!-- 自定义错误提示，小红字显示在价格输入框附近 -->
+            <div v-if="priceError" class="field-error-text">{{ priceError }}</div>
           </el-form-item>
         </el-col>
       </el-row>
@@ -60,6 +62,7 @@
           placeholder="选择日期"
           format="YYYY-MM-DD"
           value-format="YYYY-MM-DD"
+          :disabled-date="disableFutureDate"
           style="width: 100%"
           class="custom-date-picker"
         />
@@ -137,6 +140,8 @@ const formRef = ref(null)
 const loading = ref(false)
 const isEdit = ref(false)
 const carTypes = ref([])
+// 购入价格错误提示文案
+const priceError = ref('')
 
 const formData = reactive({
   CarID: '',
@@ -149,9 +154,33 @@ const formData = reactive({
   CarStatus: '0'
 })
 
+// 禁止选择今天之后的日期（只能选择今天及之前）
+const disableFutureDate = (time) => {
+  if (!time) return false
+  const today = new Date()
+  // 只允许选择今天及之前：把今天归零到 00:00，再禁止 >= 明天 00:00 的所有日期
+  const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1)
+  return time.getTime() >= tomorrow.getTime()
+}
+
 const rules = {
   CarID: [{ required: true, message: '请输入车牌号', trigger: 'blur' }],
   TNo: [{ required: true, message: '请选择车型', trigger: 'change' }],
+  Price: [
+    { required: true, message: '请输入购入价格', trigger: 'blur' },
+    {
+      validator: (rule, value, callback) => {
+        const num = Number(value)
+        if (!Number.isFinite(num) || num <= 0) {
+          priceError.value = '购入价格必须大于 0'
+          return callback(new Error('购入价格必须大于 0'))
+        }
+        priceError.value = ''
+        return callback()
+      },
+      trigger: ['blur', 'change']
+    }
+  ],
   CarStatus: [{ required: true, message: '请选择状态', trigger: 'change' }]
 }
 
@@ -198,6 +227,7 @@ const resetForm = () => {
   formData.RUNKM = 0
   formData.RunHour = 0
   formData.CarStatus = '0'
+  priceError.value = ''
 }
 
 // 监听编辑数据变化，回填表单
@@ -304,6 +334,13 @@ const handleSubmit = async () => {
     font-weight: 600;
     color: #475569;
   }
+}
+
+/* 购入价格下方的小红字错误提示样式 */
+.field-error-text {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #f56c6c;
 }
 
 .custom-input,

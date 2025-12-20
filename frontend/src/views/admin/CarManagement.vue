@@ -21,10 +21,10 @@
                 </el-option>
               </el-select>
             </el-form-item>
-            <el-form-item label="价格范围">
-               <el-input-number v-model="searchForm.minPrice" :min="0" :controls="false" placeholder="Min" style="width: 100px" />
+            <el-form-item label="租金范围">
+               <el-input-number v-model="searchForm.minPrice" :min="0" :controls="false" placeholder="最低租金" style="width: 100px" />
                <span style="margin: 0 4px">-</span>
-               <el-input-number v-model="searchForm.maxPrice" :min="0" :controls="false" placeholder="Max" style="width: 100px" />
+               <el-input-number v-model="searchForm.maxPrice" :min="0" :controls="false" placeholder="最高租金" style="width: 100px" />
             </el-form-item>
             <el-form-item>
               <el-select v-model="searchForm.CarStatus" placeholder="车辆状态" clearable style="width: 140px">
@@ -831,7 +831,7 @@ const fetchCarTypes = async () => {
     const start = (page - 1) * size
     const pageSlice = filtered.slice(start, start + size)
   
-    // 根据当前排序状态对当前页数据做前端排序（小时租金为主键，车型名称为次键）
+    // 根据当前排序状态对当前页数据做前端排序（小时租金为主键，车型名称为次关键字）
     let sortedSlice = [...pageSlice]
     if (typeSortState.rentOrder) {
       const factor = typeSortState.rentOrder === 'descending' ? -1 : 1
