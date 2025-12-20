@@ -288,10 +288,10 @@
         </el-form-item>
         <el-form-item label="基本工资" prop="salary">
           <el-input-number 
-            v-model="addDriverForm.salary" 
-            :min="0" 
-            :step="100" 
-            style="width: 100%" 
+            v-model="addDriverForm.salary"
+            :min="0"
+            :step="100"
+            style="width:100%"
             controls-position="right"
             placeholder="请输入基本工资"
           />
@@ -301,8 +301,9 @@
             v-model="addDriverForm.startWork"
             type="date"
             placeholder="选择入职时间"
-            style="width: 100%"
+            style="width:100%"
             value-format="YYYY-MM-DD"
+            :disabled-date="time => { const today = new Date(); const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1); return time.getTime() >= tomorrow.getTime(); }"
           />
         </el-form-item>
         <el-form-item label="状态" prop="dStatus">
@@ -377,7 +378,19 @@ const addDriverRules = {
     { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号', trigger: 'blur' }
   ],
   licenseType: [{ required: true, message: '请选择准驾车型', trigger: 'change' }],
-  salary: [{ required: true, message: '请输入基本工资', trigger: 'blur' }],
+  salary: [
+    { required: true, message: '请输入基本工资', trigger: 'blur' },
+    {
+      validator: (rule, value, callback) => {
+        const num = Number(value)
+        if (!Number.isFinite(num) || num <= 0) {
+          return callback(new Error('基本工资必须大于 0'))
+        }
+        return callback()
+      },
+      trigger: ['blur', 'change']
+    }
+  ],
   dStatus: [{ required: true, message: '请选择状态', trigger: 'change' }]
 }
 

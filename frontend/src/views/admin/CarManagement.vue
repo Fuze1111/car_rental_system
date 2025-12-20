@@ -1031,14 +1031,17 @@ const handleTypeSubmit = () => {
         imagePath: typeFormData.ImagePath || null
       }
       if (isTypeEdit.value) {
-        await updateCarType(typeFormData.TNo, payload)
+        // 更新车型：需要同时传入类型编号和名称作为路径参数
+        await updateCarType(typeFormData.TNo, typeFormData.TName, payload)
         ElMessage.success('车型更新成功')
       } else {
         await createCarType(payload)
         ElMessage.success('车型创建成功')
       }
       typeDialogVisible.value = false
+      // 刷新车型列表，并同步刷新车辆列表以反映最新租金
       await fetchCarTypes()
+      await fetchCars()
     } catch (error) {
       console.error('保存车型失败:', error)
       const resp = error?.response
