@@ -11,25 +11,14 @@
     <el-form 
       ref="formRef"
       :model="formData"
-      :rules="rules"
       label-width="100px"
       class="maintenance-form"
     >
       <el-form-item label="车牌号">
         <el-input v-model="formData.CarID" disabled />
       </el-form-item>
-
-      <el-form-item label="维修日期" prop="RDate">
-        <el-date-picker
-          v-model="formData.RDate"
-          type="date"
-          placeholder="选择日期"
-          format="YYYY-MM-DD"
-          value-format="YYYY-MM-DD"
-          style="width: 100%"
-        />
-      </el-form-item>
-      <!-- 运行里程和运行时间字段保留在 formData 中用于提交，但不再在弹窗中展示输入控件 -->
+      <!-- 维修日期输入框已移除，日期在脚本中自动设置为当前日期并随表单提交 -->
+      <!-- 运行里程和运行时间字段保留在 formData 中用于提交，但不在弹窗中展示输入控件 -->
     </el-form>
 
     <template #footer>
@@ -74,10 +63,6 @@ const formData = reactive({
 const minRunKM = ref(0)
 const minRunHour = ref(0)
 
-const rules = reactive({
-  RDate: [{ required: true, message: '请选择维修日期', trigger: 'change' }],
-})
-
 watch(
   () => props.carData,
   (newVal) => {
@@ -90,7 +75,7 @@ watch(
       // 默认填充值为当前里程/时间，方便直接送修
       formData.RunKM = minRunKM.value
       formData.RunHour = minRunHour.value
-      // 如果车数据包含最近维修日期，可以设置默认 RDate 为今天
+      // 每次打开弹窗时，将维修日期重置为当天
       formData.RDate = new Date().toISOString().split('T')[0]
     }
   },
@@ -102,33 +87,27 @@ const handleClose = () => {
 }
 
 const handleSubmit = async () => {
-  if (!formRef.value) return
-  
-  await formRef.value.validate((valid) => {
-    if (valid) {
-      // 二次校验，确保数据逻辑正确
-      if (formData.RunKM < minRunKM.value) {
-        // 不强制改写输入值，只提示错误（inline validator also shows message）
-        ElMessage.error(`运行里程不能小于当前车辆里程（${minRunKM.value} km）`)
-        return
-      }
-      if (formData.RunHour < minRunHour.value) {
-        ElMessage.error(`运行时间不能小于当前车辆运行时间（${minRunHour.value} h）`)
-        return
-      }
+  // 不再依赖 Element Plus 表单校验，直接进行业务校验
+  // 二次校验，确保数据逻辑正确
+  if (formData.RunKM < minRunKM.value) {
+    ElMessage.error(`运行里程不能小于当前车辆里程（${minRunKM.value} km）`)
+    return
+  }
+  if (formData.RunHour < minRunHour.value) {
+    ElMessage.error(`运行时间不能小于当前车辆运行时间（${minRunHour.value} h）`)
+    return
+  }
 
-      loading.value = true
-      try {
-        // emit 到父组件；父组件负责调用 API
-        emit('submit', { ...formData })
-        handleClose()
-      } catch (error) {
-        console.error('提交失败:', error)
-      } finally {
-        loading.value = false
-      }
-    }
-  })
+  loading.value = true
+  try {
+    // emit 到父组件；父组件负责调用 API
+    emit('submit', { ...formData })
+    handleClose()
+  } catch (error) {
+    console.error('提交失败:', error)
+  } finally {
+    loading.value = false
+  }
 }
 </script>
 

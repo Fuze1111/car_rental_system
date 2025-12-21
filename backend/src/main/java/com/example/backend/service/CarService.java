@@ -246,7 +246,32 @@ public class CarService {
      * @return 车辆列表
      */
     public List<CarResponseDTO> searchCars(String carStatus, String tNo, String tName) {
-        List<Car> cars = carRepository.findByMultipleConditions(carStatus, tNo, tName);
+        return searchCars(carStatus, tNo, tName, null, null, null);
+    }
+
+    /**
+     * 多条件查询车辆（状态、车型、车牌模糊、租金范围）
+     */
+    public List<CarResponseDTO> searchCars(String carStatus,
+                                           String tNo,
+                                           String tName,
+                                           String carId,
+                                           BigDecimal minRent,
+                                           BigDecimal maxRent) {
+        // 处理空字符串为 null，避免 JPQL 将 "" 当作有效值
+        if (carStatus != null && carStatus.trim().isEmpty()) carStatus = null;
+        if (tNo != null && tNo.trim().isEmpty()) tNo = null;
+        if (tName != null && tName.trim().isEmpty()) tName = null;
+        if (carId != null && carId.trim().isEmpty()) carId = null;
+
+        // 处理价格区间：若最小值大于最大值则交换，避免查询不到数据
+        if (minRent != null && maxRent != null && minRent.compareTo(maxRent) > 0) {
+            BigDecimal tmp = minRent;
+            minRent = maxRent;
+            maxRent = tmp;
+        }
+
+        List<Car> cars = carRepository.findByFilters(carStatus, tNo, tName, carId, minRent, maxRent);
         return cars.stream()
                 .map(this::convertToResponseDTO)
                 .collect(Collectors.toList());
@@ -321,11 +346,12 @@ public class CarService {
      */
     public Page<CarResponseDTO> getCarsByFilters(String carStatus, String tNo, String tName, BigDecimal minRent, BigDecimal maxRent, Pageable pageable) {
         if (pageable == null) {
-            List<Car> cars = carRepository.findByFilters(carStatus, tNo, tName, minRent, maxRent);
+            // 这里不按车牌过滤，carId 传 null，保持与原语义一致
+            List<Car> cars = carRepository.findByFilters(carStatus, tNo, tName, null, minRent, maxRent);
             List<CarResponseDTO> dtos = cars.stream().map(this::convertToResponseDTO).collect(Collectors.toList());
             return new PageImpl<>(dtos);
         }
-        Page<Car> carPage = carRepository.findByFilters(carStatus, tNo, tName, minRent, maxRent, pageable);
+        Page<Car> carPage = carRepository.findByFilters(carStatus, tNo, tName, null, minRent, maxRent, pageable);
         List<CarResponseDTO> carDTOs = carPage.getContent().stream().map(this::convertToResponseDTO).collect(Collectors.toList());
         return new PageImpl<>(carDTOs, pageable, carPage.getTotalElements());
     }
@@ -388,4 +414,3 @@ public class CarService {
         return car;
     }
 }
-

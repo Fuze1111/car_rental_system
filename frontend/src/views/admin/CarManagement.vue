@@ -362,17 +362,32 @@ import { ref, reactive, defineAsyncComponent, onMounted, computed } from 'vue'
 import { Search, Refresh, Plus, Edit, Delete, Tools } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { 
-  getCars, 
-  createCar, 
-  updateCar, 
-  deleteCar, 
-  createRepair,
+  getCars,
+  searchCars,
+  getAllCars,
+  getCarById,
+  createCar,
+  updateCar,
+  deleteCar,
+  getCarsByStatus,
+  getCarsByType,
+  searchCarsByCarId,
   updateCarStatus,
+  getCarStatistics,
+  getCarTypes,
   getCarTypesAdmin,
   createCarType,
+  uploadCarTypeImage,
   updateCarType,
   deleteCarType,
-  uploadCarTypeImage
+  getRepairs,
+  getRepairById,
+  getRepairsByCarId,
+  createRepair,
+  updateRepair,
+  deleteRepair,
+  getRepairCountByCarId,
+  completeRepair
 } from '@/api/car'
 import request from '@/api/request'
 
@@ -724,23 +739,21 @@ const fetchCars = async () => {
   loading.value = true
   try {
     const params = {
-      page: pagination.currentPage - 1, // 后端从0开始分页
-      size: pagination.pageSize,
-      // 可以添加其他查询参数
+      // 多条件查询目前由后端一次性返回 List，不强制要求分页参数，但保留 page/size 便于后续扩展
+      page: pagination.currentPage - 1,
+      size: pagination.pageSize
     }
-    
-    // 添加搜索条件
+
+    // 添加搜索条件（全部可选，多条件组合）
     if (searchForm.CarID) {
       params.carId = searchForm.CarID
     }
     if (searchForm.TName) {
-      // 前端选择的是车型名称（tName），后端 controller 支持 tName 和 tNo
       params.tName = searchForm.TName
     }
     if (searchForm.CarStatus) {
       params.carStatus = searchForm.CarStatus
     }
-    // 将前端的价格范围（minPrice/maxPrice）映射为后端的租金率过滤参数（minRent/maxRent）
     if (searchForm.minPrice !== undefined && searchForm.minPrice !== null && searchForm.minPrice !== '') {
       params.minRent = Number(searchForm.minPrice)
     }
@@ -748,8 +761,9 @@ const fetchCars = async () => {
       params.maxRent = Number(searchForm.maxPrice)
     }
 
-    const response = await getCars(params)
-    // 兼容后端返回 Page 对象或直接 List
+    // 改为调用后端多条件查询接口，确保所有条件组合生效
+    const response = await searchCars(params)
+
     let content = []
     let totalElements = 0
     if (response && response.content !== undefined) {
@@ -759,25 +773,23 @@ const fetchCars = async () => {
       content = response
       totalElements = response.length
     } else if (response) {
-      // sometimes axios wrapper returns data directly; try to read common keys
       content = response || []
       totalElements = (response && response.length) || 0
     }
 
-    // 转换数据格式以适配前端显示（注意后端返回的是小写字段名）
     tableData.value = content.map(car => ({
       CarID: car.carId || car.CarID || car.carID,
-      TNo: car.tNo || car.tNo || car.tno || car.TNo || car.TNO,
+      TNo: car.tNo || car.tno || car.TNo || car.TNO,
       TName: car.tName || car.tname || car.TName || '',
       RentRate: car.rentRate || car.RentRate || 0,
       CarStatus: car.carStatus || car.CarStatus || '0',
       PurchaseDate: car.purchaseDate || car.PurchaseDate || '',
       Price: car.price || car.Price || 0,
       LastRepairDate: car.lastRepairDate || car.LastRepairDate || null,
-      RUNKM: car.runKm || car.RUNKM || car.runKm || 0,
+      RUNKM: car.runKm || car.RUNKM || 0,
       RunHour: car.runHour || car.RunHour || 0
     }))
-    
+
     pagination.total = totalElements
   } catch (error) {
     console.error('获取车辆列表失败:', error)

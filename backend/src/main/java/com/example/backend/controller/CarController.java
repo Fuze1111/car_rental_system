@@ -172,19 +172,18 @@ public class CarController {
     }
 
     /**
-     * 多条件查询车辆
-     * GET /api/cars/search?carStatus=xxx&tNo=xxx&tName=xxx
-     * @param carStatus 车辆状态（可选）
-     * @param tNo 车型编号（可选）
-     * @param tName 车型名称（可选）
-     * @return 车辆列表
+     * 多条件查询车辆（兼容旧参数 carStatus、tNo、tName，同时支持 carId、minRent、maxRent）
+     * GET /api/cars/search?carStatus=xxx&tNo=xxx&tName=xxx&carId=xxx&minRent=100&maxRent=500
      */
     @GetMapping("/search")
     public ResponseEntity<List<CarResponseDTO>> searchCars(
             @RequestParam(required = false) String carStatus,
             @RequestParam(required = false) String tNo,
-            @RequestParam(required = false) String tName) {
-        List<CarResponseDTO> cars = carService.searchCars(carStatus, tNo, tName);
+            @RequestParam(required = false) String tName,
+            @RequestParam(required = false) String carId,
+            @RequestParam(required = false) BigDecimal minRent,
+            @RequestParam(required = false) BigDecimal maxRent) {
+        List<CarResponseDTO> cars = carService.searchCars(carStatus, tNo, tName, carId, minRent, maxRent);
         return ResponseEntity.ok(cars);
     }
 

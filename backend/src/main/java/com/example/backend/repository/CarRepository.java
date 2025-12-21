@@ -90,18 +90,40 @@ public interface CarRepository extends JpaRepository<Car, String> {
     );
 
     /**
+     * 多条件查询车辆（含车牌模糊和租金范围，分页版）
+     */
+    @Query("SELECT c FROM Car c LEFT JOIN c.carType ct WHERE " +
+           "(:carStatus IS NULL OR c.carStatus = :carStatus) AND " +
+           "(:tNo IS NULL OR ct.tNo = :tNo) AND " +
+           "(:tName IS NULL OR ct.tName = :tName) AND " +
+           "(:carId IS NULL OR LOWER(c.carId) LIKE LOWER(CONCAT('%', :carId, '%'))) AND " +
+           "(:minRent IS NULL OR ct.rentRate >= :minRent) AND " +
+           "(:maxRent IS NULL OR ct.rentRate <= :maxRent)")
+    Page<Car> findByFilters(
+            @Param("carStatus") String carStatus,
+            @Param("tNo") String tNo,
+            @Param("tName") String tName,
+            @Param("carId") String carId,
+            @Param("minRent") BigDecimal minRent,
+            @Param("maxRent") BigDecimal maxRent,
+            Pageable pageable
+    );
+
+    /**
      * 非分页版本的多条件查询（兼容旧接口）
      */
     @Query("SELECT c FROM Car c LEFT JOIN c.carType ct WHERE " +
            "(:carStatus IS NULL OR c.carStatus = :carStatus) AND " +
            "(:tNo IS NULL OR ct.tNo = :tNo) AND " +
            "(:tName IS NULL OR ct.tName = :tName) AND " +
+           "(:carId IS NULL OR LOWER(c.carId) LIKE LOWER(CONCAT('%', :carId, '%'))) AND " +
            "(:minRent IS NULL OR ct.rentRate >= :minRent) AND " +
            "(:maxRent IS NULL OR ct.rentRate <= :maxRent)")
     List<Car> findByFilters(
             @Param("carStatus") String carStatus,
             @Param("tNo") String tNo,
             @Param("tName") String tName,
+            @Param("carId") String carId,
             @Param("minRent") BigDecimal minRent,
             @Param("maxRent") BigDecimal maxRent
     );
